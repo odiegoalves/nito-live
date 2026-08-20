@@ -1,18 +1,16 @@
 import { PrismaClient } from '@prisma/client';
 
-const OFFICIAL_URL = "postgresql://postgres:Valora2024SaaS!@db.aoifhzglajhnifjqcfqt.supabase.co:5432/postgres";
+// A URL do banco vem SEMPRE do ambiente.
+// Nunca escreva usuario e senha aqui: este arquivo vai para o Git.
+const DB_URL = process.env.DATABASE_URL;
 
-// Deleta variáveis legadas da Vercel que tentavam usar o pooler invalido
+// A Vercel injeta variaveis de Postgres automaticamente que podem
+// conflitar com a nossa. Removemos para nao haver duvida de qual vale.
 delete process.env.POOLER_URL;
 delete process.env.POSTGRES_URL;
 delete process.env.POSTGRES_PRISMA_URL;
 delete process.env.POSTGRES_URL_NON_POOLING;
-process.env.DATABASE_URL = OFFICIAL_URL;
 
-export const prisma = new PrismaClient({
-  datasources: {
-    db: {
-      url: OFFICIAL_URL
-    }
-  }
-});
+export const prisma = DB_URL
+  ? new PrismaClient({ datasources: { db: { url: DB_URL } } })
+  : new PrismaClient();
