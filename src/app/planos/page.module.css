@@ -1,0 +1,175 @@
+.container {
+  padding: 4rem 2rem;
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4rem;
+}
+
+@media (max-width: 768px) {
+  .container {
+    padding: 2rem 1rem;
+    gap: 2rem;
+  }
+}
+
+.header {
+  text-align: center;
+  max-width: 700px;
+}
+
+.title {
+  font-size: 2.5rem;
+  font-weight: 800;
+  color: var(--foreground);
+  margin-bottom: 1rem;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+}
+
+@media (max-width: 600px) {
+  .title { font-size: 1.75rem; }
+}
+
+.subtitle {
+  color: var(--secondary-foreground);
+  font-size: 1.1rem;
+  line-height: 1.6;
+}
+
+.pricingGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 2rem;
+  width: 100%;
+}
+
+@media (max-width: 1024px) {
+  .pricingGrid { grid-template-columns: 1fr; }
+  .planCardPro { transform: scale(1); border-width: 1px; }
+}
+
+.planCard {
+  background-color: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-lg);
+  padding: 2.5rem 2rem;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+}
+
+.planCardPro {
+  border: 2px solid var(--primary);
+  box-shadow: 0 20px 25px -5px rgba(107, 70, 193, 0.1), 0 8px 10px -6px rgba(107, 70, 193, 0.1);
+  transform: scale(1.05);
+  z-index: 10;
+}
+
+.badge {
+  position: absolute;
+  top: -12px;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: var(--primary);
+  color: white;
+  padding: 0.25rem 1rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.planHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1.5rem;
+}
+
+.planName {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--foreground);
+}
+
+.planPrice {
+  font-size: 3rem;
+  font-weight: 800;
+  color: var(--foreground);
+  line-height: 1;
+  display: flex;
+  align-items: baseline;
+  gap: 0.25rem;
+}
+
+.planPeriod {
+  font-size: 1rem;
+  font-weight: 500;
+  color: var(--secondary-foreground);
+}
+
+.planDesc {
+  color: var(--secondary-foreground);
+  font-size: 0.875rem;
+  margin-top: 1rem;
+  margin-bottom: 2rem;
+  min-height: 40px;
+}
+
+.features {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-bottom: 2.5rem;
+  flex: 1;
+}
+
+.feature {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.875rem;
+  color: var(--foreground);
+}
+
+.featureIcon {
+  color: var(--primary);
+}
+
+.planBtn {
+  width: 100%;
+  padding: 1rem;
+  border-radius: var(--radius-sm);
+  font-weight: 600;
+  text-align: center;
+  transition: all 0.2s;
+}
+
+.btnDisabled {
+  background-color: var(--background);
+  color: var(--secondary-foreground);
+  border: 1px solid var(--secondary);
+}
+
+.btnPrimary {
+  background-color: #2563eb; /* Pro Blue from print */
+  color: white;
+}
+
+.btnPrimary:hover {
+  background-color: #1d4ed8;
+}
+
+.btnPremium {
+  background-color: var(--primary);
+  color: white;
+}
+
+.btnPremium:hover {
+  background-color: var(--primary-hover);
+}

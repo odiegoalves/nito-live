@@ -1,0 +1,249 @@
+.container {
+  padding: 2rem 3rem;
+  max-width: 1400px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+@media (max-width: 768px) {
+  .container {
+    padding: 1rem;
+  }
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+}
+
+.title {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--foreground);
+  margin-bottom: 0.25rem;
+  letter-spacing: -0.02em;
+}
+
+.subtitle {
+  color: var(--secondary-foreground);
+  font-size: 0.95rem;
+}
+
+.nichoBadge {
+  background: var(--primary);
+  color: #fff;
+  padding: 0.4rem 1rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.headerActions {
+  display: flex;
+  gap: 1rem;
+}
+
+.primaryBtn {
+  gap: 0.5rem;
+}
+
+.statsGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1.5rem;
+}
+
+@media (max-width: 1024px) {
+  .statsGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 600px) {
+  .statsGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.statCard {
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.statHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.statTitle {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--secondary-foreground);
+}
+
+.statIcon {
+  color: var(--foreground);
+}
+
+.statIconLight {
+  color: var(--primary);
+}
+
+.statValue {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--foreground);
+}
+
+.statLink {
+  color: var(--primary);
+  font-size: 0.85rem;
+  text-decoration: none;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  transition: opacity 0.2s;
+  margin-top: auto;
+}
+
+.statLink:hover {
+  opacity: 0.8;
+  text-decoration: underline;
+}
+
+.chartsGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+}
+
+@media (max-width: 900px) {
+  .chartsGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.chartCard {
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  height: 350px;
+}
+
+.chartHeader {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.chartHeader h3 {
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.chartPlaceholder {
+  flex: 1;
+  display: flex;
+  gap: 1rem;
+}
+
+.yAxis {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding-bottom: 2rem;
+  color: var(--secondary-foreground);
+  font-size: 0.75rem;
+  text-align: right;
+  width: 30px;
+}
+
+.chartArea {
+  flex: 1;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+.gridLines {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.gridLine {
+  border-top: 1px dashed var(--secondary);
+  width: 100%;
+}
+
+.xAxis {
+  display: flex;
+  justify-content: space-between;
+  color: var(--secondary-foreground);
+  font-size: 0.75rem;
+  margin-top: 0.5rem;
+  padding: 0 1rem;
+}
+
+.mockLine {
+  position: absolute;
+  bottom: 2rem; /* Starts at R$0 */
+  left: 1rem;
+  right: 1rem;
+  height: 2px;
+  background-color: var(--primary);
+}
+
+.mockPoint {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  background-color: var(--primary);
+  border-radius: 50%;
+  top: -4px;
+  transform: translateX(-50%);
+}
+
+.agendaSection {
+  margin-top: 0.5rem;
+}
+
+.agendaCard {
+  padding: 1.5rem;
+}
+
+.agendaHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 3rem;
+}
+
+.agendaHeader h3 {
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.agendaLink {
+  color: var(--primary);
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.agendaEmpty {
+  text-align: center;
+  color: var(--secondary-foreground);
+  font-size: 0.95rem;
+  padding-bottom: 3rem;
+}

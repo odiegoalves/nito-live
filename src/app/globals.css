@@ -1,0 +1,95 @@
+:root {
+  /* Tema Dark (Padrão) */
+  --background: #0f172a;
+  --foreground: #f8fafc;
+  --card-bg: #1e293b;
+  --card-border: rgba(255, 255, 255, 0.05);
+  --primary: #a78bfa; /* Lighter purple for better contrast */
+  --primary-hover: #c4b5fd;
+  --secondary: #334155;
+  --secondary-foreground: #94a3b8;
+  --success: #10b981;
+  --danger: #ef4444;
+  --warning: #f59e0b;
+  --radius: 12px;
+  --radius-lg: 24px;
+}
+
+[data-theme='light'] {
+  --background: #f1f5f9;
+  --foreground: #0f172a;
+  --card-bg: #ffffff;
+  --card-border: #e2e8f0;
+  --primary: #6b46c1;
+  --primary-hover: #553c9a;
+  --secondary: #e2e8f0;
+  --secondary-foreground: #64748b;
+  --success: #059669;
+  --danger: #dc2626;
+  --warning: #d97706;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+  transition: background-color 0.3s, color 0.3s;
+  font-family: inherit;
+}
+
+/* Utilitários Premium */
+.premium-card {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-lg);
+  padding: 2rem;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+}
+
+.premium-button {
+  background: var(--primary);
+  color: #fff;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: var(--radius);
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: all 0.2s;
+}
+
+.premium-button:hover {
+  background: var(--primary-hover);
+  transform: translateY(-1px);
+}
+
+.app-container {
+  display: flex;
+  min-height: 100vh;
+}
+
+.full-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow-x: hidden;
+  width: 100%;
+}
+
+/* Responsividade Global */
+@media (max-width: 768px) {
+  .app-container {
+    flex-direction: column;
+  }
+  
+  .premium-card {
+    padding: 1.25rem;
+  }
+}

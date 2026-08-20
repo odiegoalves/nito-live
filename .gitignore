@@ -1,0 +1,48 @@
+node_modules/
+.next/
+.vercel/
+out/
+build/
+dist/
+tsconfig.tsbuildinfo
+
+# Segredos - NUNCA versionar
+.env
+.env.*
+!.env.example
+*.pem
+*.p12
+*.key
+id_rsa*
+
+# Bancos, dumps e pacotes
+*.db
+*.db-journal
+*.sqlite
+*_output.json
+*.zip
+*.rar
+# excecao: instaladores servidos pela pagina /download
+!public/downloads/*.zip
+
+# Dumps de codigo do servidor de licencas
+public/*.txt
+public/server_code/
+
+# Scripts de manutencao e backups
+apply_*.js
+audit_*.js
+deploy_*.js
+inspect_*.js
+test_*.js
+verify_*.js
+run_*.js
+vps_*.txt
+restore_*.sh
+rollback_*.txt
+scratch/
+tmp/
+.gemini/
+brain/
+.DS_Store
+*.log

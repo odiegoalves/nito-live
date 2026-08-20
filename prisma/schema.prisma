@@ -1,0 +1,149 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  nome      String?
+  role      String   @default("user") // "admin" | "user" | "moderator"
+  
+  // Empresa que este usuário pertence (como funcionário ou dono)
+  empresaId String?
+  empresa   Empresa? @relation("EmpresaToUsers", fields: [empresaId], references: [id])
+
+  // Se o usuário for dono de uma empresa
+  ownedEmpresa Empresa? @relation("EmpresaOwner")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Empresa {
+  id        String   @id @default(uuid())
+  
+  // Dono da empresa (quem paga a conta)
+  userId    String   @unique
+  owner     User     @relation("EmpresaOwner", fields: [userId], references: [id], onDelete: Cascade)
+
+  // Todos os usuários vinculados (incluindo o dono e funcionários)
+  users     User[]   @relation("EmpresaToUsers")
+  
+  nome      String   @default("Minha Empresa")
+  nicho     String   @default("")
+  logo      String?
+  endereco  String?
+  cidade    String?
+  telefone  String?
+  email     String?
+  
+  // Gestão de Assinatura
+  plano           String    @default("free") // "free" | "premium" | "pro"
+  planoStatus     String    @default("active") // "active" | "expired" | "pending"
+  planoExpiresAt  DateTime?
+  metodoPagamento String?   // "card" | "pix"
+  lastPaymentAt   DateTime?
+  
+  clientes   Cliente[]
+  materiais  Material[]
+  servicos   Servico[]
+  orcamentos Orcamento[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ... (resto dos modelos continua igual)
+
+model Cliente {
+  id        String   @id @default(uuid())
+  empresaId String
+  empresa   Empresa  @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  nome      String
+  email     String?
+  telefone  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  orcamentos Orcamento[]
+}
+
+model Servico {
+  id             String   @id @default(uuid())
+  empresaId      String
+  empresa        Empresa  @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  nome           String
+  nicho          String?
+  tempoMinutos   Int      @default(60)
+  percentualMao  Float    @default(30)
+  status         String   @default("ativo")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  materiais  ServicoMaterial[]
+  orcamentos OrcamentoServico[]
+}
+
+model Material {
+  id            String   @id @default(uuid())
+  empresaId     String
+  empresa       Empresa  @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  nome          String
+  categoria     String
+  unidade       String
+  valorPago     Float
+  qtdEstoque    Float
+  custoUnitario Float
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  servicos ServicoMaterial[]
+}
+
+model ServicoMaterial {
+  id       String  @id @default(uuid())
+  qtdUsada Float
+  servicoId  String
+  servico    Servico  @relation(fields: [servicoId], references: [id], onDelete: Cascade)
+  materialId String
+  material   Material @relation(fields: [materialId], references: [id], onDelete: Cascade)
+}
+
+model Orcamento {
+  id             String   @id @default(uuid())
+  empresaId      String
+  empresa        Empresa  @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  numero         String   @unique
+  status         String   @default("Pendente")
+  custoMateriais Float    @default(0)
+  valorMaoDeObra Float    @default(0)
+  valorFinal     Float    @default(0)
+  observacoes    String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  clienteId String
+  cliente   Cliente @relation(fields: [clienteId], references: [id])
+  servicos    OrcamentoServico[]
+  agendamento Agendamento?
+}
+
+model OrcamentoServico {
+  id          String    @id @default(uuid())
+  orcamentoId String
+  orcamento   Orcamento @relation(fields: [orcamentoId], references: [id], onDelete: Cascade)
+  servicoId   String
+  servico     Servico   @relation(fields: [servicoId], references: [id], onDelete: Cascade)
+}
+
+model Agendamento {
+  id        String   @id @default(uuid())
+  data      String
+  hora      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  orcamentoId String    @unique
+  orcamento   Orcamento @relation(fields: [orcamentoId], references: [id], onDelete: Cascade)
+}

@@ -1,0 +1,2060 @@
+.container {
+  --color-bg: #0D0D0D;
+  --color-bg-card: #141414;
+  --color-bg-card-hover: #1A1A1A;
+  --color-primary: #FF1D1D;
+  --color-secondary: #FFD700;
+  --color-text: #FFFFFF;
+  --color-text-muted: #A0A0A0;
+  
+  --font-title: var(--font-tiktok-sans), sans-serif;
+  --font-body: var(--font-tiktok-sans), sans-serif;
+  
+  min-height: 100vh;
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-body);
+  overflow-x: hidden;
+  position: relative;
+}
+
+/* Efeito de brilho de fundo */
+.container::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 25%;
+  width: 50%;
+  height: 600px;
+  background: radial-gradient(circle, rgba(255, 29, 29, 0.08) 0%, rgba(255, 215, 0, 0.03) 50%, transparent 100%);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.container::after {
+  content: "";
+  position: absolute;
+  top: 1200px;
+  right: -10%;
+  width: 500px;
+  height: 500px;
+  background: radial-gradient(circle, rgba(255, 215, 0, 0.04) 0%, transparent 80%);
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Navbar */
+.nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.25rem 8%;
+  position: fixed;
+  top: 0;
+  width: 100%;
+  z-index: 100;
+  background: rgba(13, 13, 13, 0.8);
+  backdrop-filter: blur(16px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  text-decoration: none;
+}
+
+.logoImg {
+  height: 48px;
+  width: auto;
+  display: block;
+}
+
+.logoSloganContainer {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  border-left: 1px solid rgba(255, 255, 255, 0.18);
+  padding-left: 0.75rem;
+  margin-left: 0.25rem;
+  line-height: 1.25;
+}
+
+.logoSloganLine1 {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #ffffff;
+  font-family: var(--font-tiktok-sans), sans-serif;
+  letter-spacing: 0.01em;
+}
+
+.logoSloganLine2 {
+  font-size: 0.78rem;
+  font-weight: 800;
+  font-family: var(--font-tiktok-sans), sans-serif;
+  letter-spacing: 0.01em;
+}
+
+.logoSloganRed {
+  color: #FF1D1D;
+}
+
+.logoSloganGold {
+  color: #FFD700;
+  background: linear-gradient(135deg, #ffd700, #ff9500);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.navActions {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.loginBtn {
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--color-text-muted);
+  transition: color 0.3s;
+  text-decoration: none;
+}
+
+.loginBtn:hover {
+  color: var(--color-text);
+}
+
+.ctaBtn {
+  background: linear-gradient(135deg, var(--color-primary), #d61414);
+  color: #fff;
+  padding: 0.6rem 1.4rem;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 0.85rem;
+  font-family: var(--font-title);
+  letter-spacing: 0.05em;
+  transition: all 0.3s;
+  text-decoration: none;
+  box-shadow: 0 4px 15px rgba(255, 29, 29, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.ctaBtn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(255, 29, 29, 0.5);
+  background: linear-gradient(135deg, #ff3333, var(--color-primary));
+}
+
+/* Hero Section */
+.hero {
+  padding: 160px 8% 80px;
+  text-align: center;
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: rgba(255, 29, 29, 0.06);
+  color: var(--color-secondary);
+  padding: 0.5rem 1.25rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  margin-bottom: 2rem;
+  border: 1px solid rgba(255, 215, 0, 0.25);
+  box-shadow: 0 0 15px rgba(255, 215, 0, 0.05);
+  font-family: var(--font-title);
+}
+
+.title {
+  font-size: clamp(2.2rem, 5.5vw, 4.2rem);
+  font-weight: 900;
+  font-family: var(--font-title);
+  line-height: 1.15;
+  max-width: 950px;
+  margin: 0 auto 1.5rem;
+  letter-spacing: -0.02em;
+}
+
+.highlight {
+  background: linear-gradient(135deg, var(--color-primary) 20%, var(--color-secondary) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  filter: drop-shadow(0 0 10px rgba(255, 29, 29, 0.15));
+}
+
+.subtitle {
+  font-size: 1.2rem;
+  color: var(--color-text-muted);
+  max-width: 750px;
+  margin: 0 auto 2.5rem;
+  line-height: 1.65;
+  font-weight: 400;
+}
+
+.heroBtns {
+  display: flex;
+  justify-content: center;
+  gap: 1.25rem;
+  flex-wrap: wrap;
+  margin-bottom: 3.5rem;
+}
+
+.mainCta {
+  background: linear-gradient(135deg, var(--color-primary), #c91010);
+  color: #fff !important;
+  padding: 1.1rem 2.8rem;
+  border-radius: 12px;
+  font-weight: 800;
+  font-size: 1.1rem;
+  font-family: var(--font-title);
+  letter-spacing: 0.05em;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  text-decoration: none;
+  box-shadow: 0 10px 30px rgba(255, 29, 29, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.mainCta:hover {
+  transform: translateY(-3px) scale(1.02);
+  box-shadow: 0 15px 40px rgba(255, 29, 29, 0.55);
+  background: linear-gradient(135deg, #ff3c3c, var(--color-primary));
+}
+
+.secondaryBtn {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--color-text);
+  padding: 1.1rem 2.2rem;
+  border-radius: 12px;
+  font-weight: 700;
+  font-size: 1.1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  transition: all 0.3s;
+  cursor: pointer;
+}
+
+.secondaryBtn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.2);
+  transform: translateY(-2px);
+}
+
+.freeNotice {
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: -1rem;
+  margin-bottom: 4rem;
+}
+
+/* Painel do TikTok Shop (Simulação de GIF por código) */
+.mockupWrapper {
+  width: 100%;
+  max-width: 900px;
+  margin: 0 auto;
+  position: relative;
+  z-index: 2;
+  border-radius: 12px;
+  padding: 4px;
+  background: linear-gradient(135deg, rgba(255, 29, 29, 0.15), rgba(255, 215, 0, 0.08));
+  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.7);
+}
+
+.tiktokPanel {
+  background-color: #ffffff;
+  color: #121212;
+  border-radius: 10px;
+  overflow: hidden;
+  text-align: left;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.tiktokPanelHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.5rem 1.5rem 1rem;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.tiktokPanelTitle {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: #161823;
+}
+
+.tiktokPanelLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: #00f2fe;
+  color: #00959e;
+  font-size: 0.9rem;
+  font-weight: 700;
+  text-decoration: none;
+  transition: opacity 0.2s;
+}
+
+.tiktokPanelLink:hover {
+  opacity: 0.8;
+}
+
+.tiktokGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.75rem;
+  padding: 1.25rem 1.5rem;
+  background-color: #fafafa;
+}
+
+.tiktokCard {
+  background-color: #ffffff;
+  border: 1px solid #eaeaea;
+  border-radius: 8px;
+  padding: 1.2rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.tiktokCardLabel {
+  font-size: 0.8rem;
+  color: #8a8b90;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tiktokCardValue {
+  font-size: 1.6rem;
+  font-weight: 800;
+  color: #161823;
+  font-family: var(--font-title);
+  letter-spacing: -0.01em;
+}
+
+.tiktokValueGreen {
+  color: #00959e;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.tiktokLiveDot {
+  width: 8px;
+  height: 8px;
+  background-color: #00959e;
+  border-radius: 50%;
+  display: inline-block;
+  animation: pulseLive 1.5s infinite;
+}
+
+@keyframes pulseLive {
+  0% { transform: scale(0.9); opacity: 0.6; }
+  50% { transform: scale(1.2); opacity: 1; }
+  100% { transform: scale(0.9); opacity: 0.6; }
+}
+
+.tiktokSuggestion {
+  margin: 0.5rem 1.5rem;
+  background-color: #f6fdfd;
+  border: 1px solid #e0f5f6;
+  border-radius: 8px;
+  padding: 1rem 1.25rem;
+}
+
+.tiktokSuggestionHeader {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.4rem;
+}
+
+.tiktokSuggestionIcon {
+  color: #00959e;
+  font-size: 1rem;
+}
+
+.tiktokSuggestionTitle {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #161823;
+  flex: 1;
+}
+
+.tiktokArrow {
+  color: #8a8b90;
+}
+
+.tiktokSuggestionBody {
+  font-size: 0.85rem;
+  color: #8a8b90;
+  padding-left: 1.5rem;
+}
+
+.tiktokActivity {
+  padding: 1.5rem;
+  border-top: 1px solid #f0f0f0;
+}
+
+.tiktokActivityTitle {
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: #161823;
+  margin-bottom: 1.2rem;
+}
+
+.tiktokActivityList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  width: 100%;
+}
+
+.tiktokActivityRow {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background-color: #f5f6f7;
+  border-radius: 9999px;
+  padding: 0.45rem 1rem;
+  border: 1px solid #eaeaea;
+}
+
+.tiktokActivityIcon {
+  width: 24px;
+  height: 24px;
+  background: radial-gradient(circle, #ffffff 30%, #a1a1a8 100%);
+  border: 1px solid #cfcfd4;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.tiktokActivityText {
+  font-size: 0.85rem;
+  color: #161823;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex: 1;
+}
+
+.tiktokActivityDivider {
+  color: #d1d1d6;
+  margin: 0 0.1rem;
+  font-weight: 400;
+}
+
+.tiktokActivityPrice {
+  font-weight: 800;
+  color: #161823;
+}
+
+@media (max-width: 768px) {
+  .tiktokGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Pain Points / Pilares */
+.painPoints {
+  padding: 100px 8%;
+  background: #080808;
+  position: relative;
+  border-top: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+.sectionHeader {
+  text-align: center;
+  margin-bottom: 4.5rem;
+}
+
+.sectionTitle {
+  font-size: clamp(1.8rem, 4vw, 2.8rem);
+  font-weight: 900;
+  font-family: var(--font-title);
+  margin-bottom: 1.2rem;
+  letter-spacing: 0.02em;
+}
+
+.sectionSubtitle {
+  color: var(--color-text-muted);
+  font-size: 1.1rem;
+  max-width: 600px;
+  margin: 0 auto;
+  line-height: 1.6;
+}
+
+.painGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 2rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.painCard {
+  background: var(--color-bg-card);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  padding: 2.8rem 2.2rem;
+  border-radius: 20px;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.painCard::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(180deg, rgba(255, 29, 29, 0.04) 0%, transparent 100%);
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+.painCard:hover {
+  transform: translateY(-8px);
+  border-color: rgba(255, 29, 29, 0.3);
+  box-shadow: 0 15px 35px rgba(255, 29, 29, 0.08);
+}
+
+.painCard:hover::before {
+  opacity: 1;
+}
+
+.painIcon {
+  width: 52px;
+  height: 52px;
+  background: rgba(255, 29, 29, 0.08);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 1.8rem;
+  border: 1px solid rgba(255, 29, 29, 0.15);
+  color: var(--color-primary);
+  transition: all 0.3s;
+}
+
+.painCard:hover .painIcon {
+  background: var(--color-primary);
+  color: #fff;
+  box-shadow: 0 0 15px rgba(255, 29, 29, 0.4);
+}
+
+.painCard h3 {
+  font-size: 1.35rem;
+  font-weight: 800;
+  margin-bottom: 1rem;
+  font-family: var(--font-title);
+  color: var(--color-text);
+  letter-spacing: 0.02em;
+}
+
+.painCard p {
+  color: var(--color-text-muted);
+  line-height: 1.7;
+  font-size: 0.95rem;
+}
+
+/* Benefits Section (Recursos do Robô) */
+.benefits {
+  padding: 100px 8%;
+  background: var(--color-bg);
+  border-top: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+.benefitsContainer {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 5rem;
+  flex-wrap: wrap;
+}
+
+.benefitImage {
+  flex: 1;
+  min-width: 350px;
+  display: flex;
+  justify-content: center;
+}
+
+.extMockup {
+  background: #111;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.6);
+  width: 100%;
+  max-width: 400px;
+  overflow: hidden;
+}
+
+.extHeader {
+  padding: 0.8rem 1.2rem;
+  background: #070707;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 600;
+}
+
+.extIcon {
+  width: 8px;
+  height: 8px;
+  background: var(--color-primary);
+  border-radius: 50%;
+  box-shadow: 0 0 8px var(--color-primary);
+}
+
+.extContent {
+  padding: 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  align-items: center;
+  text-align: center;
+}
+
+.extLogo {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.extBadge {
+  background: rgba(16, 185, 129, 0.1);
+  color: #10b981;
+  padding: 0.3rem 1rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  border: 1px solid rgba(16, 185, 129, 0.2);
+}
+
+.extLicense {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  padding: 1rem;
+  border-radius: 10px;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.extLicenseLabel {
+  font-size: 0.7rem;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+}
+
+.extLicenseInfo {
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.extInput {
+  width: 100%;
+  background: #000;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 0.8rem 1rem;
+  border-radius: 8px;
+  color: #fff;
+  font-size: 0.85rem;
+  font-family: inherit;
+}
+
+.extBtn {
+  width: 100%;
+  background: var(--color-primary);
+  color: #fff;
+  border: none;
+  padding: 0.9rem;
+  border-radius: 8px;
+  font-weight: 700;
+  font-family: var(--font-title);
+  cursor: pointer;
+  box-shadow: 0 4px 15px rgba(255, 29, 29, 0.3);
+}
+
+.benefitText {
+  flex: 1;
+  min-width: 350px;
+}
+
+.benefitTitle {
+  font-size: clamp(2rem, 4.5vw, 2.8rem);
+  font-weight: 900;
+  font-family: var(--font-title);
+  margin-bottom: 2.5rem;
+  line-height: 1.2;
+}
+
+.benefitList {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+  padding: 0;
+}
+
+.benefitList li {
+  display: flex;
+  gap: 1.25rem;
+}
+
+.check {
+  color: var(--color-primary);
+  flex-shrink: 0;
+  margin-top: 3px;
+  filter: drop-shadow(0 0 5px rgba(255, 29, 29, 0.5));
+}
+
+.benefitList strong {
+  display: block;
+  font-size: 1.15rem;
+  font-family: var(--font-title);
+  margin-bottom: 0.4rem;
+  color: var(--color-text);
+  letter-spacing: 0.02em;
+}
+
+.benefitList div {
+  color: var(--color-text-muted);
+  line-height: 1.6;
+  font-size: 0.95rem;
+}
+
+/* Pricing Section (Novos Planos) */
+.pricingSection {
+  padding: 100px 8%;
+  background: #080808;
+  border-top: 1px solid rgba(255, 255, 255, 0.03);
+  position: relative;
+}
+
+.pricingGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 2rem;
+  max-width: 1150px;
+  margin: 0 auto;
+  position: relative;
+  z-index: 2;
+}
+
+.pricingCard {
+  background: var(--color-bg-card);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 24px;
+  padding: 3rem 2.2rem;
+  display: flex;
+  flex-direction: column;
+  transition: all 0.3s ease;
+  position: relative;
+}
+
+.pricingCardFeatured {
+  border: 2px solid var(--color-primary);
+  background: linear-gradient(180deg, rgba(255, 29, 29, 0.03) 0%, rgba(20, 20, 20, 0.8) 100%);
+  box-shadow: 0 20px 40px rgba(255, 29, 29, 0.08);
+  transform: scale(1.02);
+}
+
+.pricingCardWhite {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: #0d111d;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+
+.pricingCardGold {
+  border: 2px solid #FFD700;
+  background: #0d111d;
+  box-shadow: 0 0 35px rgba(255, 215, 0, 0.35);
+}
+
+.pricingCard:hover {
+  transform: translateY(-8px);
+  border-color: rgba(255, 215, 0, 0.4);
+  background: #101524;
+}
+
+.pricingCardFeatured:hover {
+  border-color: var(--color-primary);
+  box-shadow: 0 25px 45px rgba(255, 29, 29, 0.15);
+}
+
+.pricingCardWhite:hover {
+  border-color: #FFD700;
+  box-shadow: 0 15px 35px rgba(255, 215, 0, 0.25);
+}
+
+.pricingCardGold:hover {
+  border-color: #FFD700;
+  box-shadow: 0 0 50px rgba(255, 215, 0, 0.5);
+}
+
+.pricingBadge {
+  position: absolute;
+  top: -15px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--color-primary);
+  color: #fff;
+  padding: 0.4rem 1.25rem;
+  border-radius: 9999px;
+  font-size: 0.7rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-family: var(--font-title);
+  box-shadow: 0 5px 15px rgba(255, 29, 29, 0.4);
+  white-space: nowrap;
+}
+
+@keyframes pulseGold {
+  0% {
+    box-shadow: 0 0 0 0 rgba(255, 215, 0, 0.6);
+    transform: translateX(-50%) scale(1);
+  }
+  70% {
+    box-shadow: 0 0 0 10px rgba(255, 215, 0, 0);
+    transform: translateX(-50%) scale(1.05);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(255, 215, 0, 0);
+    transform: translateX(-50%) scale(1);
+  }
+}
+
+.pricingBadgeGold {
+  background: linear-gradient(135deg, #ffd700, #ff9500);
+  color: #000000;
+  box-shadow: 0 5px 15px rgba(255, 215, 0, 0.3);
+  animation: pulseGold 2s infinite ease-in-out;
+}
+
+.pricingHeader {
+  margin-bottom: 2rem;
+  text-align: center;
+}
+
+.pricingHeader h3 {
+  font-size: 1.6rem;
+  font-weight: 900;
+  font-family: var(--font-title);
+  margin-bottom: 0.75rem;
+  letter-spacing: 0.02em;
+  color: #ffffff;
+}
+
+.pricingDesc {
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+  line-height: 1.5;
+  min-height: 40px;
+}
+
+.pricingPrice {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 0.25rem;
+  margin-bottom: 2rem;
+}
+
+.priceCurrency {
+  font-size: 1.5rem;
+  font-weight: 900;
+  color: #FFD700;
+  margin-right: 2px;
+}
+
+.priceValue {
+  font-size: 3.4rem;
+  font-weight: 900;
+  font-family: var(--font-title);
+  color: #fff;
+}
+
+.pricePeriod {
+  font-size: 0.9rem;
+  color: var(--color-text-muted);
+}
+
+.pricingFeatures {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 2.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  padding-top: 2rem;
+}
+
+.pricingFeatures li {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.9rem;
+  color: #e0e0e0;
+}
+
+.pricingFeatures li svg {
+  color: #FFD700;
+  flex-shrink: 0;
+}
+
+.pricingBtn {
+  margin-top: auto;
+  width: 100%;
+  padding: 1rem;
+  border-radius: 14px;
+  font-weight: 900;
+  font-family: var(--font-title);
+  font-size: 0.95rem;
+  letter-spacing: 0.03em;
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 0.3s;
+  border: none;
+}
+
+.pricingBtnStandard {
+  background: linear-gradient(135deg, #ffd700, #ff9500);
+  color: #000;
+  box-shadow: 0 6px 20px rgba(255, 215, 0, 0.35);
+}
+
+.pricingBtnStandard:hover {
+  transform: scale(1.02);
+  box-shadow: 0 10px 25px rgba(255, 215, 0, 0.5);
+}
+
+.pricingBtnWhite {
+  background: linear-gradient(135deg, #ffd700, #ff9500);
+  color: #000000;
+  box-shadow: 0 6px 20px rgba(255, 215, 0, 0.35);
+}
+
+.pricingBtnWhite:hover {
+  transform: scale(1.02);
+  box-shadow: 0 10px 25px rgba(255, 215, 0, 0.5);
+  background: linear-gradient(135deg, #ffae00, #ffd700);
+}
+
+.pricingBtnFeatured {
+  background: linear-gradient(135deg, #ffd700, #ff9500);
+  color: #000;
+  box-shadow: 0 6px 20px rgba(255, 215, 0, 0.35);
+}
+
+.pricingBtnFeatured:hover {
+  transform: scale(1.02);
+  box-shadow: 0 10px 25px rgba(255, 215, 0, 0.5);
+}
+
+.pricingBtnGold {
+  background: linear-gradient(135deg, #ffd700, #ff9500);
+  color: #000000;
+  box-shadow: 0 6px 20px rgba(255, 215, 0, 0.35);
+}
+
+.pricingBtnGold:hover {
+  transform: scale(1.02);
+  box-shadow: 0 10px 25px rgba(255, 215, 0, 0.5);
+  background: linear-gradient(135deg, #ffae00, #ffd700);
+}
+
+/* FAQ Section */
+.faqSection {
+  padding: 100px 8%;
+  background: var(--color-bg);
+  border-top: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+.faqGrid {
+  max-width: 800px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.faqItem {
+  background: var(--color-bg-card);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  border-radius: 12px;
+  overflow: hidden;
+  transition: border-color 0.3s;
+}
+
+.faqItem:hover {
+  border-color: rgba(255, 29, 29, 0.2);
+}
+
+.faqQuestion {
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  padding: 1.5rem;
+  color: #fff;
+  font-family: var(--font-title);
+  font-size: 1.05rem;
+  font-weight: 700;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+}
+
+.faqAnswer {
+  padding: 0 1.5rem 1.5rem;
+  color: var(--color-text-muted);
+  line-height: 1.6;
+  font-size: 0.95rem;
+}
+
+/* Final CTA Section */
+.finalCta {
+  padding: 100px 8%;
+  text-align: center;
+  background: #080808;
+  position: relative;
+  overflow: hidden;
+}
+
+.finalCard {
+  background: linear-gradient(135deg, #1f0202 0%, #0d0d0d 100%);
+  border: 1.5px solid rgba(255, 29, 29, 0.25);
+  box-shadow: 0 25px 60px rgba(255, 29, 29, 0.05);
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 5.5rem 2rem;
+  border-radius: 32px;
+  position: relative;
+  overflow: hidden;
+  color: #fff;
+}
+
+.zapIcon {
+  color: var(--color-primary);
+  margin-bottom: 2rem;
+  filter: drop-shadow(0 0 8px rgba(255, 29, 29, 0.5));
+}
+
+.finalCard h2 {
+  font-size: clamp(2rem, 4vw, 3rem);
+  font-weight: 900;
+  font-family: var(--font-title);
+  margin-bottom: 1.5rem;
+}
+
+.finalCard p {
+  font-size: 1.15rem;
+  color: var(--color-text-muted);
+  max-width: 650px;
+  margin: 0 auto 3rem;
+  line-height: 1.6;
+}
+
+/* Footer */
+.footer {
+  padding: 4rem 8%;
+  background: #050505;
+  border-top: 1px solid rgba(255, 255, 255, 0.04);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 2rem;
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+}
+
+@media (max-width: 900px) {
+  .mockupLayout {
+    flex-direction: column;
+  }
+  .mockupSidebar {
+    width: 100%;
+    border-right: none;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    flex-direction: row;
+    height: auto;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+  .mockupSidebarItem {
+    width: 80px;
+    height: 12px;
+    flex-shrink: 0;
+  }
+  .mockupMetrics {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .navActions { display: none; }
+  .hero { padding-top: 130px; }
+  .mainCta { padding: 1.1rem 2rem; font-size: 1rem; }
+  .benefitTitle { font-size: 1.8rem; }
+  .pricingCardFeatured { transform: none; }
+  .pricingGrid { grid-template-columns: 1fr; }
+}
+
+/* --- Novas Seções Persuasivas --- */
+
+/* Grid de Recursos Inovadores */
+.featuresSection {
+  padding: 100px 8%;
+  background: #080808;
+  border-top: 1px solid rgba(255, 255, 255, 0.03);
+  position: relative;
+}
+
+.featuresBadge {
+  display: inline-block;
+  background: rgba(255, 29, 29, 0.08);
+  color: var(--color-primary);
+  padding: 0.4rem 1rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: 1.5rem;
+  border: 1px solid rgba(255, 29, 29, 0.2);
+  font-family: var(--font-title);
+}
+
+.featuresGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 2rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.featureCard {
+  background: var(--color-bg-card);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  padding: 3rem 2rem;
+  border-radius: 20px;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.featureCardFeatured {
+  border: 1.5px solid rgba(255, 29, 29, 0.3);
+  box-shadow: 0 10px 30px rgba(255, 29, 29, 0.04);
+}
+
+.featureCardBadge {
+  position: absolute;
+  top: 15px;
+  right: 15px;
+  background: linear-gradient(135deg, var(--color-primary), #d61414);
+  color: #fff;
+  padding: 0.25rem 0.75rem;
+  border-radius: 4px;
+  font-size: 0.65rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  font-family: var(--font-title);
+  box-shadow: 0 2px 8px rgba(255, 29, 29, 0.3);
+}
+
+.featureCard:hover {
+  transform: translateY(-6px);
+  border-color: rgba(255, 215, 0, 0.25);
+  box-shadow: 0 15px 35px rgba(255, 215, 0, 0.05);
+  background: var(--color-bg-card-hover);
+}
+
+.featureCardFeatured:hover {
+  border-color: var(--color-primary);
+  box-shadow: 0 15px 35px rgba(255, 29, 29, 0.12);
+}
+
+.featureIcon {
+  width: 48px;
+  height: 48px;
+  background: rgba(255, 29, 29, 0.06);
+  border: 1.5px solid rgba(255, 29, 29, 0.2);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-primary);
+  margin-bottom: 2rem;
+  box-shadow: 0 0 10px rgba(255, 29, 29, 0.05);
+}
+
+.featureCard h3 {
+  font-size: 1.25rem;
+  font-weight: 850;
+  font-family: var(--font-title);
+  color: #fff;
+  margin-bottom: 1rem;
+  letter-spacing: 0.02em;
+}
+
+.featureCard p {
+  color: var(--color-text-muted);
+  font-size: 0.95rem;
+  line-height: 1.7;
+}
+
+/* Monitoramento e Logs */
+.monitoringSection {
+  padding: 100px 8%;
+  background: var(--color-bg);
+  border-top: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+.monitoringContainer {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 5rem;
+}
+
+.monitoringText {
+  flex: 1;
+}
+
+.monitoringBadge {
+  display: inline-block;
+  background: rgba(255, 215, 0, 0.06);
+  color: var(--color-secondary);
+  padding: 0.4rem 1rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: 1.5rem;
+  border: 1px solid rgba(255, 215, 0, 0.2);
+  font-family: var(--font-title);
+}
+
+.monitoringTitle {
+  font-size: clamp(2rem, 4.5vw, 2.8rem);
+  font-weight: 900;
+  font-family: var(--font-title);
+  margin-bottom: 2rem;
+  line-height: 1.2;
+}
+
+.monitoringSubtitle {
+  font-size: 1.05rem;
+  color: var(--color-text-muted);
+  line-height: 1.7;
+  margin-bottom: 3rem;
+}
+
+.monitoringList {
+  list-style: none;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.monitoringList li {
+  display: flex;
+  gap: 1.25rem;
+}
+
+.monitoringListIcon {
+  width: 42px;
+  height: 42px;
+  background: rgba(255, 29, 29, 0.06);
+  border: 1.5px solid rgba(255, 29, 29, 0.2);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-primary);
+  flex-shrink: 0;
+  margin-top: 3px;
+  box-shadow: 0 0 10px rgba(255, 29, 29, 0.05);
+}
+
+.monitoringList strong {
+  display: block;
+  font-size: 1.15rem;
+  font-family: var(--font-title);
+  margin-bottom: 0.4rem;
+  color: var(--color-text);
+  letter-spacing: 0.02em;
+}
+
+.monitoringList div {
+  color: var(--color-text-muted);
+  line-height: 1.6;
+  font-size: 0.95rem;
+}
+
+.monitoringConsoleWrapper {
+  flex: 1;
+  min-width: 380px;
+  display: flex;
+  justify-content: center;
+}
+
+.consoleCard {
+  width: 100%;
+  background-color: #050505;
+  border: 1.5px solid rgba(255, 29, 29, 0.25);
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 25px 60px rgba(255, 29, 29, 0.06);
+}
+
+.consoleHeader {
+  background-color: #0f0f0f;
+  border-bottom: 1.5px solid rgba(255, 29, 29, 0.15);
+  padding: 0.9rem 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.85rem;
+  color: #c5c5c5;
+  font-weight: 700;
+}
+
+.consoleStatusDot {
+  width: 8px;
+  height: 8px;
+  background-color: #34c759;
+  border-radius: 50%;
+  box-shadow: 0 0 8px #34c759;
+}
+
+.consoleLiveBadge {
+  margin-left: auto;
+  background: rgba(255, 29, 29, 0.1);
+  color: var(--color-primary);
+  border: 1px solid rgba(255, 29, 29, 0.25);
+  padding: 0.2rem 0.6rem;
+  border-radius: 4px;
+  font-size: 0.65rem;
+  font-weight: 900;
+  letter-spacing: 0.05em;
+  font-family: var(--font-title);
+}
+
+.consoleBody {
+  padding: 1.5rem;
+  font-family: Courier New, Courier, monospace;
+  font-size: 0.82rem;
+  line-height: 1.7;
+  color: #dcdcdc;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.consoleLine {
+  display: flex;
+  gap: 1.25rem;
+}
+
+.consoleTime {
+  color: #6c6d73;
+  flex-shrink: 0;
+}
+
+.consoleMsg {
+  color: #efeff4;
+  word-break: break-all;
+}
+
+.consoleMsgBlue { color: #00c0ff; }
+.consoleMsgRed { color: #ff3b30; }
+.consoleMsgGreen { color: #30d158; font-weight: 700; }
+.consoleMsgPurple { color: #bf5af2; }
+
+/* Vitrine e Fixação de Produtos */
+.pinSection {
+  padding: 100px 8%;
+  background: #080808;
+  border-top: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+.pinContainer {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 5rem;
+}
+
+.pinVisualWrapper {
+  flex: 1;
+  min-width: 380px;
+  display: flex;
+  justify-content: center;
+}
+
+.pinCardPanel {
+  width: 100%;
+  max-width: 440px;
+  background-color: #141414;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 16px;
+  padding: 1.5rem;
+  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.6);
+}
+
+.pinCardHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 1.05rem;
+  font-weight: 800;
+  font-family: var(--font-title);
+  color: #fff;
+  margin-bottom: 1.5rem;
+}
+
+.pinCardCloseBtn {
+  background: linear-gradient(135deg, var(--color-primary), #d61414);
+  color: #fff;
+  border: none;
+  padding: 0.4rem 0.9rem;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  font-family: var(--font-title);
+  cursor: pointer;
+  box-shadow: 0 4px 10px rgba(255, 29, 29, 0.2);
+}
+
+.pinCardList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.pinCardItem {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  background-color: #1e1e1e;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  border-radius: 10px;
+  padding: 0.8rem 1rem;
+  transition: border-color 0.2s;
+}
+
+.pinCardItemActive {
+  border-color: rgba(255, 29, 29, 0.25);
+  background-color: rgba(255, 29, 29, 0.02);
+}
+
+.pinCardImgPlaceholder {
+  width: 44px;
+  height: 44px;
+  background-color: #2a2a2a;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #888;
+}
+
+.pinCardInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  flex: 1;
+}
+
+.pinCardName {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #fff;
+}
+
+.pinCardPrice {
+  font-size: 0.8rem;
+  color: var(--color-secondary);
+  font-weight: 700;
+}
+
+.pinCardBtnActive {
+  background: rgba(255, 29, 29, 0.1);
+  color: var(--color-primary);
+  border: 1px solid rgba(255, 29, 29, 0.3);
+  padding: 0.4rem 0.8rem;
+  border-radius: 6px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  font-family: var(--font-title);
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  cursor: default;
+}
+
+.pinCardBtnInactive {
+  background: rgba(255, 255, 255, 0.04);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 0.4rem 0.8rem;
+  border-radius: 6px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  font-family: var(--font-title);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.pinCardBtnInactive:hover {
+  background-color: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+.pinText {
+  flex: 1;
+}
+
+.pinBadge {
+  display: inline-block;
+  background: rgba(255, 29, 29, 0.06);
+  color: var(--color-primary);
+  padding: 0.4rem 1rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: 1.5rem;
+  border: 1px solid rgba(255, 29, 29, 0.2);
+  font-family: var(--font-title);
+}
+
+.pinTitle {
+  font-size: clamp(2rem, 4.5vw, 2.8rem);
+  font-weight: 900;
+  font-family: var(--font-title);
+  margin-bottom: 2rem;
+  line-height: 1.2;
+}
+
+.pinSubtitle {
+  font-size: 1.05rem;
+  color: var(--color-text-muted);
+  line-height: 1.7;
+  margin-bottom: 3rem;
+}
+
+.pinList {
+  list-style: none;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1.8rem;
+}
+
+.pinList li {
+  display: flex;
+  gap: 1.25rem;
+}
+
+.pinListBullet {
+  color: var(--color-primary);
+  font-size: 1.1rem;
+  flex-shrink: 0;
+  margin-top: 2px;
+  filter: drop-shadow(0 0 5px rgba(255, 29, 29, 0.4));
+}
+
+.pinList strong {
+  display: block;
+  font-size: 1.15rem;
+  font-family: var(--font-title);
+  margin-bottom: 0.4rem;
+  color: var(--color-text);
+  letter-spacing: 0.02em;
+}
+
+.pinList div {
+  color: var(--color-text-muted);
+  line-height: 1.6;
+  font-size: 0.95rem;
+}
+
+/* --- Folha de Responsividade Avançada (iOS & Android) --- */
+
+@media (max-width: 992px) {
+  .featuresGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .monitoringContainer,
+  .pinContainer {
+    flex-direction: column;
+    gap: 3.5rem;
+  }
+  .monitoringConsoleWrapper,
+  .pinVisualWrapper {
+    width: 100%;
+    min-width: 0 !important;
+  }
+}
+
+@media (max-width: 768px) {
+  /* Padding de seção responsivo global */
+  .hero, 
+  .featuresSection, 
+  .monitoringSection, 
+  .pinSection, 
+  .pricingSection, 
+  .faqSection, 
+  .finalCta {
+    padding: 60px 1.25rem !important;
+  }
+
+  .hero {
+    padding-top: 120px !important;
+    padding-bottom: 40px !important;
+  }
+
+  .nav {
+    padding: 0.8rem 1.25rem !important;
+  }
+
+  .logoImg {
+    height: 36px !important;
+  }
+
+  .logoSloganContainer {
+    display: none !important;
+  }
+
+  /* Mostrar CTA encolhido na navbar em celulares e esconder apenas o link de Login */
+  .navActions {
+    gap: 0.8rem;
+  }
+  
+  .loginBtn {
+    display: none !important;
+  }
+
+  .ctaBtn {
+    padding: 0.45rem 1rem;
+    font-size: 0.75rem;
+    border-radius: 6px;
+  }
+
+  .title {
+    font-size: clamp(1.8rem, 6.5vw, 2.8rem) !important;
+    line-height: 1.2;
+    margin-bottom: 1rem;
+  }
+
+  .subtitle {
+    font-size: 1rem;
+    margin-bottom: 2rem;
+  }
+
+  .heroBtns {
+    flex-direction: column;
+    width: 100%;
+    max-width: 320px;
+    gap: 0.85rem;
+    margin-bottom: 2.5rem;
+  }
+
+  .mainCta, 
+  .secondaryBtn {
+    width: 100%;
+    justify-content: center;
+    padding: 0.9rem 1.5rem;
+    font-size: 0.95rem;
+    border-radius: 10px;
+  }
+
+  .freeNotice {
+    margin-bottom: 2.5rem;
+    justify-content: center;
+  }
+
+  /* Painel de Transmissão (Mockup TikTok) */
+  .mockupWrapper {
+    padding: 2px;
+    border-radius: 8px;
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.5);
+  }
+
+  .tiktokPanelHeader {
+    padding: 1rem 1rem 0.8rem;
+  }
+
+  .tiktokPanelTitle {
+    font-size: 1.05rem;
+  }
+
+  .tiktokGrid {
+    grid-template-columns: 1fr !important;
+    gap: 0.65rem;
+    padding: 0.85rem 1rem;
+  }
+
+  .tiktokCard {
+    padding: 0.85rem 1rem;
+  }
+
+  .tiktokCardValue {
+    font-size: 1.35rem;
+  }
+
+  .tiktokSuggestion {
+    margin: 0.5rem 1rem;
+    padding: 0.85rem 1rem;
+  }
+
+  .tiktokSuggestionBody {
+    padding-left: 1.25rem;
+  }
+
+  .tiktokActivity {
+    padding: 1rem;
+  }
+
+  .tiktokActivityRow {
+    padding: 0.4rem 0.85rem;
+    gap: 0.6rem;
+  }
+
+  .tiktokActivityText {
+    font-size: 0.78rem;
+  }
+}
+
+@media (max-width: 640px) {
+  .featuresGrid {
+    grid-template-columns: 1fr;
+    gap: 1.25rem;
+  }
+
+  .featureCard {
+    padding: 2rem 1.25rem;
+    border-radius: 16px;
+  }
+
+  .featureIcon {
+    margin-bottom: 1.25rem;
+  }
+
+  .pricingGrid {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+
+  .pricingCard {
+    padding: 2.2rem 1.25rem !important;
+  }
+
+  .pricingCardFeatured {
+    transform: none !important;
+  }
+}
+
+@media (max-width: 480px) {
+  /* Ajustes finos para telas de celulares Android & iPhones */
+  .sectionTitle,
+  .monitoringTitle,
+  .pinTitle {
+    font-size: 1.65rem !important;
+    line-height: 1.25;
+    text-align: left;
+  }
+
+  .sectionSubtitle,
+  .monitoringSubtitle,
+  .pinSubtitle {
+    font-size: 0.95rem;
+    text-align: left;
+    margin-bottom: 2rem;
+  }
+
+  /* Console de Logs */
+  .monitoringConsoleWrapper,
+  .pinVisualWrapper {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+  }
+
+  .consoleCard {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+  }
+
+  .consoleBody {
+    padding: 1rem;
+    font-size: 0.72rem;
+    line-height: 1.6;
+    gap: 0.6rem;
+  }
+
+  .consoleLine {
+    gap: 0.8rem;
+  }
+
+  /* Vitrine Virtual de Produtos */
+  .pinCardPanel {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    padding: 1rem;
+  }
+
+  .pinCardHeader {
+    margin-bottom: 1.25rem;
+    font-size: 0.95rem;
+  }
+
+  .pinCardCloseBtn {
+    padding: 0.35rem 0.75rem;
+    font-size: 0.7rem;
+  }
+
+  .pinCardItem {
+    padding: 0.6rem 0.75rem;
+    gap: 0.65rem;
+    border-radius: 8px;
+  }
+
+  .pinCardImgPlaceholder {
+    width: 36px;
+    height: 36px;
+    border-radius: 6px;
+  }
+
+  .pinCardImgPlaceholder svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  .pinCardName {
+    font-size: 0.82rem;
+  }
+
+  .pinCardPrice {
+    font-size: 0.75rem;
+  }
+
+  .pinCardBtnActive, 
+  .pinCardBtnInactive {
+    padding: 0.35rem 0.65rem;
+    font-size: 0.68rem;
+    border-radius: 5px;
+  }
+
+  .pinList,
+  .monitoringList {
+    gap: 1.25rem;
+  }
+
+  .pinList li,
+  .monitoringList li {
+    gap: 0.85rem;
+  }
+
+  .pinList strong,
+  .monitoringList strong {
+    font-size: 1.05rem;
+  }
+
+  .pinList div,
+  .monitoringList div {
+    font-size: 0.9rem;
+  }
+
+  /* Final CTA Card */
+  .finalCard {
+    padding: 3rem 1.25rem;
+    border-radius: 20px;
+  }
+
+  .finalCard h2 {
+    font-size: 1.75rem;
+    margin-bottom: 1rem;
+  }
+
+  .finalCard p {
+    font-size: 0.95rem;
+    margin-bottom: 2rem;
+  }
+}
+
+@media (max-width: 360px) {
+  /* Ajuste para celulares super compactos (iPhone SE de 320px de largura) */
+  .logoImg {
+    height: 26px !important;
+  }
+
+  .ctaBtn {
+    padding: 0.4rem 0.75rem;
+    font-size: 0.7rem;
+  }
+
+  .title {
+    font-size: 1.6rem !important;
+  }
+
+  .consoleBody {
+    font-size: 0.68rem;
+    padding: 0.75rem;
+  }
+
+  .consoleLine {
+    gap: 0.5rem;
+  }
+
+  .pinCardName {
+    font-size: 0.78rem;
+  }
+
+  .pinCardPrice {
+    font-size: 0.7rem;
+  }
+
+  .pinCardBtnActive, 
+  .pinCardBtnInactive {
+    padding: 0.3rem 0.5rem;
+    font-size: 0.65rem;
+  }
+}
+
+.salesPopup {
+  position: fixed;
+  bottom: 24px;
+  left: 24px;
+  background: rgba(18, 18, 18, 0.93);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  padding: 0.9rem 1.2rem;
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.6), 0 0 1px 1px rgba(255, 255, 255, 0.05) inset;
+  z-index: 10000;
+  animation: slideInLeft 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  max-width: 320px;
+}
+
+@keyframes slideInLeft {
+  0% {
+    opacity: 0;
+    transform: translateY(20px) scale(0.95);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.salesPopupIcon {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: rgba(0, 230, 118, 0.12);
+  border: 1px solid rgba(0, 230, 118, 0.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #00e676;
+  flex-shrink: 0;
+  box-shadow: 0 0 10px rgba(0, 230, 118, 0.15);
+}
+
+.salesPopupContent {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  text-align: left;
+}
+
+.salesPopupTitle {
+  font-size: 0.82rem;
+  color: #ffffff;
+  margin: 0;
+  line-height: 1.35;
+  font-family: var(--font-tiktok-sans), sans-serif;
+}
+
+.salesPopupTitle strong {
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.salesPopupTitle span {
+  color: #FFD700; /* Dourado */
+  font-weight: 700;
+}
+
+.salesPopupSubtitle {
+  font-size: 0.72rem;
+  color: var(--color-text-muted);
+  margin: 0;
+  font-family: var(--font-tiktok-sans), sans-serif;
+}
+
+/* Responsividade do Popup */
+@media (max-width: 480px) {
+  .salesPopup {
+    left: 12px;
+    bottom: 12px;
+    right: 12px;
+    max-width: none;
+    padding: 0.75rem 1rem;
+    gap: 0.75rem;
+  }
+}
+
+

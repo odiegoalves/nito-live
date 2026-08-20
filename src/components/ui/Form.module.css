@@ -1,0 +1,62 @@
+.formGroup {
+  margin-bottom: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.responsiveRow {
+  display: flex;
+  gap: 1rem;
+}
+
+@media (max-width: 600px) {
+  .responsiveRow {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+}
+
+.label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--foreground);
+}
+
+.input, .select, .textarea {
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--secondary);
+  background-color: var(--background);
+  color: var(--foreground);
+  font-size: 0.875rem;
+  outline: none;
+  transition: border-color 0.2s;
+  width: 100%;
+}
+
+.input:focus, .select:focus, .textarea:focus {
+  border-color: var(--primary);
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 1rem;
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--card-border);
+}
+
+.cancelBtn {
+  padding: 0.5rem 1.25rem;
+  border-radius: var(--radius-sm);
+  font-weight: 500;
+  color: var(--secondary-foreground);
+  background-color: var(--secondary);
+  transition: background-color 0.2s;
+}
+
+.cancelBtn:hover {
+  background-color: var(--card-border);
+}
