@@ -459,8 +459,27 @@ export const Chat = {
         }
       )
       .on("presence", { event: "sync" }, () => {
-        const estado = canal.presenceState();
-        const membros = Object.values(estado).flat();
+        // O Supabase guarda uma entrada por CONEXAO, nao por pessoa. A mesma
+        // pessoa pode gerar duas entradas (aba recarregada, componente montado
+        // duas vezes, reconexao). Sem agrupar por id, ela aparece duplicada
+        // na lista e o contador de online fica inflado.
+        const estado = canal.presenceState() as Record<string, any[]>;
+        const porPessoa = new Map<string, any>();
+
+        Object.values(estado)
+          .flat()
+          .forEach((m: any) => {
+            if (!m) return;
+            const chave = m.id ?? m.nome ?? JSON.stringify(m);
+            const jaTem = porPessoa.get(chave);
+            // Mantem a conexao mais antiga, para o horario de entrada nao
+            // ficar pulando a cada recarga de aba.
+            if (!jaTem || (m.entrou_em && jaTem.entrou_em && m.entrou_em < jaTem.entrou_em)) {
+              porPessoa.set(chave, m);
+            }
+          });
+
+        const membros = Array.from(porPessoa.values());
         handlers.onOnline?.(membros.length, membros);
       })
       .on("broadcast", { event: "digitando" }, ({ payload }) => handlers.onDigitando?.(payload))
