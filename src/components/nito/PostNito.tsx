@@ -124,7 +124,7 @@ export function PostNito({
           alt=""
           style={{
             width: "100%",
-            maxHeight: 420,
+            maxHeight: 260,
             objectFit: "cover",
             borderRadius: 13,
             border: "1px solid var(--line)",
