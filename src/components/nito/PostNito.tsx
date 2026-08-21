@@ -119,7 +119,7 @@ export function PostNito({
       </div>
 
       {post.imagem_url && (
-        <div style={{ position: "relative", marginBottom: 13 }}>
+        <div style={{ position: "relative", marginBottom: 13, maxWidth: 420, marginLeft: "auto", marginRight: "auto" }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={post.imagem_url}
