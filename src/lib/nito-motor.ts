@@ -150,6 +150,10 @@ export interface Venda {
 export interface Aula {
   id: string;
   modulo: string;
+  // Ordem em que o MODULO aparece na trilha (os dois vieram na migracao 10).
+  modulo_ordem?: number;
+  // Aula que precisa estar concluida para esta liberar. Ainda nao usado na tela.
+  liberada_apos?: string | null;
   ordem: number;
   titulo: string;
   descricao?: string;
