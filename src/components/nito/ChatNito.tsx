@@ -41,13 +41,14 @@ function comMencoes(texto: string) {
   );
 }
 
-export function ChatNito({ perfil, altura = 560 }: { perfil: Perfil; altura?: number }) {
+export function ChatNito({ perfil }: { perfil: Perfil }) {
   const [mensagens, setMensagens] = useState<MensagemChat[]>([]);
   const [texto, setTexto] = useState("");
   const [arquivo, setArquivo] = useState<File | null>(null);
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [online, setOnline] = useState(0);
+  const [membros, setMembros] = useState<{ id?: string; nome?: string }[]>([]);
   const fimRef = useRef<HTMLDivElement>(null);
   const inputArquivo = useRef<HTMLInputElement>(null);
 
@@ -65,7 +66,10 @@ export function ChatNito({ perfil, altura = 560 }: { perfil: Perfil; altura?: nu
             antes.some((m) => m.id === nova.id) ? antes : [...antes, nova]
           );
         },
-        onOnline: (qtd: number) => setOnline(qtd),
+        onOnline: (qtd: number, lista: { id?: string; nome?: string }[]) => {
+          setOnline(qtd);
+          setMembros(Array.isArray(lista) ? lista : []);
+        },
       },
       perfil
     );
@@ -111,8 +115,8 @@ export function ChatNito({ perfil, altura = 560 }: { perfil: Perfil; altura?: nu
     }
   }
 
-  return (
-    <div className="panel" style={{ display: "flex", flexDirection: "column", height: altura }}>
+  const painel = (
+    <div className="panel chat-painel">
       <div
         className="pad spread"
         style={{ borderBottom: "1px solid var(--line)", paddingTop: 15, paddingBottom: 15 }}
@@ -220,6 +224,39 @@ export function ChatNito({ perfil, altura = 560 }: { perfil: Perfil; altura?: nu
           <Icone nome="send" tam={16} />
         </button>
       </div>
+    </div>
+  );
+
+  return (
+    <div className="chat-layout">
+      {painel}
+
+      <aside className="panel pad chat-online">
+        <div className="spread" style={{ marginBottom: 12 }}>
+          <h2 className="h-sec">Online agora</h2>
+          <span className="stat-min" style={{ padding: "4px 9px" }}>{online}</span>
+        </div>
+
+        {membros.length === 0 && (
+          <div className="muted tiny">Ninguém mais por aqui neste momento.</div>
+        )}
+
+        {membros.map((m, i) => {
+          const souEu = m.id === perfil.id;
+          const nome = souEu ? "Você" : m.nome ?? "Membro";
+          return (
+            <div className="online-row" key={m.id ?? i}>
+              <div className="av" style={{ background: souEu ? "var(--grad)" : corDe(m.id) }}>
+                {iniciais(souEu ? perfil.nome : nome)}
+              </div>
+              <div>
+                <div className="nm">{nome}</div>
+                <div className="st">ONLINE</div>
+              </div>
+            </div>
+          );
+        })}
+      </aside>
     </div>
   );
 }

@@ -342,6 +342,27 @@
 .nito .ticket .tt span{font:700 .64rem/1 var(--mono);color:var(--mut2)}
 .nito .ticket.aberto{border-color:rgba(255,194,58,.3)}
 .nito .ticket.andamento{border-color:rgba(34,230,255,.3)}
+/* ---------- chat: altura acompanha a tela ---------- */
+.nito .chat-layout{display:grid;grid-template-columns:1fr 300px;gap:16px;align-items:start}
+.nito .chat-painel{display:flex;flex-direction:column;height:clamp(380px,calc(100vh - 300px),720px)}
+.nito .chat-online{max-height:clamp(380px,calc(100vh - 300px),720px);overflow:auto}
+
+/* a area das mensagens e a unica que rola; a barra de digitar fica presa embaixo */
+.nito .chat-full{flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden}
+.nito .chat-full .bal{max-width:100%;overflow-wrap:anywhere}
+.nito .chat-full img,.nito .chat-full video{max-width:min(100%,360px);height:auto;display:block}
+.nito .msg{max-width:86%}
+.nito .msg.eu{margin-left:auto}
+.nito .chat-barra{flex:0 0 auto}
+.nito .anexo{max-width:100%;overflow:hidden}
+.nito .anexo b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block}
+
+@media (max-width:1000px){
+  .nito .chat-layout{grid-template-columns:1fr}
+  .nito .chat-online{max-height:none}
+  .nito .msg{max-width:94%}
+}
+
 @media (max-width:1180px){
 .nito .grid2{grid-template-columns:1fr}
 }
