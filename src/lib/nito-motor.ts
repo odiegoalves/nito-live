@@ -1113,18 +1113,32 @@ export const Chaves = {
   // O navegador nunca ve a senha do painel.
   async chamar(acao: "listar" | "gerar" = "listar"): Promise<RespostaChaves> {
     const { data, error } = await sb.functions.invoke("chaves", { body: { acao } });
+
     if (error) {
-      // O corpo do erro traz a mensagem boa (limite do plano, por exemplo).
-      let msg = "Não consegui falar com o servidor de licenças.";
-      try {
-        const corpo = await (error as any).context?.json?.();
-        if (corpo?.erro) msg = corpo.erro;
-      } catch {
-        /* fica a mensagem generica */
+      // A funcao devolve o motivo real no corpo. Sem ler esse corpo, toda falha
+      // vira "nao consegui falar", e ai nao da para saber o que arrumar.
+      let motivo = "";
+      const ctx = (error as unknown as { context?: Response })?.context;
+      if (ctx && typeof ctx.text === "function") {
+        const bruto = await ctx.text().catch(() => "");
+        try {
+          const corpo = JSON.parse(bruto);
+          motivo = corpo?.erro ?? corpo?.error ?? "";
+        } catch {
+          motivo = bruto.slice(0, 200);
+        }
       }
-      throw new Error(msg);
+      if (!motivo) motivo = error.message ?? "";
+      throw new Error(
+        motivo || "Não consegui falar com o servidor de licenças. Veja os registros da função no Supabase."
+      );
     }
-    return data as RespostaChaves;
+
+    // Erro tratado tambem pode vir com status 200.
+    const corpo = data as RespostaChaves & { erro?: string };
+    if (corpo?.erro) throw new Error(corpo.erro);
+
+    return corpo;
   },
 };
 
