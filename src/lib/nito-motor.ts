@@ -1085,6 +1085,49 @@ export const Extensao = {
   },
 };
 
+export interface ChaveDoMembro {
+  id: string;
+  chave: string;
+  plano: string;
+  ativa: boolean;
+  situacao: string;
+  expira_em: string | null;
+  ultimo_uso: string | null;
+  vinculada: boolean;
+}
+
+export interface RespostaChaves {
+  email: string;
+  encontrado: boolean;
+  plano: string | null;
+  limite: number;      // -1 = ilimitado
+  ativas?: number;
+  podeGerar: boolean;
+  status?: string | null;
+  chaves: ChaveDoMembro[];
+  recado?: string;
+}
+
+export const Chaves = {
+  // Fala com a funcao "chaves" do Supabase, que por sua vez pergunta ao painel.
+  // O navegador nunca ve a senha do painel.
+  async chamar(acao: "listar" | "gerar" = "listar"): Promise<RespostaChaves> {
+    const { data, error } = await sb.functions.invoke("chaves", { body: { acao } });
+    if (error) {
+      // O corpo do erro traz a mensagem boa (limite do plano, por exemplo).
+      let msg = "Não consegui falar com o servidor de licenças.";
+      try {
+        const corpo = await (error as any).context?.json?.();
+        if (corpo?.erro) msg = corpo.erro;
+      } catch {
+        /* fica a mensagem generica */
+      }
+      throw new Error(msg);
+    }
+    return data as RespostaChaves;
+  },
+};
+
 export const Storage = {
   async enviar(bucket: "avatars" | "prints" | "midias" | "extensao", file: File): Promise<string> {
     const {

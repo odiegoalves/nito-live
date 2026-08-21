@@ -9,7 +9,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { AuthGuard } from "@/components/AuthGuard";
 import { AppShell, ehAdmin } from "@/components/nito/AppShell";
-import { Extensao, VersaoExtensao, Perfil } from "@/lib/nito-motor";
+import { Extensao, VersaoExtensao, Chaves, RespostaChaves, Perfil } from "@/lib/nito-motor";
 import { diasRestantes } from "@/lib/nito-gamificacao";
 
 function mb(bytes?: number | null) {
@@ -22,6 +22,13 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
   const [versao, setVersao] = useState<VersaoExtensao | null>(null);
   const [carregando, setCarregando] = useState(true);
 
+  // chaves vindas do servidor de licencas
+  const [chaves, setChaves] = useState<RespostaChaves | null>(null);
+  const [carregandoChaves, setCarregandoChaves] = useState(true);
+  const [gerando, setGerando] = useState(false);
+  const [erroChaves, setErroChaves] = useState<string | null>(null);
+  const [copiada, setCopiada] = useState<string | null>(null);
+
   // publicacao de versao nova (admin)
   const [numero, setNumero] = useState("");
   const [notas, setNotas] = useState("");
@@ -30,6 +37,13 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
   const [erro, setErro] = useState<string | null>(null);
   const [ok, setOk] = useState<string | null>(null);
   const arquivoRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    Chaves.chamar("listar")
+      .then(setChaves)
+      .catch((e) => setErroChaves(e instanceof Error ? e.message : "Falha ao buscar suas chaves."))
+      .finally(() => setCarregandoChaves(false));
+  }, []);
 
   useEffect(() => {
     Extensao.versaoAtual()
@@ -57,6 +71,29 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
       setErro(e instanceof Error ? e.message : "Não consegui publicar a versão.");
     } finally {
       setEnviando(false);
+    }
+  }
+
+  async function gerarChave() {
+    if (gerando) return;
+    setGerando(true);
+    setErroChaves(null);
+    try {
+      setChaves(await Chaves.chamar("gerar"));
+    } catch (e) {
+      setErroChaves(e instanceof Error ? e.message : "Não consegui gerar a chave.");
+    } finally {
+      setGerando(false);
+    }
+  }
+
+  async function copiar(chave: string) {
+    try {
+      await navigator.clipboard.writeText(chave);
+      setCopiada(chave);
+      setTimeout(() => setCopiada(null), 2000);
+    } catch {
+      setErroChaves("Seu navegador bloqueou a cópia. Selecione a chave e copie na mão.");
     }
   }
 
@@ -204,6 +241,85 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
                   {dias === null ? "—" : dias}
                 </span>
               </div>
+            </div>
+
+            <div className="panel pad">
+              <div className="spread" style={{ marginBottom: 14 }}>
+                <h2 className="h-sec">Suas chaves</h2>
+                {chaves?.encontrado && (
+                  <span className="eyebrow">
+                    {chaves.ativas ?? 0} DE {chaves.limite === -1 ? "ILIMITADAS" : chaves.limite}
+                  </span>
+                )}
+              </div>
+
+              {carregandoChaves && <div className="muted tiny">Buscando suas chaves…</div>}
+
+              {!carregandoChaves && chaves && !chaves.encontrado && (
+                <div className="aviso">
+                  <span className="avisoIcone">✦</span>
+                  <div>
+                    <strong>Nenhuma compra com este e-mail</strong>
+                    {chaves.recado}
+                  </div>
+                </div>
+              )}
+
+              {!carregandoChaves && chaves?.encontrado && chaves.chaves.length === 0 && (
+                <div className="muted tiny">
+                  Você ainda não tem chave gerada. Use o botão abaixo para criar a primeira.
+                </div>
+              )}
+
+              {chaves?.chaves.map((c) => (
+                <div className="material" key={c.id} style={{ alignItems: "flex-start" }}>
+                  <div className="mi">🔑</div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <b className="num" style={{ fontSize: ".76rem", wordBreak: "break-all" }}>{c.chave}</b>
+                    <span>
+                      {c.ativa ? "ativa" : "inativa"}
+                      {c.expira_em ? ` · vence ${new Date(c.expira_em).toLocaleDateString("pt-BR")}` : ""}
+                      {c.vinculada ? " · aparelho vinculado" : " · nunca usada"}
+                    </span>
+                  </div>
+                  <button
+                    className="btn g"
+                    style={{ padding: "6px 10px", fontSize: ".6rem" }}
+                    onClick={() => copiar(c.chave)}
+                    type="button"
+                  >
+                    {copiada === c.chave ? "COPIADA" : "COPIAR"}
+                  </button>
+                </div>
+              ))}
+
+              {erroChaves && (
+                <div className="aviso erro" style={{ marginTop: 12, marginBottom: 0 }}>
+                  <span className="avisoIcone">!</span>
+                  <div>{erroChaves}</div>
+                </div>
+              )}
+
+              {chaves?.encontrado && (
+                <>
+                  <button
+                    className="btn p"
+                    style={{ width: "100%", marginTop: 14 }}
+                    onClick={gerarChave}
+                    disabled={gerando || !chaves.podeGerar}
+                    type="button"
+                  >
+                    {gerando ? "Gerando…" : "Gerar nova chave"}
+                  </button>
+                  <p className="muted tiny" style={{ marginTop: 9 }}>
+                    {chaves.limite === -1
+                      ? "Seu plano permite chaves ilimitadas."
+                      : chaves.podeGerar
+                      ? `Seu plano permite ${chaves.limite} ${chaves.limite === 1 ? "chave" : "chaves"}.`
+                      : `Você já usou as ${chaves.limite} ${chaves.limite === 1 ? "chave" : "chaves"} do seu plano. Para ter mais, faça o upgrade.`}
+                  </p>
+                </>
+              )}
             </div>
 
             <div
