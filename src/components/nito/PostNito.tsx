@@ -8,8 +8,8 @@
 
 import React, { useState } from "react";
 import { Feed, Enquetes, Post, Enquete, Fmt } from "@/lib/nito-motor";
-import { patenteDoNivel, iniciais } from "@/lib/nito-gamificacao";
-import { Icone } from "./NitoIcones";
+import { patenteDoNivel, iniciais, ehVerificado } from "@/lib/nito-gamificacao";
+import { Icone, SeloVerificado } from "./NitoIcones";
 
 const CORES_AVATAR = [
   "linear-gradient(100deg,#a855f7,#6d28d9)",
@@ -112,6 +112,7 @@ export function PostNito({
         <div className="who">
           <b>
             {oficial ? "NITO LIVE" : autor.nome ?? "Membro"}
+            {(oficial || ehVerificado(autor.papel)) && <SeloVerificado />}
             {oficial ? (
               <span className="pat-chip r">Oficial</span>
             ) : (

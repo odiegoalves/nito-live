@@ -10,7 +10,8 @@ import React, { useRef, useState } from "react";
 import { AuthGuard } from "@/components/AuthGuard";
 import { AppShell } from "@/components/nito/AppShell";
 import { Auth, Storage, Perfil, comoErro } from "@/lib/nito-motor";
-import { patenteDoNivel, progressoNoNivel, proximaPatente, iniciais } from "@/lib/nito-gamificacao";
+import { patenteDoNivel, progressoNoNivel, proximaPatente, iniciais, ehVerificado } from "@/lib/nito-gamificacao";
+import { SeloVerificado } from "@/components/nito/NitoIcones";
 
 const TABELA_XP = [
   ["Postar um resultado com foto", 150],
@@ -113,7 +114,10 @@ function Conteudo({ perfilInicial }: { perfilInicial: Perfil }) {
 
             <div style={{ flex: 1, minWidth: 220 }}>
               <div className="row" style={{ gap: 9, marginBottom: 5, flexWrap: "wrap" }}>
-                <b style={{ font: "900 1.3rem/1 var(--disp)", textTransform: "uppercase" }}>{perfil.nome}</b>
+                <b style={{ font: "900 1.3rem/1 var(--disp)", textTransform: "uppercase" }}>
+                  {perfil.nome}
+                  {ehVerificado(perfil.papel) && <SeloVerificado tam={17} />}
+                </b>
                 <span className={`pat-chip ${patente.cor}`}>{patente.nome}</span>
                 {perfil.papel === "fundador" && <span className="tagchip">FUNDADOR</span>}
               </div>

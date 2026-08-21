@@ -8,8 +8,8 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import { Chat, MensagemChat, Perfil, comoErro } from "@/lib/nito-motor";
-import { iniciais } from "@/lib/nito-gamificacao";
-import { Icone } from "./NitoIcones";
+import { iniciais, ehVerificado } from "@/lib/nito-gamificacao";
+import { Icone, SeloVerificado } from "./NitoIcones";
 
 const CORES = [
   "linear-gradient(100deg,#a855f7,#6d28d9)",
@@ -143,7 +143,10 @@ export function ChatNito({ perfil }: { perfil: Perfil }) {
                 {iniciais(nome === "Você" ? perfil.nome : nome)}
               </div>
               <div className="bal">
-                <b>{nome}</b>
+                <b>
+                  {nome}
+                  {!meu && ehVerificado(m.autor?.papel) && <SeloVerificado tam={13} />}
+                </b>
                 {m.midia_url && m.midia_tipo === "imagem" && (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img

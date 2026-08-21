@@ -443,7 +443,7 @@ export const Feed = {
     const { data, error } = await sb
       .from("comentarios")
       .select(
-        "id, conteudo, criado_em, autor:perfis!comentarios_autor_id_fkey (id, nome, username, avatar_url)"
+        "id, conteudo, criado_em, autor:perfis!comentarios_autor_id_fkey (id, nome, username, avatar_url, papel)"
       )
       .eq("post_id", postId)
       .order("criado_em", { ascending: true });
@@ -460,7 +460,7 @@ export const Feed = {
       .from("comentarios")
       .insert({ post_id: postId, autor_id: user.id, conteudo })
       .select(
-        "id, conteudo, criado_em, autor:perfis!comentarios_autor_id_fkey (id, nome, username, avatar_url)"
+        "id, conteudo, criado_em, autor:perfis!comentarios_autor_id_fkey (id, nome, username, avatar_url, papel)"
       )
       .single();
     if (error) throw error;
@@ -505,7 +505,7 @@ export const Feed = {
           const { data } = await sb
             .from("comentarios")
             .select(
-              "id, post_id, conteudo, criado_em, autor:perfis!comentarios_autor_id_fkey (id, nome, username, avatar_url)"
+              "id, post_id, conteudo, criado_em, autor:perfis!comentarios_autor_id_fkey (id, nome, username, avatar_url, papel)"
             )
             .eq("id", linha.id)
             .single();
@@ -854,7 +854,7 @@ export const Aulas = {
     const { data, error } = await sb
       .from("aulas_comentarios")
       .select(
-        "id, aula_id, autor_id, conteudo, criado_em, autor:perfis!aulas_comentarios_autor_id_fkey (id, nome, username, avatar_url, nivel)"
+        "id, aula_id, autor_id, conteudo, criado_em, autor:perfis!aulas_comentarios_autor_id_fkey (id, nome, username, avatar_url, nivel, papel)"
       )
       .eq("aula_id", aulaId)
       .order("criado_em", { ascending: true });
@@ -873,7 +873,7 @@ export const Aulas = {
       .from("aulas_comentarios")
       .insert({ aula_id: aulaId, autor_id: user.id, conteudo: texto })
       .select(
-        "id, aula_id, autor_id, conteudo, criado_em, autor:perfis!aulas_comentarios_autor_id_fkey (id, nome, username, avatar_url, nivel)"
+        "id, aula_id, autor_id, conteudo, criado_em, autor:perfis!aulas_comentarios_autor_id_fkey (id, nome, username, avatar_url, nivel, papel)"
       )
       .single();
     if (error) throw error;

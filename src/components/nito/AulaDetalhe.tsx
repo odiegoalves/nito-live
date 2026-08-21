@@ -8,8 +8,8 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import { Aulas, AulasAdmin, Aula, AulaMaterial, AulaComentario, Fmt, comoErro } from "@/lib/nito-motor";
-import { iniciais } from "@/lib/nito-gamificacao";
-import { Icone } from "./NitoIcones";
+import { iniciais, ehVerificado } from "@/lib/nito-gamificacao";
+import { Icone, SeloVerificado } from "./NitoIcones";
 
 // Descobre como tocar o endereco que o administrador colou.
 // Aceita YouTube, Vimeo, os players de curso (Panda, Bunny, Cakto), qualquer
@@ -193,7 +193,10 @@ export function AulaDetalhe({
               <div className="msg" key={c.id} style={{ marginBottom: 10 }}>
                 <div className="av" style={{ background: "var(--surf3)" }}>{iniciais(c.autor?.nome)}</div>
                 <div className="bal">
-                  <b style={{ color: "var(--txt)" }}>{c.autor?.nome ?? "Membro"}</b>
+                  <b style={{ color: "var(--txt)" }}>
+                    {c.autor?.nome ?? "Membro"}
+                    {ehVerificado(c.autor?.papel) && <SeloVerificado tam={13} />}
+                  </b>
                   <p>{c.conteudo}</p>
                   <span className="eyebrow" style={{ display: "block", marginTop: 5 }}>
                     {Fmt.quando(c.criado_em).toUpperCase()}

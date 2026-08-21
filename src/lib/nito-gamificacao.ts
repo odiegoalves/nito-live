@@ -80,3 +80,8 @@ export function iniciais(nome?: string): string {
   if (!limpo) return "?";
   return limpo[0].toUpperCase();
 }
+
+// Selo de Verificado: fundador e moderador sao a equipe oficial do NITO LIVE.
+export function ehVerificado(papel?: string | null): boolean {
+  return papel === "fundador" || papel === "moderador";
+}
