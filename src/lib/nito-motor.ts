@@ -37,13 +37,33 @@ export interface Perfil {
   criado_em: string;
 }
 
+export type TipoPost =
+  | "importante"   // so a administracao publica
+  | "resultado"    // foto obrigatoria
+  | "insight"
+  | "melhoria"
+  | "texto"        // legado
+  | "print_ganho"
+  | "depoimento";
+
+export interface Enquete {
+  id: string;
+  post_id: string;
+  pergunta: string;
+  votos_sim: number;
+  votos_nao: number;
+  meu_voto?: boolean | null;
+}
+
 export interface Post {
   id: string;
   autor_id: string;
   titulo?: string;
   conteudo: string;
   imagem_url?: string;
-  tipo: "texto" | "print_ganho" | "depoimento";
+  tipo: TipoPost;
+  situacao?: "aberta" | "em_analise" | "aceita" | "recusada";
+  enquete?: Enquete | null;
   fixado: boolean;
   curtidas_count: number;
   comentarios_count: number;
@@ -106,7 +126,11 @@ export interface MensagemChat {
   id: string;
   sala?: string;
   autor_id?: string;
-  conteudo: string;
+  conteudo: string | null;
+  midia_url?: string | null;
+  midia_tipo?: "imagem" | "video" | null;
+  midia_nome?: string | null;
+  mencoes?: string[];
   criado_em: string;
   autor?: Partial<Perfil>;
 }
@@ -280,12 +304,12 @@ export const Feed = {
     titulo = null,
     conteudo,
     imagemFile = null,
-    tipo = "texto",
+    tipo = "insight",
   }: {
     titulo?: string | null;
     conteudo: string;
     imagemFile?: File | null;
-    tipo?: "texto" | "print_ganho" | "depoimento";
+    tipo?: TipoPost;
   }): Promise<Post> {
     const {
       data: { user },
@@ -430,12 +454,66 @@ export const Feed = {
 // ---------------------------------------------------------------------------
 // CHAT AO VIVO + PRESENCA
 // ---------------------------------------------------------------------------
+export const Enquetes = {
+  // Abre a enquete de uma sugestao recem publicada.
+  async abrir(postId: string, pergunta = "A comunidade quer isso?"): Promise<Enquete> {
+    const { data, error } = await sb
+      .from("enquetes")
+      .insert({ post_id: postId, pergunta })
+      .select("*")
+      .single();
+    if (error) throw error;
+    return data as unknown as Enquete;
+  },
+
+  // Enquetes de varios posts de uma vez, ja com o voto do usuario atual.
+  async doPosts(postIds: string[]): Promise<Record<string, Enquete>> {
+    if (!postIds.length) return {};
+    const { data, error } = await sb.from("enquetes").select("*").in("post_id", postIds);
+    if (error) throw error;
+
+    const mapa: Record<string, Enquete> = {};
+    (data ?? []).forEach((e: any) => { mapa[e.post_id] = e as Enquete; });
+
+    const {
+      data: { user },
+    } = await sb.auth.getUser();
+    if (user) {
+      const ids = (data ?? []).map((e: any) => e.id);
+      if (ids.length) {
+        const { data: meus } = await sb
+          .from("enquete_votos")
+          .select("enquete_id, voto")
+          .eq("user_id", user.id)
+          .in("enquete_id", ids);
+        (meus ?? []).forEach((v: any) => {
+          const alvo = Object.values(mapa).find((e) => e.id === v.enquete_id);
+          if (alvo) alvo.meu_voto = v.voto;
+        });
+      }
+    }
+    return mapa;
+  },
+
+  // Votar de novo no mesmo lugar troca o voto; nao duplica.
+  async votar(enqueteId: string, voto: boolean) {
+    const {
+      data: { user },
+    } = await sb.auth.getUser();
+    if (!user) throw new Error("Precisa estar logado.");
+    const { error } = await sb
+      .from("enquete_votos")
+      .upsert({ enquete_id: enqueteId, user_id: user.id, voto }, { onConflict: "enquete_id,user_id" });
+    if (error) throw error;
+  },
+};
+
 export const Chat = {
   async historico(sala = "geral", limite = 50): Promise<MensagemChat[]> {
     const { data, error } = await sb
       .from("mensagens_chat")
       .select(
-        "id, conteudo, criado_em, autor:perfis!mensagens_chat_autor_id_fkey (id, nome, username, avatar_url, papel)"
+        "id, sala, autor_id, conteudo, criado_em, midia_url, midia_tipo, midia_nome, mencoes, autor:perfis!mensagens_chat_autor_id_fkey (id, nome, username, avatar_url, papel, nivel)"
       )
       .eq("sala", sala)
       .order("criado_em", { ascending: false })
@@ -444,21 +522,51 @@ export const Chat = {
     return ((data as unknown as MensagemChat[]) || []).reverse();
   },
 
-  async enviar(conteudo: string, sala = "geral"): Promise<MensagemChat | null> {
+  async enviar(
+    conteudo: string,
+    sala = "geral",
+    extras: {
+      midiaFile?: File | null;
+      mencoes?: string[];
+    } = {}
+  ): Promise<MensagemChat | null> {
     const {
       data: { user },
     } = await sb.auth.getUser();
     if (!user) throw new Error("Precisa estar logado.");
-    const texto = conteudo.trim();
-    if (!texto) return null;
+
+    const texto = (conteudo ?? "").trim();
+    let midia_url: string | null = null;
+    let midia_tipo: "imagem" | "video" | null = null;
+    let midia_nome: string | null = null;
+
+    if (extras.midiaFile) {
+      const f = extras.midiaFile;
+      midia_url = await Storage.enviar("midias", f);
+      midia_tipo = f.type.startsWith("video") ? "video" : "imagem";
+      midia_nome = f.name;
+    }
+
+    // Mensagem vazia de verdade (sem texto e sem arquivo) nao vai.
+    if (!texto && !midia_url) return null;
+
     const { data, error } = await sb
       .from("mensagens_chat")
-      .insert({ sala, autor_id: user.id, conteudo: texto })
-      .select("id, conteudo, criado_em")
+      .insert({
+        sala,
+        autor_id: user.id,
+        conteudo: texto || null,
+        midia_url,
+        midia_tipo,
+        midia_nome,
+        mencoes: extras.mencoes ?? [],
+      })
+      .select("id, conteudo, criado_em, midia_url, midia_tipo, midia_nome, mencoes")
       .single();
     if (error) throw error;
     return data as unknown as MensagemChat;
   },
+
 
   assinar(
     sala = "geral",
@@ -481,7 +589,7 @@ export const Chat = {
           const { data } = await sb
             .from("mensagens_chat")
             .select(
-              "id, conteudo, criado_em, autor:perfis!mensagens_chat_autor_id_fkey (id, nome, username, avatar_url, papel)"
+              "id, sala, autor_id, conteudo, criado_em, midia_url, midia_tipo, midia_nome, mencoes, autor:perfis!mensagens_chat_autor_id_fkey (id, nome, username, avatar_url, papel, nivel)"
             )
             .eq("id", linha.id)
             .single();
@@ -620,7 +728,7 @@ export const Aulas = {
 // STORAGE
 // ---------------------------------------------------------------------------
 export const Storage = {
-  async enviar(bucket: "avatars" | "prints", file: File): Promise<string> {
+  async enviar(bucket: "avatars" | "prints" | "midias", file: File): Promise<string> {
     const {
       data: { user },
     } = await sb.auth.getUser();
