@@ -23,6 +23,33 @@ export const sb = createBrowserClient(SUPABASE_URL, SUPABASE_ANON, {
   realtime: { params: { eventsPerSecond: 20 } },
 });
 
+// O Supabase devolve erro de banco como objeto simples ({message, details, hint,
+// code}), nao como Error do JavaScript. Quem escreve `e instanceof Error` acaba
+// descartando a mensagem e mostrando um texto generico - o que ja nos custou
+// varias rodadas de tentativa e erro. Isto normaliza qualquer coisa em Error.
+export function comoErro(bruto: unknown, padrao = "Algo deu errado."): Error {
+  if (bruto instanceof Error) return bruto;
+
+  if (bruto && typeof bruto === "object") {
+    const o = bruto as Record<string, unknown>;
+    const partes = [o.message, o.error_description, o.error, o.details, o.hint]
+      .filter((x): x is string => typeof x === "string" && x.trim().length > 0);
+    if (partes.length) {
+      const e = new Error(partes[0]);
+      if (o.code) e.name = String(o.code);
+      return e;
+    }
+    try {
+      return new Error(JSON.stringify(bruto).slice(0, 300));
+    } catch {
+      /* cai no padrao */
+    }
+  }
+
+  if (typeof bruto === "string" && bruto.trim()) return new Error(bruto);
+  return new Error(padrao);
+}
+
 export interface Perfil {
   id: string;
   username: string;
@@ -1133,7 +1160,7 @@ export const Extensao = {
       })
       .select("*")
       .single();
-    if (error) throw error;
+    if (error) throw comoErro(error, "Nao consegui registrar a versao.");
     return data as unknown as VersaoExtensao;
   },
 };
@@ -1206,7 +1233,7 @@ export const Storage = {
     const { error } = await sb.storage
       .from(bucket)
       .upload(path, file, { cacheControl: "3600", upsert: false });
-    if (error) throw error;
+    if (error) throw comoErro(error, "Nao consegui enviar o arquivo.");
     return sb.storage.from(bucket).getPublicUrl(path).data.publicUrl;
   },
 };

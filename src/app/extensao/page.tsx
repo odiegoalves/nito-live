@@ -9,7 +9,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { AuthGuard } from "@/components/AuthGuard";
 import { AppShell, ehAdmin } from "@/components/nito/AppShell";
-import { Extensao, VersaoExtensao, Chaves, RespostaChaves, Perfil } from "@/lib/nito-motor";
+import { Extensao, VersaoExtensao, Chaves, RespostaChaves, Perfil, comoErro } from "@/lib/nito-motor";
 import { diasRestantes } from "@/lib/nito-gamificacao";
 
 function mb(bytes?: number | null) {
@@ -87,7 +87,7 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
       setArquivo(null);
       setOk("Versão publicada. Todo membro já baixa a nova a partir de agora.");
     } catch (e) {
-      setErro(e instanceof Error ? e.message : "Não consegui publicar a versão.");
+      setErro(comoErro(e, "Não consegui publicar a versão.").message);
     } finally {
       setEnviando(false);
     }
