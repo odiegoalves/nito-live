@@ -1,470 +1,415 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
-import { AuthGuard } from "@/components/AuthGuard";
-import { Sidebar } from "@/components/community-beta/Sidebar";
-import { Topbar } from "@/components/community-beta/Topbar";
-import { CommunityFooter } from "@/components/community-beta/CommunityFooter";
-import { Aulas, Aula, AulaProgresso, Perfil } from "@/lib/nito-motor";
-import { BookOpen, Lock, PlayCircle, CheckCircle, Clock } from "lucide-react";
+// =============================================================================
+// NITO LIVE - Aulas.
+// Trilha organizada por modulo. So a administracao publica; o aluno assiste,
+// curte, comenta e baixa o material. Cada aula concluida rende 100 XP.
+// =============================================================================
 
-export default function AulasPage() {
-  return (
-    <AuthGuard>
-      {(perfil) => <AulasContent perfil={perfil} />}
-    </AuthGuard>
-  );
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { AuthGuard } from "@/components/AuthGuard";
+import { AppShell, ehAdmin } from "@/components/nito/AppShell";
+import { AulaDetalhe } from "@/components/nito/AulaDetalhe";
+import { Icone } from "@/components/nito/NitoIcones";
+import {
+  Aulas,
+  AulasAdmin,
+  Aula,
+  AulaMaterial,
+  AulaProgresso,
+  Perfil,
+} from "@/lib/nito-motor";
+
+function duracao(seg?: number | null) {
+  if (!seg) return "";
+  const m = Math.floor(seg / 60);
+  const s = seg % 60;
+  return `${m}:${String(s).padStart(2, "0")}`;
 }
 
-function AulasContent({ perfil }: { perfil: Perfil }) {
-  const [aulasList, setAulasList] = useState<Aula[]>([]);
-  const [progressoMap, setProgressoMap] = useState<Record<string, AulaProgresso>>({});
-  const [aulaSelecionada, setAulaSelecionada] = useState<Aula | null>(null);
-  const [bloqueado, setBloqueado] = useState(false);
+const AULA_VAZIA = {
+  id: undefined as string | undefined,
+  modulo: "",
+  modulo_ordem: 1,
+  ordem: 1,
+  titulo: "",
+  descricao: "",
+  video_url: "",
+  duracao_seg: 0,
+  publicado: true,
+};
+
+function Conteudo({ perfil }: { perfil: Perfil }) {
+  const admin = ehAdmin(perfil);
+
+  const [aulas, setAulas] = useState<Aula[]>([]);
+  const [progresso, setProgresso] = useState<Record<string, AulaProgresso>>({});
+  const [materiais, setMateriais] = useState<Record<string, AulaMaterial[]>>({});
+  const [curtidas, setCurtidas] = useState<Record<string, number>>({});
+  const [curtidas_minhas, setMinhas] = useState<Set<string>>(new Set());
+  const [aberta, setAberta] = useState<Aula | null>(null);
   const [carregando, setCarregando] = useState(true);
 
-  const videoRef = useRef<HTMLVideoElement | null>(null);
-  const intervalRef = useRef<any>(null);
+  const [form, setForm] = useState({ ...AULA_VAZIA });
+  const [mostrarForm, setMostrarForm] = useState(false);
+  const [salvando, setSalvando] = useState(false);
+  const [erro, setErro] = useState<string | null>(null);
+
+  const carregar = useCallback(async () => {
+    setCarregando(true);
+    try {
+      const lista = await Aulas.listar(admin);
+      setAulas(lista);
+      const ids = lista.map((a) => a.id);
+      const [prog, mats, cont, minhas] = await Promise.all([
+        Aulas.meuProgresso(),
+        Aulas.materiais(ids),
+        Aulas.contarCurtidas(ids),
+        Aulas.minhasCurtidas(ids),
+      ]);
+      setProgresso(prog);
+      setMateriais(mats);
+      setCurtidas(cont);
+      setMinhas(minhas);
+    } catch {
+      setAulas([]);
+    } finally {
+      setCarregando(false);
+    }
+  }, [admin]);
 
   useEffect(() => {
-    let mounted = true;
+    carregar();
+  }, [carregar]);
 
-    async function carregarDados() {
-      setCarregando(true);
-      try {
-        const [lista, prog] = await Promise.all([
-          Aulas.listar(),
-          Aulas.meuProgresso().catch(() => ({})),
-        ]);
+  // Agrupa por modulo mantendo a ordem que veio do banco.
+  const modulos = useMemo(() => {
+    const mapa = new Map<string, Aula[]>();
+    aulas.forEach((a) => {
+      const chave = a.modulo || "Sem módulo";
+      if (!mapa.has(chave)) mapa.set(chave, []);
+      mapa.get(chave)!.push(a);
+    });
+    return Array.from(mapa.entries());
+  }, [aulas]);
 
-        if (mounted) {
-          if (!lista || lista.length === 0) {
-            setBloqueado(true);
-          } else {
-            setAulasList(lista);
-            setProgressoMap(prog);
-            setAulaSelecionada(lista[0]);
-          }
-        }
-      } catch (err) {
-        if (mounted) {
-          setBloqueado(true);
-        }
-      } finally {
-        if (mounted) setCarregando(false);
-      }
+  const concluidas = aulas.filter((a) => progresso[a.id]?.concluida).length;
+  const pct = aulas.length ? Math.round((concluidas / aulas.length) * 100) : 0;
+
+  function aoCurtir(aulaId: string, agora: boolean) {
+    setMinhas((antes) => {
+      const n = new Set(antes);
+      if (agora) n.add(aulaId);
+      else n.delete(aulaId);
+      return n;
+    });
+    setCurtidas((antes) => ({
+      ...antes,
+      [aulaId]: Math.max(0, (antes[aulaId] ?? 0) + (agora ? 1 : -1)),
+    }));
+  }
+
+  async function salvarAula() {
+    if (!form.titulo.trim() || !form.modulo.trim() || salvando) return;
+    setSalvando(true);
+    setErro(null);
+    try {
+      await AulasAdmin.salvarAula({
+        id: form.id,
+        modulo: form.modulo.trim(),
+        modulo_ordem: Number(form.modulo_ordem) || 1,
+        ordem: Number(form.ordem) || 1,
+        titulo: form.titulo.trim(),
+        descricao: form.descricao.trim() || undefined,
+        video_url: form.video_url.trim() || undefined,
+        duracao_seg: Number(form.duracao_seg) || undefined,
+        publicado: form.publicado,
+      });
+      setForm({ ...AULA_VAZIA });
+      setMostrarForm(false);
+      await carregar();
+    } catch (e) {
+      setErro(e instanceof Error ? e.message : "Não consegui salvar a aula.");
+    } finally {
+      setSalvando(false);
     }
+  }
 
-    carregarDados();
-
-    return () => {
-      mounted = false;
-    };
-  }, []);
-
-  // Timer de progresso do vídeo (a cada 15s)
-  useEffect(() => {
-    if (!aulaSelecionada || !videoRef.current) return;
-
-    const salvarProgressoAtual = async () => {
-      if (!videoRef.current || !aulaSelecionada) return;
-      const segundos = Math.floor(videoRef.current.currentTime);
-      const duracao = aulaSelecionada.duracao_seg || Math.floor(videoRef.current.duration || 0);
-      const concluida = duracao > 0 ? segundos / duracao >= 0.9 : false;
-
-      try {
-        await Aulas.salvarProgresso(aulaSelecionada.id, segundos, concluida);
-        setProgressoMap((prev) => ({
-          ...prev,
-          [aulaSelecionada.id]: {
-            user_id: perfil.id,
-            aula_id: aulaSelecionada.id,
-            segundos,
-            concluida: prev[aulaSelecionada.id]?.concluida || concluida,
-            atualizado_em: new Date().toISOString(),
-          },
-        }));
-      } catch (err) {
-        console.error("Erro ao salvar progresso:", err);
-      }
-    };
-
-    intervalRef.current = setInterval(salvarProgressoAtual, 15000);
-
-    const handlePauseOrEnded = () => {
-      salvarProgressoAtual();
-    };
-
-    const videoEl = videoRef.current;
-    if (videoEl) {
-      videoEl.addEventListener("pause", handlePauseOrEnded);
-      videoEl.addEventListener("ended", handlePauseOrEnded);
-    }
-
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-      if (videoEl) {
-        videoEl.removeEventListener("pause", handlePauseOrEnded);
-        videoEl.removeEventListener("ended", handlePauseOrEnded);
-      }
-      salvarProgressoAtual();
-    };
-  }, [aulaSelecionada, perfil.id]);
-
-  // Agrupar aulas por módulo
-  const aulasPorModulo: Record<string, Aula[]> = {};
-  aulasList.forEach((aula) => {
-    const mod = aula.modulo || "Módulo 1";
-    if (!aulasPorModulo[mod]) aulasPorModulo[mod] = [];
-    aulasPorModulo[mod].push(aula);
-  });
+  function editar(a: Aula) {
+    setForm({
+      id: a.id,
+      modulo: a.modulo ?? "",
+      modulo_ordem: a.modulo_ordem ?? 1,
+      ordem: a.ordem ?? 1,
+      titulo: a.titulo ?? "",
+      descricao: a.descricao ?? "",
+      video_url: a.video_url ?? "",
+      duracao_seg: a.duracao_seg ?? 0,
+      publicado: a.publicado ?? true,
+    });
+    setMostrarForm(true);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
 
   return (
-    <div style={styles.appContainer}>
-      <Sidebar activePath="/aulas" perfil={perfil} />
+    <AppShell perfil={perfil} ativa="aulas">
+      <div className="view on">
+        <div className="spread" style={{ alignItems: "flex-start" }}>
+          <div>
+            <h1 className="title-xl">
+              Trilha do <em>vendedor de live</em>.
+            </h1>
+            <p className="sub">Do primeiro produto fixado à live de seis dígitos.</p>
+          </div>
+        </div>
 
-      <div style={styles.mainWrapper}>
-        <Topbar perfil={perfil} />
-
-        <div style={styles.contentBody}>
-          {/* Header */}
-          <div style={styles.pageHeader}>
-            <div style={styles.headerTitleGroup}>
-              <div style={styles.headerIconBox}>
-                <BookOpen size={22} color="#ef4444" />
-              </div>
-              <div>
-                <h1 style={styles.pageTitle}>Aulas & Treinamentos</h1>
-                <p style={styles.pageSubtitle}>
-                  Aprenda as melhores estratégias de vendas ao vivo com o Nito Live.
-                </p>
-              </div>
+        {admin && (
+          <div className="admin-bar" style={{ marginTop: 22 }}>
+            <span className="tag">ADMIN</span>
+            <b>Você é o único que publica aqui.</b>
+            <div className="push-a">
+              <button
+                className="btn gold"
+                onClick={() => {
+                  setForm({ ...AULA_VAZIA });
+                  setMostrarForm((v) => !v);
+                }}
+                type="button"
+              >
+                {mostrarForm ? "Cancelar" : "+ Nova aula"}
+              </button>
             </div>
           </div>
+        )}
 
-          {carregando ? (
-            <div style={styles.loadingBox}>Carregando conteúdo de aulas...</div>
-          ) : bloqueado ? (
-            <div style={styles.lockCard}>
-              <div style={styles.lockIconBox}>
-                <Lock size={48} color="#ef4444" />
+        {admin && mostrarForm && (
+          <div className="panel pad" style={{ marginBottom: 18 }}>
+            <h2 className="h-sec" style={{ marginBottom: 16 }}>
+              {form.id ? "Editar aula" : "Nova aula"}
+            </h2>
+
+            <div className="grid3">
+              <div className="campo">
+                <label>Módulo</label>
+                <input
+                  list="lista-modulos"
+                  value={form.modulo}
+                  onChange={(e) => setForm({ ...form, modulo: e.target.value })}
+                  placeholder="Módulo 1 · Fundamentos"
+                />
+                <datalist id="lista-modulos">
+                  {modulos.map(([nome]) => (
+                    <option key={nome} value={nome} />
+                  ))}
+                </datalist>
               </div>
-              <h2 style={styles.lockTitle}>Assinatura Inativa</h2>
-              <p style={styles.lockText}>
-                Esta área é exclusiva para alunos e membros com assinatura ativa do Nito Live.
-              </p>
-            </div>
-          ) : (
-            <div style={styles.aulasGrid}>
-              {/* Coluna Esquerda: Player principal */}
-              <div style={styles.playerColumn}>
-                {aulaSelecionada && (
-                  <div style={styles.playerCard}>
-                    <div style={styles.videoWrapper}>
-                      {aulaSelecionada.video_url ? (
-                        <video
-                          ref={videoRef}
-                          src={aulaSelecionada.video_url}
-                          controls
-                          style={styles.videoElement}
-                          poster={aulaSelecionada.thumb_url}
-                        />
-                      ) : (
-                        <div style={styles.noVideoBox}>
-                          <PlayCircle size={64} color="#ef4444" />
-                          <span>Vídeo em processamento</span>
-                        </div>
-                      )}
-                    </div>
-
-                    <div style={styles.playerMeta}>
-                      <span style={styles.moduloBadge}>{aulaSelecionada.modulo}</span>
-                      <h2 style={styles.aulaTitle}>{aulaSelecionada.titulo}</h2>
-                      {aulaSelecionada.descricao && (
-                        <p style={styles.aulaDesc}>{aulaSelecionada.descricao}</p>
-                      )}
-                    </div>
-                  </div>
-                )}
+              <div className="campo">
+                <label>Ordem do módulo</label>
+                <input
+                  type="number"
+                  value={form.modulo_ordem}
+                  onChange={(e) => setForm({ ...form, modulo_ordem: Number(e.target.value) })}
+                />
               </div>
-
-              {/* Coluna Direita: Lista de Módulos e Aulas */}
-              <div style={styles.listColumn}>
-                {Object.entries(aulasPorModulo).map(([modNome, aulasArr]) => (
-                  <div key={modNome} style={styles.moduloCard}>
-                    <h3 style={styles.moduloTitle}>{modNome}</h3>
-                    <div style={styles.aulasList}>
-                      {aulasArr.map((aula) => {
-                        const isSelected = aulaSelecionada?.id === aula.id;
-                        const prog = progressoMap[aula.id];
-                        const isConcluida = prog?.concluida ?? false;
-
-                        return (
-                          <div
-                            key={aula.id}
-                            onClick={() => setAulaSelecionada(aula)}
-                            style={{
-                              ...styles.aulaItem,
-                              ...(isSelected ? styles.aulaItemActive : {}),
-                            }}
-                          >
-                            <div style={styles.aulaItemIcon}>
-                              {isConcluida ? (
-                                <CheckCircle size={18} color="#10b981" />
-                              ) : (
-                                <PlayCircle
-                                  size={18}
-                                  color={isSelected ? "#ef4444" : "#94a3b8"}
-                                />
-                              )}
-                            </div>
-                            <div style={styles.aulaItemText}>
-                              <span style={styles.aulaItemTitle}>{aula.titulo}</span>
-                              {aula.duracao_seg && (
-                                <span style={styles.aulaItemDuracao}>
-                                  <Clock size={11} style={{ marginRight: 4 }} />
-                                  {Math.floor(aula.duracao_seg / 60)} min
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                ))}
+              <div className="campo">
+                <label>Ordem da aula</label>
+                <input
+                  type="number"
+                  value={form.ordem}
+                  onChange={(e) => setForm({ ...form, ordem: Number(e.target.value) })}
+                />
               </div>
             </div>
-          )}
 
-          <CommunityFooter />
+            <div className="campo">
+              <label>Título</label>
+              <input
+                value={form.titulo}
+                onChange={(e) => setForm({ ...form, titulo: e.target.value })}
+                placeholder="Rotação de produtos sem perder o ritmo"
+              />
+            </div>
+
+            <div className="campo">
+              <label>Descrição</label>
+              <textarea
+                rows={3}
+                value={form.descricao}
+                onChange={(e) => setForm({ ...form, descricao: e.target.value })}
+                placeholder="O que o aluno vai aprender nesta aula…"
+              />
+            </div>
+
+            <div className="grid2">
+              <div className="campo">
+                <label>Link do vídeo</label>
+                <input
+                  value={form.video_url}
+                  onChange={(e) => setForm({ ...form, video_url: e.target.value })}
+                  placeholder="https://youtube.com/watch?v=…"
+                />
+              </div>
+              <div className="campo">
+                <label>Duração em segundos</label>
+                <input
+                  type="number"
+                  value={form.duracao_seg}
+                  onChange={(e) => setForm({ ...form, duracao_seg: Number(e.target.value) })}
+                  placeholder="1025"
+                />
+              </div>
+            </div>
+
+            {erro && (
+              <div className="aviso erro">
+                <span className="avisoIcone">!</span>
+                <div>{erro}</div>
+              </div>
+            )}
+
+            <div className="spread" style={{ marginTop: 6, flexWrap: "wrap", gap: 10 }}>
+              <label className="check">
+                <input
+                  type="checkbox"
+                  checked={form.publicado}
+                  onChange={(e) => setForm({ ...form, publicado: e.target.checked })}
+                />
+                Publicar para os alunos agora
+              </label>
+              <button className="btn p" onClick={salvarAula} disabled={salvando} type="button">
+                {salvando ? "Salvando…" : form.id ? "Salvar alterações" : "Criar aula"}
+              </button>
+            </div>
+          </div>
+        )}
+
+        <div className="panel pad" style={{ margin: "18px 0 22px" }}>
+          <div className="spread" style={{ marginBottom: 12 }}>
+            <div>
+              <div className="eyebrow" style={{ marginBottom: 6 }}>SEU PROGRESSO NA TRILHA</div>
+              <b style={{ font: "900 1.1rem/1 var(--disp)", textTransform: "uppercase" }}>
+                {concluidas} de {aulas.length} {aulas.length === 1 ? "aula concluída" : "aulas concluídas"}
+              </b>
+            </div>
+            <div style={{ textAlign: "right" }}>
+              <div className="num" style={{ font: "900 1.6rem/1 var(--disp)", color: "var(--gold)" }}>{pct}%</div>
+              <div className="eyebrow">{modulos.length} {modulos.length === 1 ? "MÓDULO" : "MÓDULOS"}</div>
+            </div>
+          </div>
+          <div className="bar" style={{ height: 10 }}>
+            <i style={{ width: `${pct}%` }} />
+          </div>
         </div>
+
+        {aberta && (
+          <AulaDetalhe
+            aula={aberta}
+            perfil={perfil}
+            admin={admin}
+            materiais={materiais[aberta.id] ?? []}
+            curtiu={curtidas_minhas.has(aberta.id)}
+            curtidas={curtidas[aberta.id] ?? 0}
+            onCurtir={aoCurtir}
+            onFechar={() => setAberta(null)}
+            onMaterialNovo={(m) =>
+              setMateriais((antes) => ({ ...antes, [m.aula_id]: [...(antes[m.aula_id] ?? []), m] }))
+            }
+          />
+        )}
+
+        {carregando && (
+          <div className="panel pad muted" style={{ textAlign: "center" }}>Carregando a trilha…</div>
+        )}
+
+        {!carregando && aulas.length === 0 && (
+          <div className="panel pad muted" style={{ textAlign: "center" }}>
+            {admin
+              ? "Nenhuma aula publicada ainda. Use o botão + Nova aula acima."
+              : "As aulas estão sendo preparadas. Volte em breve."}
+          </div>
+        )}
+
+        {modulos.map(([nome, doModulo]) => {
+          const feitas = doModulo.filter((a) => progresso[a.id]?.concluida).length;
+          const estado =
+            feitas === doModulo.length ? "ok" : feitas > 0 ? "wait" : "no";
+          const rotulo =
+            feitas === doModulo.length ? "CONCLUÍDO" : feitas > 0 ? "EM ANDAMENTO" : "NÃO INICIADO";
+
+          return (
+            <div key={nome}>
+              <div className="spread" style={{ marginBottom: 14 }}>
+                <h2 className="h-sec">{nome}</h2>
+                <span className={`pill ${estado}`}>{rotulo}</span>
+              </div>
+
+              <div className="trilha" style={{ marginBottom: 26 }}>
+                {doModulo.map((a) => {
+                  const p = progresso[a.id];
+                  const feita = !!p?.concluida;
+                  const pctAula =
+                    a.duracao_seg && p?.segundos
+                      ? Math.min(100, Math.round((p.segundos / a.duracao_seg) * 100))
+                      : 0;
+
+                  return (
+                    <article
+                      className={`panel aula${feita ? " done" : ""}`}
+                      key={a.id}
+                      onClick={() => setAberta(a)}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => e.key === "Enter" && setAberta(a)}
+                    >
+                      <div className="thumb">
+                        <div className="play">
+                          <Icone nome="play" tam={16} />
+                        </div>
+                        <span className="mod">AULA {a.ordem}</span>
+                        {a.duracao_seg ? <span className="dur num">{duracao(a.duracao_seg)}</span> : null}
+                      </div>
+                      <div className="info">
+                        <b>{a.titulo}</b>
+                        {!feita && pctAula > 0 && (
+                          <div className="bar" style={{ marginTop: 9 }}>
+                            <i style={{ width: `${pctAula}%`, background: "var(--grad)", boxShadow: "0 0 12px rgba(255,15,61,.5)" }} />
+                          </div>
+                        )}
+                        <div className="meta">
+                          <span>
+                            {feita ? "✓ CONCLUÍDA" : pctAula > 0 ? `${pctAula}% ASSISTIDA` : "NÃO INICIADA"}
+                            {!a.publicado && " · RASCUNHO"}
+                          </span>
+                          <span>
+                            ♥ {curtidas[a.id] ?? 0}
+                            {admin && (
+                              <button
+                                className="btn g"
+                                style={{ padding: "4px 8px", fontSize: ".58rem", marginLeft: 8 }}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  editar(a);
+                                }}
+                                type="button"
+                              >
+                                Editar
+                              </button>
+                            )}
+                          </span>
+                        </div>
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
       </div>
-    </div>
+    </AppShell>
   );
 }
 
-const styles: Record<string, React.CSSProperties> = {
-  appContainer: {
-    display: "flex",
-    minHeight: "100vh",
-    backgroundColor: "#09090b",
-    color: "#f8fafc",
-    fontFamily:
-      'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif',
-  },
-  mainWrapper: {
-    flex: 1,
-    display: "flex",
-    flexDirection: "column",
-    minWidth: 0,
-    overflowX: "hidden",
-  },
-  contentBody: {
-    flex: 1,
-    padding: "1.75rem 2rem",
-    display: "flex",
-    flexDirection: "column",
-    maxWidth: "1340px",
-    width: "100%",
-    margin: "0 auto",
-  },
-  pageHeader: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: "1.5rem",
-  },
-  headerTitleGroup: {
-    display: "flex",
-    alignItems: "center",
-    gap: "1rem",
-  },
-  headerIconBox: {
-    width: "48px",
-    height: "48px",
-    borderRadius: "14px",
-    backgroundColor: "rgba(239, 68, 68, 0.12)",
-    border: "1px solid rgba(239, 68, 68, 0.3)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  pageTitle: {
-    fontSize: "1.5rem",
-    fontWeight: 900,
-    color: "#ffffff",
-    margin: 0,
-  },
-  pageSubtitle: {
-    fontSize: "0.875rem",
-    color: "#94a3b8",
-    margin: 0,
-  },
-  loadingBox: {
-    padding: "3rem",
-    textAlign: "center",
-    color: "#94a3b8",
-    backgroundColor: "#121215",
-    borderRadius: "16px",
-  },
-  lockCard: {
-    backgroundColor: "#121215",
-    border: "1px solid rgba(239, 68, 68, 0.3)",
-    borderRadius: "20px",
-    padding: "4rem 2rem",
-    textAlign: "center",
-    maxWidth: "500px",
-    margin: "2rem auto",
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    gap: "1rem",
-  },
-  lockIconBox: {
-    width: "80px",
-    height: "80px",
-    borderRadius: "50%",
-    backgroundColor: "rgba(239, 68, 68, 0.1)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  lockTitle: {
-    fontSize: "1.5rem",
-    fontWeight: 800,
-    color: "#ffffff",
-    margin: 0,
-  },
-  lockText: {
-    fontSize: "0.9rem",
-    color: "#94a3b8",
-    margin: 0,
-    lineHeight: 1.5,
-  },
-  aulasGrid: {
-    display: "grid",
-    gridTemplateColumns: "1fr 340px",
-    gap: "1.75rem",
-    marginBottom: "2rem",
-  },
-  playerColumn: {
-    minWidth: 0,
-  },
-  playerCard: {
-    backgroundColor: "#121215",
-    border: "1px solid rgba(255, 255, 255, 0.08)",
-    borderRadius: "18px",
-    overflow: "hidden",
-  },
-  videoWrapper: {
-    width: "100%",
-    aspectRatio: "16 / 9",
-    backgroundColor: "#000000",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  videoElement: {
-    width: "100%",
-    height: "100%",
-    objectFit: "contain",
-  },
-  noVideoBox: {
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    gap: "0.5rem",
-    color: "#94a3b8",
-  },
-  playerMeta: {
-    padding: "1.5rem",
-    display: "flex",
-    flexDirection: "column",
-    gap: "0.5rem",
-  },
-  moduloBadge: {
-    fontSize: "0.75rem",
-    fontWeight: 800,
-    color: "#ef4444",
-    backgroundColor: "rgba(239, 68, 68, 0.12)",
-    padding: "0.2rem 0.6rem",
-    borderRadius: "6px",
-    alignSelf: "flex-start",
-  },
-  aulaTitle: {
-    fontSize: "1.3rem",
-    fontWeight: 800,
-    color: "#ffffff",
-    margin: 0,
-  },
-  aulaDesc: {
-    fontSize: "0.9rem",
-    color: "#cbd5e1",
-    lineHeight: 1.5,
-    margin: 0,
-  },
-  listColumn: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "1.25rem",
-  },
-  moduloCard: {
-    backgroundColor: "#121215",
-    border: "1px solid rgba(255, 255, 255, 0.08)",
-    borderRadius: "16px",
-    padding: "1rem",
-    display: "flex",
-    flexDirection: "column",
-    gap: "0.75rem",
-  },
-  moduloTitle: {
-    fontSize: "0.9rem",
-    fontWeight: 800,
-    color: "#ffffff",
-    margin: 0,
-    paddingBottom: "0.5rem",
-    borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
-  },
-  aulasList: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "0.4rem",
-  },
-  aulaItem: {
-    display: "flex",
-    alignItems: "center",
-    gap: "0.75rem",
-    padding: "0.6rem 0.75rem",
-    borderRadius: "10px",
-    cursor: "pointer",
-    backgroundColor: "#09090b",
-    border: "1px solid transparent",
-    transition: "all 0.2s",
-  },
-  aulaItemActive: {
-    borderColor: "rgba(239, 68, 68, 0.4)",
-    backgroundColor: "rgba(239, 68, 68, 0.08)",
-  },
-  aulaItemIcon: {
-    flexShrink: 0,
-    display: "flex",
-    alignItems: "center",
-  },
-  aulaItemText: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "0.1rem",
-  },
-  aulaItemTitle: {
-    fontSize: "0.825rem",
-    fontWeight: 700,
-    color: "#ffffff",
-  },
-  aulaItemDuracao: {
-    fontSize: "0.7rem",
-    color: "#64748b",
-    display: "flex",
-    alignItems: "center",
-  },
-};
+export default function AulasPage() {
+  return <AuthGuard>{(perfil) => <Conteudo perfil={perfil} />}</AuthGuard>;
+}

@@ -160,6 +160,25 @@ export interface Aula {
   criado_em: string;
 }
 
+export interface AulaMaterial {
+  id: string;
+  aula_id: string;
+  titulo: string;
+  tipo: "arquivo" | "link";
+  url: string;
+  tamanho_bytes?: number | null;
+  ordem: number;
+}
+
+export interface AulaComentario {
+  id: string;
+  aula_id: string;
+  autor_id: string;
+  conteudo: string;
+  criado_em: string;
+  autor?: Partial<Perfil>;
+}
+
 export interface AulaProgresso {
   user_id: string;
   aula_id: string;
@@ -691,13 +710,15 @@ export const Vendas = {
 // AULAS
 // ---------------------------------------------------------------------------
 export const Aulas = {
-  async listar(): Promise<Aula[]> {
-    const { data, error } = await sb
-      .from("aulas")
-      .select("*")
-      .eq("publicado", true)
-      .order("modulo")
-      .order("ordem");
+  // incluirRascunhos so tem efeito para quem e staff: a politica do banco
+  // esconde aula nao publicada de todo mundo mais.
+  async listar(incluirRascunhos = false): Promise<Aula[]> {
+    let q = sb.from("aulas").select("*");
+    if (!incluirRascunhos) q = q.eq("publicado", true);
+    const { data, error } = await q
+      .order("modulo_ordem", { ascending: true })
+      .order("modulo", { ascending: true })
+      .order("ordem", { ascending: true });
     if (error) throw error;
     return (data as Aula[]) || [];
   },
@@ -706,6 +727,91 @@ export const Aulas = {
     const { data, error } = await sb.from("aulas_progresso").select("*");
     if (error) throw error;
     return Object.fromEntries(((data as AulaProgresso[]) || []).map((r) => [r.aula_id, r]));
+  },
+
+  // ---- materiais ----
+  async materiais(aulaIds: string[]): Promise<Record<string, AulaMaterial[]>> {
+    if (!aulaIds.length) return {};
+    const { data, error } = await sb
+      .from("aulas_materiais")
+      .select("*")
+      .in("aula_id", aulaIds)
+      .order("ordem", { ascending: true });
+    if (error) throw error;
+    const mapa: Record<string, AulaMaterial[]> = {};
+    (data ?? []).forEach((m: any) => {
+      (mapa[m.aula_id] ||= []).push(m as AulaMaterial);
+    });
+    return mapa;
+  },
+
+  // ---- curtidas ----
+  async minhasCurtidas(aulaIds: string[]): Promise<Set<string>> {
+    if (!aulaIds.length) return new Set();
+    const {
+      data: { user },
+    } = await sb.auth.getUser();
+    if (!user) return new Set();
+    const { data } = await sb
+      .from("aulas_curtidas")
+      .select("aula_id")
+      .eq("user_id", user.id)
+      .in("aula_id", aulaIds);
+    return new Set((data ?? []).map((c: any) => c.aula_id));
+  },
+
+  async alternarCurtida(aulaId: string, jaCurtiu: boolean): Promise<boolean> {
+    const {
+      data: { user },
+    } = await sb.auth.getUser();
+    if (!user) throw new Error("Precisa estar logado.");
+    if (jaCurtiu) {
+      await sb.from("aulas_curtidas").delete().eq("aula_id", aulaId).eq("user_id", user.id);
+      return false;
+    }
+    await sb.from("aulas_curtidas").insert({ aula_id: aulaId, user_id: user.id });
+    return true;
+  },
+
+  async contarCurtidas(aulaIds: string[]): Promise<Record<string, number>> {
+    if (!aulaIds.length) return {};
+    const { data } = await sb.from("aulas_curtidas").select("aula_id").in("aula_id", aulaIds);
+    const c: Record<string, number> = {};
+    (data ?? []).forEach((l: any) => {
+      c[l.aula_id] = (c[l.aula_id] ?? 0) + 1;
+    });
+    return c;
+  },
+
+  // ---- comentarios ----
+  async comentarios(aulaId: string): Promise<AulaComentario[]> {
+    const { data, error } = await sb
+      .from("aulas_comentarios")
+      .select(
+        "id, aula_id, autor_id, conteudo, criado_em, autor:perfis!aulas_comentarios_autor_id_fkey (id, nome, username, avatar_url, nivel)"
+      )
+      .eq("aula_id", aulaId)
+      .order("criado_em", { ascending: true });
+    if (error) throw error;
+    return (data ?? []) as unknown as AulaComentario[];
+  },
+
+  async comentar(aulaId: string, conteudo: string): Promise<AulaComentario> {
+    const {
+      data: { user },
+    } = await sb.auth.getUser();
+    if (!user) throw new Error("Precisa estar logado.");
+    const texto = conteudo.trim();
+    if (!texto) throw new Error("Escreva alguma coisa.");
+    const { data, error } = await sb
+      .from("aulas_comentarios")
+      .insert({ aula_id: aulaId, autor_id: user.id, conteudo: texto })
+      .select(
+        "id, aula_id, autor_id, conteudo, criado_em, autor:perfis!aulas_comentarios_autor_id_fkey (id, nome, username, avatar_url, nivel)"
+      )
+      .single();
+    if (error) throw error;
+    return data as unknown as AulaComentario;
   },
 
   async salvarProgresso(aulaId: string, segundos: number, concluida = false) {
@@ -727,6 +833,73 @@ export const Aulas = {
 // ---------------------------------------------------------------------------
 // STORAGE
 // ---------------------------------------------------------------------------
+export const AulasAdmin = {
+  // A politica do banco ja recusa quem nao e staff. Isto aqui e a comodidade
+  // de ter os comandos num lugar so.
+  async salvarAula(aula: Partial<Aula> & { titulo: string; modulo: string }): Promise<Aula> {
+    const { data, error } = await sb
+      .from("aulas")
+      .upsert(
+        {
+          id: aula.id,
+          modulo: aula.modulo,
+          modulo_ordem: aula.modulo_ordem ?? 1,
+          ordem: aula.ordem ?? 1,
+          titulo: aula.titulo,
+          descricao: aula.descricao ?? null,
+          video_url: aula.video_url ?? null,
+          thumb_url: aula.thumb_url ?? null,
+          duracao_seg: aula.duracao_seg ?? null,
+          publicado: aula.publicado ?? false,
+        },
+        { onConflict: "id" }
+      )
+      .select("*")
+      .single();
+    if (error) throw error;
+    return data as unknown as Aula;
+  },
+
+  async apagarAula(aulaId: string) {
+    const { error } = await sb.from("aulas").delete().eq("id", aulaId);
+    if (error) throw error;
+  },
+
+  async anexarMaterial(
+    aulaId: string,
+    material: { titulo: string; tipo: "arquivo" | "link"; url?: string; arquivo?: File | null; ordem?: number }
+  ): Promise<AulaMaterial> {
+    let url = material.url ?? "";
+    let tamanho: number | null = null;
+
+    if (material.tipo === "arquivo" && material.arquivo) {
+      url = await Storage.enviar("midias", material.arquivo);
+      tamanho = material.arquivo.size;
+    }
+    if (!url) throw new Error("Informe o link ou escolha um arquivo.");
+
+    const { data, error } = await sb
+      .from("aulas_materiais")
+      .insert({
+        aula_id: aulaId,
+        titulo: material.titulo,
+        tipo: material.tipo,
+        url,
+        tamanho_bytes: tamanho,
+        ordem: material.ordem ?? 1,
+      })
+      .select("*")
+      .single();
+    if (error) throw error;
+    return data as unknown as AulaMaterial;
+  },
+
+  async removerMaterial(id: string) {
+    const { error } = await sb.from("aulas_materiais").delete().eq("id", id);
+    if (error) throw error;
+  },
+};
+
 export const Storage = {
   async enviar(bucket: "avatars" | "prints" | "midias", file: File): Promise<string> {
     const {
