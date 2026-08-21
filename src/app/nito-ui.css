@@ -1,0 +1,370 @@
+/* =============================================================================
+   NITO LIVE - sistema visual do ecossistema de membros.
+   Todo seletor esta preso na classe .nito, entao nada vaza para as telas
+   antigas que usam estilo em linha. Importado uma vez em src/app/layout.tsx.
+   ============================================================================= */
+
+.nito{--bg:#040407; --bg2:#07070d; --surf:#0e0e17; --surf2:#14141f; --surf3:#1b1b28;
+  --line:rgba(255,255,255,.07); --line2:rgba(255,255,255,.15);
+  --txt:#f4f5fa; --mut:#9aa0b4; --mut2:#666c80;
+  --red:#ff0f3d; --red2:#ff4b2b; --deep:#8a0020;
+  --gold:#ffc23a; --cyan:#22e6ff; --green:#25e08a; --violet:#a855f7;
+  --grad:linear-gradient(100deg,#ff0f3d,#ff4b2b);
+  --gradgold:linear-gradient(100deg,#ffc23a,#ff8a00);
+  --gradgreen:linear-gradient(100deg,#25e08a,#12b6a0);
+  --disp:var(--font-archivo),"Archivo","Arial Black",system-ui,sans-serif;
+  --body:"Inter","Segoe UI",system-ui,sans-serif;
+  --mono:var(--font-jetbrains),"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
+  --rail:248px; --right:330px;}
+.nito, .nito *{box-sizing:border-box;margin:0;padding:0}
+.nito{background:var(--bg);color:var(--txt);font-family:var(--body);line-height:1.55;-webkit-font-smoothing:antialiased}
+.nito ::selection{background:rgba(255,15,61,.35)}
+.nito :focus-visible{outline:2px solid var(--red);outline-offset:2px;border-radius:6px}
+@media (prefers-reduced-motion:reduce){
+.nito, .nito *{animation:none!important;transition:none!important}
+}
+.nito .eyebrow{font:800 .64rem/1 var(--mono);letter-spacing:.18em;text-transform:uppercase;color:var(--mut2)}
+.nito .h-sec{font:900 1.15rem/1.1 var(--disp);letter-spacing:-.01em;text-transform:uppercase;display:flex;align-items:center;gap:10px}
+.nito .h-sec::before{content:"";width:3px;height:18px;border-radius:2px;background:var(--grad);box-shadow:0 0 12px rgba(255,15,61,.7)}
+.nito .num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.nito .panel{background:linear-gradient(168deg,var(--surf2),var(--surf));border:1px solid var(--line);border-radius:16px;position:relative;overflow:hidden}
+.nito .panel::before{content:"";position:absolute;inset:0 0 auto 0;height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.16),transparent)}
+.nito .pad{padding:20px 22px}
+.nito .row{display:flex;align-items:center;gap:12px}
+.nito .spread{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.nito .muted{color:var(--mut)}
+.nito .tiny{font-size:.78rem}
+.nito .app{display:grid;grid-template-columns:var(--rail) 1fr;min-height:100vh;background:
+  radial-gradient(900px 520px at 18% -8%,rgba(255,15,61,.10),transparent 70%),
+  radial-gradient(700px 460px at 92% 4%,rgba(168,85,247,.055),transparent 72%),
+  var(--bg)}
+.nito .app::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
+  background-image:linear-gradient(rgba(255,255,255,.018) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.018) 1px,transparent 1px);
+  background-size:52px 52px;
+  -webkit-mask-image:radial-gradient(ellipse 80% 60% at 50% 0%,#000 20%,transparent 100%);
+          mask-image:radial-gradient(ellipse 80% 60% at 50% 0%,#000 20%,transparent 100%)}
+.nito .rail{position:sticky;top:0;height:100vh;z-index:3;display:flex;flex-direction:column;gap:14px;padding:20px 14px;
+  background:linear-gradient(180deg,#0a0a12,#06060c);border-right:1px solid var(--line)}
+.nito .logo{display:flex;align-items:center;justify-content:space-between;padding:2px 8px 14px;border-bottom:1px solid var(--line)}
+.nito .logo b{font:900 1.22rem/1 var(--disp);letter-spacing:.02em}
+.nito .logo b i{font-style:normal;color:var(--red);text-shadow:0 0 16px rgba(255,15,61,.7)}
+.nito .tagchip{font:800 .56rem/1 var(--mono);letter-spacing:.14em;padding:5px 8px;border-radius:6px;background:rgba(255,194,58,.12);color:var(--gold);border:1px solid rgba(255,194,58,.35)}
+.nito .nav{display:flex;flex-direction:column;gap:3px;flex:1;overflow:auto}
+.nito .nav button, .nito .nav a{display:flex;text-decoration:none;align-items:center;gap:11px;width:100%;padding:11px 12px;border:0;border-radius:11px;background:transparent;
+  color:var(--mut);font:700 .82rem/1 var(--body);letter-spacing:.01em;text-transform:uppercase;cursor:pointer;transition:.16s;text-align:left;position:relative}
+.nito .nav button svg, .nito .nav a svg{width:17px;height:17px;flex:none;opacity:.8}
+.nito .nav button:hover, .nito .nav a:hover{background:rgba(255,255,255,.04);color:var(--txt)}
+.nito .nav button.on, .nito .nav a.on{color:#fff;background:linear-gradient(90deg,rgba(255,15,61,.22),rgba(255,15,61,.04));box-shadow:inset 0 0 0 1px rgba(255,15,61,.32)}
+.nito .nav button.on::before, .nito .nav a.on::before{content:"";position:absolute;left:0;top:9px;bottom:9px;width:3px;border-radius:0 3px 3px 0;background:var(--grad);box-shadow:0 0 12px var(--red)}
+.nito .nav button.on svg, .nito .nav a.on svg{opacity:1;color:var(--red)}
+.nito .nav .badge{margin-left:auto;font:800 .6rem/1 var(--mono);background:var(--grad);color:#fff;padding:4px 6px;border-radius:20px}
+.nito .player{background:linear-gradient(160deg,rgba(255,194,58,.09),rgba(255,15,61,.06));border:1px solid rgba(255,194,58,.22);border-radius:14px;padding:13px}
+.nito .player .pat{display:flex;align-items:center;gap:9px;margin-bottom:9px}
+.nito .player .medal{width:30px;height:30px;border-radius:9px;background:var(--gradgold);display:grid;place-items:center;color:#231600;font-weight:900;font-size:.82rem;box-shadow:0 0 18px rgba(255,194,58,.35)}
+.nito .player .pnome{font:800 .82rem/1.1 var(--disp);text-transform:uppercase;letter-spacing:.01em}
+.nito .player .pnv{font:700 .6rem/1 var(--mono);color:var(--gold);letter-spacing:.1em}
+.nito .bar{height:7px;border-radius:20px;background:rgba(0,0,0,.5);overflow:hidden;border:1px solid var(--line)}
+.nito .bar i{display:block;height:100%;border-radius:20px;background:var(--gradgold);box-shadow:0 0 14px rgba(255,194,58,.6);width:0;transition:width 1.4s cubic-bezier(.2,.8,.2,1)}
+.nito .player .xp{display:flex;justify-content:space-between;margin-top:7px;font:700 .62rem/1 var(--mono);color:var(--mut)}
+.nito .player .xp b{color:var(--gold)}
+.nito .sair{display:flex;align-items:center;justify-content:center;gap:8px;padding:11px;border-radius:11px;border:1px solid rgba(255,15,61,.3);
+  background:rgba(255,15,61,.07);color:var(--red);font:800 .75rem/1 var(--body);letter-spacing:.08em;text-transform:uppercase;cursor:pointer;transition:.16s}
+.nito .sair:hover{background:rgba(255,15,61,.16)}
+.nito .main{position:relative;z-index:1;min-width:0;display:flex;flex-direction:column}
+.nito .topbar{position:sticky;top:0;z-index:4;display:flex;align-items:center;gap:14px;padding:13px 26px;
+  background:rgba(6,6,12,.82);backdrop-filter:blur(14px);border-bottom:1px solid var(--line)}
+.nito .hello{font:800 .92rem/1.2 var(--disp);text-transform:uppercase;letter-spacing:.01em}
+.nito .hello span{color:var(--mut);font-family:var(--body);font-weight:500;text-transform:none;font-size:.78rem;display:block;letter-spacing:0}
+.nito .stat-min{display:flex;align-items:center;gap:7px;padding:7px 11px;border-radius:10px;background:rgba(255,255,255,.035);border:1px solid var(--line);
+  font:800 .68rem/1 var(--mono);letter-spacing:.06em}
+.nito .stat-min.fire{color:var(--gold);border-color:rgba(255,194,58,.3);background:rgba(255,194,58,.08)}
+.nito .stat-min.cyan-chip{color:var(--cyan);border-color:rgba(34,230,255,.28);background:rgba(34,230,255,.07)}
+.nito .stat-min.xp{color:var(--cyan);border-color:rgba(34,230,255,.28);background:rgba(34,230,255,.07)}
+.nito .avatar{width:34px;height:34px;border-radius:10px;background:var(--grad);display:grid;place-items:center;font:900 .85rem/1 var(--disp);color:#fff}
+.nito .push{margin-left:auto}
+.nito .view{padding:26px;max-width:1440px;width:100%;margin:0 auto;display:none;animation:fade .35s ease}
+.nito .view.on{display:block}
+@keyframes fade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.nito .title-xl{font:900 1.9rem/1.05 var(--disp);letter-spacing:-.025em;text-transform:uppercase;text-wrap:balance}
+.nito .title-xl em{font-style:normal;background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+.nito .sub{color:var(--mut);font-size:.92rem;margin-top:6px;max-width:62ch}
+.nito .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px;margin:22px 0}
+.nito .kpi{padding:17px 18px}
+.nito .kpi .lab{font:800 .6rem/1 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--mut2);display:flex;align-items:center;gap:7px}
+.nito .kpi .val{font:900 1.68rem/1 var(--disp);margin:11px 0 5px;font-variant-numeric:tabular-nums}
+.nito .kpi .dt{font:700 .68rem/1 var(--mono);color:var(--mut)}
+.nito .kpi.money .val{color:var(--green)}
+.nito .kpi.gold .val{color:var(--gold)}
+.nito .kpi.red .val{color:var(--red)}
+.nito .kpi.cyan .val{color:var(--cyan)}
+.nito .spark{margin-top:11px;height:34px;width:100%;display:block}
+.nito .grid2{display:grid;grid-template-columns:1.55fr 1fr;gap:16px;align-items:start}
+.nito .grid3{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:14px}
+.nito .stack{display:flex;flex-direction:column;gap:16px}
+.nito .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:11px 17px;border:0;border-radius:11px;cursor:pointer;
+  font:800 .76rem/1 var(--body);letter-spacing:.06em;text-transform:uppercase;transition:.18s;text-decoration:none}
+.nito .btn.p{background:var(--grad);color:#fff;box-shadow:0 8px 24px rgba(255,15,61,.3)}
+.nito .btn.p:hover{transform:translateY(-2px);box-shadow:0 14px 34px rgba(255,15,61,.45)}
+.nito .btn.g{background:transparent;color:var(--mut);border:1px solid var(--line2)}
+.nito .btn.g:hover{color:var(--txt);border-color:var(--txt)}
+.nito .btn.gold{background:var(--gradgold);color:#241700}
+.nito .btn.wa{background:var(--gradgreen);color:#03291c}
+.nito .missao{display:flex;align-items:center;gap:13px;padding:13px 0;border-bottom:1px solid var(--line)}
+.nito .missao:last-child{border-bottom:0;padding-bottom:0}
+.nito .missao .ic{width:36px;height:36px;border-radius:10px;display:grid;place-items:center;font-size:1rem;flex:none;
+  background:rgba(255,255,255,.05);border:1px solid var(--line)}
+.nito .missao.ok .ic{background:rgba(37,224,138,.14);border-color:rgba(37,224,138,.4);color:var(--green)}
+.nito .missao .txt{flex:1;min-width:0}
+.nito .missao .txt b{display:block;font-size:.86rem;font-weight:700}
+.nito .missao .txt span{font:700 .66rem/1.4 var(--mono);color:var(--mut2)}
+.nito .missao .rec{font:800 .68rem/1 var(--mono);color:var(--gold);white-space:nowrap}
+.nito .missao .minibar{height:5px;border-radius:20px;background:rgba(0,0,0,.5);margin-top:6px;overflow:hidden}
+.nito .missao .minibar i{display:block;height:100%;background:var(--grad);border-radius:20px}
+.nito .missao.ok .minibar i{background:var(--gradgreen)}
+.nito .podio{display:grid;grid-template-columns:1fr 1fr 1fr;gap:9px;align-items:end;margin-bottom:16px}
+.nito .pod{background:linear-gradient(180deg,rgba(255,255,255,.05),transparent);border:1px solid var(--line);border-radius:12px;padding:12px 8px;text-align:center}
+.nito .pod .av{width:38px;height:38px;border-radius:11px;margin:0 auto 8px;display:grid;place-items:center;font:900 .9rem/1 var(--disp);color:#fff;background:var(--surf3)}
+.nito .pod b{display:block;font-size:.74rem;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nito .pod span{font:800 .62rem/1 var(--mono);color:var(--mut2)}
+.nito .pod.p1{border-color:rgba(255,194,58,.45);background:linear-gradient(180deg,rgba(255,194,58,.14),transparent);padding-bottom:20px}
+.nito .pod.p1 .av{background:var(--gradgold);color:#241700;box-shadow:0 0 22px rgba(255,194,58,.4)}
+.nito .pod.p1 span{color:var(--gold)}
+.nito .pod.p2 .av{background:linear-gradient(100deg,#cfd6e6,#8d97ad);color:#12141c}
+.nito .pod.p3 .av{background:linear-gradient(100deg,#d08b4f,#8a5626);color:#1c1006}
+.nito .rank-row{display:flex;align-items:center;gap:11px;padding:9px 0;border-bottom:1px solid var(--line)}
+.nito .rank-row:last-child{border-bottom:0}
+.nito .rank-row .pos{width:22px;font:800 .74rem/1 var(--mono);color:var(--mut2);text-align:center}
+.nito .rank-row .av{width:29px;height:29px;border-radius:9px;background:var(--surf3);display:grid;place-items:center;font:800 .72rem/1 var(--disp)}
+.nito .rank-row .nm{flex:1;min-width:0;font-size:.82rem;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nito .rank-row .pt{font:800 .72rem/1 var(--mono);color:var(--gold)}
+.nito .rank-row.eu{background:rgba(255,15,61,.08);margin:0 -10px;padding:9px 10px;border-radius:9px;border-bottom:0}
+.nito .rank-row.eu .nm{color:var(--red)}
+.nito .mural{display:flex;flex-direction:column;gap:8px;max-height:296px;overflow:hidden;position:relative}
+.nito .mural::after{content:"";position:absolute;bottom:0;left:0;right:0;height:48px;background:linear-gradient(transparent,var(--surf));pointer-events:none}
+.nito .venda{display:flex;align-items:center;gap:10px;padding:9px 11px;border-radius:11px;background:rgba(37,224,138,.055);border:1px solid rgba(37,224,138,.2);animation:slidein .5s ease}
+@keyframes slidein{from{opacity:0;transform:translateX(-10px)}to{opacity:1;transform:none}}
+.nito .venda .cif{width:27px;height:27px;border-radius:50%;background:var(--gradgreen);display:grid;place-items:center;font-weight:900;font-size:.72rem;color:#03291c;flex:none}
+.nito .venda .who{flex:1;min-width:0;font-size:.79rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nito .venda .who b{font-weight:700}
+.nito .venda .vl{font:800 .76rem/1 var(--mono);color:var(--green)}
+.nito .filtros{display:flex;gap:7px;flex-wrap:wrap;margin:18px 0}
+.nito .filtros button{padding:9px 15px;border-radius:10px;border:1px solid var(--line);background:rgba(255,255,255,.03);color:var(--mut);
+  font:700 .76rem/1 var(--body);cursor:pointer;transition:.16s}
+.nito .filtros button:hover{color:var(--txt)}
+.nito .filtros button.on{background:var(--grad);color:#fff;border-color:transparent;box-shadow:0 6px 18px rgba(255,15,61,.3)}
+.nito .post{padding:18px 20px;margin-bottom:13px}
+.nito .post .head{display:flex;align-items:center;gap:11px;margin-bottom:12px}
+.nito .post .av{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;font:900 .92rem/1 var(--disp);color:#fff;flex:none}
+.nito .post .who b{font-size:.88rem;font-weight:700;display:flex;align-items:center;gap:7px}
+.nito .post .who span{font:700 .64rem/1 var(--mono);color:var(--mut2);letter-spacing:.06em}
+.nito .pat-chip{font:800 .56rem/1 var(--mono);letter-spacing:.1em;padding:4px 7px;border-radius:5px;text-transform:uppercase}
+.nito .pat-chip.g{background:rgba(255,194,58,.14);color:var(--gold);border:1px solid rgba(255,194,58,.32)}
+.nito .pat-chip.c{background:rgba(34,230,255,.12);color:var(--cyan);border:1px solid rgba(34,230,255,.3)}
+.nito .pat-chip.v{background:rgba(168,85,247,.14);color:var(--violet);border:1px solid rgba(168,85,247,.32)}
+.nito .pat-chip.r{background:rgba(255,15,61,.14);color:var(--red);border:1px solid rgba(255,15,61,.34)}
+.nito .post .corpo{font-size:.92rem;color:#dfe2ea;margin-bottom:13px}
+.nito .post .corpo b{color:#fff}
+.nito .print{border-radius:12px;border:1px solid var(--line);background:linear-gradient(150deg,#0b1a12,#08120d);padding:16px;margin-bottom:13px;
+  display:flex;align-items:center;justify-content:space-between;gap:14px}
+.nito .print .big{font:900 1.5rem/1 var(--disp);color:var(--green);font-variant-numeric:tabular-nums}
+.nito .print .lab{font:800 .6rem/1 var(--mono);letter-spacing:.14em;color:var(--mut2);text-transform:uppercase;margin-bottom:6px}
+.nito .acoes{display:flex;gap:6px;padding-top:12px;border-top:1px solid var(--line)}
+.nito .acoes button{display:flex;align-items:center;gap:7px;padding:8px 13px;border-radius:9px;border:0;background:transparent;color:var(--mut);
+  font:700 .76rem/1 var(--body);cursor:pointer;transition:.16s}
+.nito .acoes button:hover{background:rgba(255,255,255,.05);color:var(--txt)}
+.nito .acoes button.liked{color:var(--red)}
+.nito .trilha{display:grid;grid-template-columns:repeat(auto-fill,minmax(268px,1fr));gap:15px}
+.nito .aula{overflow:hidden;transition:.2s;cursor:pointer}
+.nito .aula:hover{transform:translateY(-3px);border-color:var(--line2)}
+.nito .aula .thumb{aspect-ratio:16/9;position:relative;display:grid;place-items:center;
+  background:linear-gradient(150deg,#1a0a12,#0a0a12);border-bottom:1px solid var(--line)}
+.nito .aula .thumb .play{width:46px;height:46px;border-radius:50%;background:var(--grad);display:grid;place-items:center;box-shadow:0 0 26px rgba(255,15,61,.5)}
+.nito .aula .thumb .dur{position:absolute;right:9px;bottom:9px;font:700 .62rem/1 var(--mono);background:rgba(0,0,0,.75);padding:4px 7px;border-radius:5px}
+.nito .aula .thumb .mod{position:absolute;left:9px;top:9px;font:800 .56rem/1 var(--mono);letter-spacing:.1em;background:rgba(0,0,0,.7);border:1px solid var(--line2);padding:5px 8px;border-radius:5px;color:var(--mut)}
+.nito .aula .info{padding:14px 15px}
+.nito .aula .info b{display:block;font-size:.88rem;font-weight:700;margin-bottom:5px}
+.nito .aula .info .meta{display:flex;justify-content:space-between;align-items:center;font:700 .64rem/1 var(--mono);color:var(--mut2);margin-top:10px}
+.nito .aula .info .meta .xpg{color:var(--gold)}
+.nito .aula.done .thumb{background:linear-gradient(150deg,#07160f,#0a0a12)}
+.nito .aula.done .thumb .play{background:var(--gradgreen);box-shadow:0 0 26px rgba(37,224,138,.4)}
+.nito .aula.lock{opacity:.5}
+.nito .aula.lock .thumb .play{background:var(--surf3);box-shadow:none}
+.nito .tabela-wrap{overflow-x:auto}
+.nito table{width:100%;border-collapse:collapse;min-width:640px}
+.nito th{font:800 .6rem/1 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--mut2);text-align:left;padding:11px 14px;border-bottom:1px solid var(--line)}
+.nito td{padding:13px 14px;border-bottom:1px solid rgba(255,255,255,.04);font-size:.85rem}
+.nito tr:last-child td{border-bottom:0}
+.nito tbody tr{transition:.14s}
+.nito tbody tr:hover{background:rgba(255,255,255,.025)}
+.nito td.v{font-family:var(--mono);font-weight:700;color:var(--green);font-variant-numeric:tabular-nums}
+.nito .pill{display:inline-flex;align-items:center;gap:6px;font:800 .6rem/1 var(--mono);letter-spacing:.08em;padding:5px 9px;border-radius:20px;text-transform:uppercase}
+.nito .pill.ok{background:rgba(37,224,138,.13);color:var(--green);border:1px solid rgba(37,224,138,.3)}
+.nito .pill.wait{background:rgba(255,194,58,.13);color:var(--gold);border:1px solid rgba(255,194,58,.3)}
+.nito .pill.no{background:rgba(255,15,61,.13);color:var(--red);border:1px solid rgba(255,15,61,.3)}
+.nito .conq{display:grid;grid-template-columns:repeat(auto-fill,minmax(132px,1fr));gap:11px}
+.nito .medalha{aspect-ratio:1;border-radius:14px;border:1px solid var(--line);background:linear-gradient(160deg,var(--surf2),var(--surf));
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;padding:12px;text-align:center;transition:.2s}
+.nito .medalha .em{font-size:1.6rem;filter:grayscale(1);opacity:.32}
+.nito .medalha b{font-size:.7rem;font-weight:700;line-height:1.25}
+.nito .medalha span{font:700 .56rem/1 var(--mono);color:var(--mut2)}
+.nito .medalha.got{border-color:rgba(255,194,58,.35);background:linear-gradient(160deg,rgba(255,194,58,.11),rgba(255,15,61,.04));box-shadow:0 0 24px rgba(255,194,58,.09)}
+.nito .medalha.got .em{filter:none;opacity:1}
+.nito .medalha.got span{color:var(--gold)}
+.nito .passo{display:flex;gap:15px;padding:18px 0;border-bottom:1px solid var(--line)}
+.nito .passo:last-child{border-bottom:0}
+.nito .passo .n{width:34px;height:34px;border-radius:10px;flex:none;display:grid;place-items:center;font:900 .84rem/1 var(--disp);
+  background:rgba(255,15,61,.13);border:1px solid rgba(255,15,61,.32);color:var(--red)}
+.nito .passo .c{flex:1;min-width:0}
+.nito .passo .c b{display:block;font-size:.94rem;font-weight:700;margin-bottom:4px}
+.nito .token{font:700 .74rem/1.5 var(--mono);background:rgba(0,0,0,.5);border:1px solid var(--line);border-radius:10px;padding:12px 14px;
+  color:var(--cyan);word-break:break-all;margin-top:11px}
+.nito .online-row{display:flex;align-items:center;gap:10px;padding:8px 0}
+.nito .online-row .av{width:29px;height:29px;border-radius:9px;background:var(--surf3);display:grid;place-items:center;font:800 .72rem/1 var(--disp);position:relative}
+.nito .online-row .av::after{content:"";position:absolute;right:-2px;bottom:-2px;width:9px;height:9px;border-radius:50%;background:var(--green);border:2px solid var(--surf);box-shadow:0 0 8px var(--green)}
+.nito .online-row .nm{font-size:.82rem;font-weight:600}
+.nito .online-row .st{font:700 .6rem/1 var(--mono);color:var(--green)}
+.nito .chat-box{display:flex;flex-direction:column;gap:9px;height:230px;overflow:hidden;padding-right:4px}
+.nito .msg{display:flex;gap:9px}
+.nito .msg .av{width:27px;height:27px;border-radius:8px;display:grid;place-items:center;font:800 .68rem/1 var(--disp);color:#fff;flex:none}
+.nito .msg .bal{background:rgba(255,255,255,.045);border:1px solid var(--line);border-radius:11px;padding:8px 11px;flex:1;min-width:0}
+.nito .msg .bal b{font-size:.74rem;font-weight:700;color:var(--red)}
+.nito .msg .bal p{font-size:.82rem;color:#dfe2ea}
+.nito .chat-input{display:flex;gap:8px;margin-top:11px}
+.nito .chat-input input{flex:1;padding:11px 13px;border-radius:10px;background:rgba(0,0,0,.42);border:1px solid var(--line);color:var(--txt);font-family:inherit;font-size:.85rem;outline:0}
+.nito .chat-input input:focus{border-color:rgba(255,15,61,.55)}
+.nito .chat-input button{width:42px;border-radius:10px;border:0;background:var(--grad);color:#fff;cursor:pointer;display:grid;place-items:center}
+.nito .vazio{display:flex;flex-direction:column;align-items:center;text-align:center;padding:44px 24px}
+.nito .vazio img{width:150px;filter:drop-shadow(0 0 34px rgba(255,15,61,.4));animation:flut 5.5s ease-in-out infinite}
+@keyframes flut{0%,100%{transform:translateY(0)}50%{transform:translateY(-11px)}}
+.nito .robo-hero{width:86px;height:auto;filter:drop-shadow(0 0 26px rgba(255,15,61,.45));animation:flut 5.5s ease-in-out infinite}
+@media(max-width:880px){
+.nito .robo-hero{display:none}
+}
+.nito .vazio b{display:block;font:900 1.12rem/1.2 var(--disp);text-transform:uppercase;margin:16px 0 7px}
+.nito .vazio p{color:var(--mut);font-size:.88rem;max-width:44ch;margin-bottom:18px}
+.nito .perfil-head{display:flex;gap:20px;align-items:center;flex-wrap:wrap}
+.nito .perfil-head .foto{width:88px;height:88px;border-radius:22px;background:var(--grad);display:grid;place-items:center;color:#fff;
+  box-shadow:0 0 34px rgba(255,15,61,.35);flex:none;border:0;cursor:pointer;position:relative;overflow:hidden;padding:0;font-family:inherit}
+.nito .perfil-head .foto .ini{font:900 2rem/1 var(--disp)}
+.nito .perfil-head .foto .cam{position:absolute;inset:0;display:grid;place-items:center;font-size:1.5rem;background:rgba(0,0,0,.62);opacity:0;transition:.18s}
+.nito .perfil-head .foto:hover .cam, .nito .perfil-head .foto:focus-visible .cam{opacity:1}
+.nito .campo{margin-bottom:15px}
+.nito .campo label{display:block;font:800 .62rem/1 var(--mono);letter-spacing:.13em;text-transform:uppercase;color:var(--mut);margin-bottom:7px}
+.nito .campo input, .nito .campo textarea{width:100%;padding:12px 14px;border-radius:11px;background:rgba(0,0,0,.42);border:1px solid var(--line);
+  color:var(--txt);font-family:inherit;font-size:.88rem;outline:0;transition:.16s;resize:vertical}
+.nito .campo input:focus, .nito .campo textarea:focus{border-color:rgba(255,15,61,.55);box-shadow:0 0 0 3px rgba(255,15,61,.11)}
+.nito .sub-view{display:none;animation:fade .3s ease}
+.nito .sub-view.on{display:block}
+.nito .dot-live{width:6px;height:6px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green);display:inline-block;margin-left:5px;animation:pulseg 1.6s infinite}
+@keyframes pulseg{0%,100%{opacity:1}50%{opacity:.3}}
+.nito .avisoadmin{display:flex;align-items:center;gap:13px;margin-bottom:14px;border-color:rgba(255,15,61,.24);background:linear-gradient(160deg,rgba(255,15,61,.08),var(--surf))}
+.nito .avisoadmin .lock-ic{font-size:1.2rem}
+.nito .avisoadmin b{display:block;font-size:.9rem}
+.nito .avisoadmin span{font-size:.82rem;color:var(--mut)}
+.nito .compositor{margin-bottom:15px}
+.nito .compositor textarea{width:100%;margin-top:11px;padding:12px 14px;border-radius:11px;background:rgba(0,0,0,.42);border:1px solid var(--line);
+  color:var(--txt);font-family:inherit;font-size:.88rem;outline:0;resize:vertical}
+.nito .compositor textarea:focus{border-color:rgba(255,15,61,.5)}
+.nito .regra{font:700 .68rem/1.4 var(--mono);color:var(--gold)}
+.nito .regra.muted{color:var(--mut2)}
+.nito .check{display:flex;align-items:center;gap:8px;font-size:.8rem;color:var(--mut);cursor:pointer}
+.nito .check input{accent-color:var(--red);width:15px;height:15px}
+.nito .dropzone{border:1.5px dashed rgba(255,15,61,.35);border-radius:13px;padding:24px 16px;text-align:center;background:rgba(255,15,61,.04);cursor:pointer;transition:.18s}
+.nito .dropzone:hover{background:rgba(255,15,61,.08);border-color:rgba(255,15,61,.6)}
+.nito .dz-ic{font-size:1.7rem;margin-bottom:7px}
+.nito .dropzone b{display:block;font-size:.9rem;margin-bottom:3px}
+.nito .dropzone span{font-size:.78rem;color:var(--mut2)}
+.nito .btn:disabled{opacity:.4;cursor:not-allowed;box-shadow:none;transform:none}
+.nito .foto-post{aspect-ratio:16/10;border-radius:13px;border:1px solid var(--line);background:linear-gradient(150deg,#161020,#0b0b12);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;color:var(--mut2)}
+.nito .fp-ic{font-size:2rem;opacity:.5}
+.nito .foto-post span{font:700 .68rem/1 var(--mono);letter-spacing:.1em;text-transform:uppercase}
+.nito .chat-full{flex:1;overflow:auto;padding:16px 18px;display:flex;flex-direction:column;gap:13px}
+.nito .chat-full .bal{position:relative;padding-bottom:20px}
+.nito .chat-full .bal time{position:absolute;right:11px;bottom:6px;font:700 .58rem/1 var(--mono);color:var(--mut2)}
+.nito .msg.eu{flex-direction:row-reverse}
+.nito .msg.eu .bal{background:rgba(255,15,61,.1);border-color:rgba(255,15,61,.28)}
+.nito .msg.eu .bal b{color:var(--txt)}
+.nito .mention{color:var(--cyan);background:rgba(34,230,255,.12);padding:1px 5px;border-radius:4px;font-weight:600}
+.nito .anexo{display:flex;align-items:center;gap:10px;margin:7px 0;padding:9px 11px;border-radius:10px;background:rgba(0,0,0,.42);border:1px solid var(--line)}
+.nito .anexo .ph{width:38px;height:38px;border-radius:8px;display:grid;place-items:center;font-size:1.1rem;flex:none;background:var(--surf3)}
+.nito .anexo.video .ph{background:rgba(255,15,61,.18);color:var(--red)}
+.nito .anexo b{display:block;font-size:.76rem;font-weight:700}
+.nito .anexo span{font:700 .62rem/1 var(--mono);color:var(--mut2)}
+.nito .digitando{display:flex;align-items:center;gap:4px;font:700 .68rem/1 var(--mono);color:var(--mut2);padding-left:37px}
+.nito .digitando span{width:5px;height:5px;border-radius:50%;background:var(--mut2);animation:bump 1.2s infinite}
+.nito .digitando span:nth-child(2){animation-delay:.15s}
+.nito .digitando span:nth-child(3){animation-delay:.3s;margin-right:6px}
+@keyframes bump{0%,60%,100%{transform:translateY(0);opacity:.4}30%{transform:translateY(-4px);opacity:1}}
+.nito .chat-barra{display:flex;gap:8px;align-items:center;padding:13px 16px;border-top:1px solid var(--line);background:rgba(0,0,0,.25)}
+.nito .chat-barra input{flex:1;padding:11px 13px;border-radius:11px;background:rgba(0,0,0,.45);border:1px solid var(--line);color:var(--txt);font-family:inherit;font-size:.86rem;outline:0}
+.nito .chat-barra input:focus{border-color:rgba(255,15,61,.5)}
+.nito .chat-barra .anx{width:38px;height:38px;border-radius:10px;border:1px solid var(--line);background:rgba(255,255,255,.04);cursor:pointer;font-size:1rem;flex:none}
+.nito .chat-barra .anx:hover{background:rgba(255,255,255,.09)}
+.nito .chat-barra .env{width:42px;height:38px;border-radius:11px;border:0;background:var(--grad);color:#fff;cursor:pointer;display:grid;place-items:center;flex:none}
+.nito .enquete{border:1px solid var(--line);border-radius:13px;padding:15px;margin-bottom:13px;background:rgba(0,0,0,.28)}
+.nito .eq-lab{font:800 .62rem/1 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--mut2);margin-bottom:11px}
+.nito .eq-op{position:relative;height:38px;border-radius:9px;overflow:hidden;background:rgba(255,255,255,.045);margin-bottom:8px;display:flex;align-items:center;padding:0 13px}
+.nito .eq-op i{position:absolute;left:0;top:0;bottom:0;border-radius:9px}
+.nito .eq-op.sim i{background:linear-gradient(90deg,rgba(37,224,138,.32),rgba(37,224,138,.14))}
+.nito .eq-op.nao i{background:linear-gradient(90deg,rgba(255,15,61,.3),rgba(255,15,61,.12))}
+.nito .eq-op span{position:relative;font-size:.85rem;font-weight:700}
+.nito .eq-op b{position:relative;margin-left:auto;font-family:var(--mono);font-size:.8rem}
+.nito .eq-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:11px;font:700 .7rem/1.4 var(--mono);color:var(--mut2);flex-wrap:wrap}
+.nito .admin-bar{display:flex;align-items:center;gap:12px;padding:14px 18px;border-radius:14px;margin-bottom:18px;
+  border:1px solid rgba(255,194,58,.3);background:linear-gradient(160deg,rgba(255,194,58,.09),var(--surf))}
+.nito .admin-bar .tag{font:800 .58rem/1 var(--mono);letter-spacing:.12em;padding:5px 9px;border-radius:6px;background:var(--gradgold);color:#241700}
+.nito .admin-bar b{font-size:.86rem}
+.nito .admin-bar .push-a{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap}
+.nito .material{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;background:rgba(0,0,0,.35);border:1px solid var(--line);margin-bottom:8px}
+.nito .material .mi{width:32px;height:32px;border-radius:8px;display:grid;place-items:center;background:var(--surf3);font-size:.9rem;flex:none}
+.nito .material b{display:block;font-size:.8rem;font-weight:700}
+.nito .material span{font:700 .62rem/1 var(--mono);color:var(--mut2)}
+.nito .material .go{margin-left:auto;font:800 .64rem/1 var(--mono);color:var(--cyan)}
+.nito .periodo{display:inline-flex;gap:4px;padding:4px;border-radius:11px;background:rgba(0,0,0,.4);border:1px solid var(--line)}
+.nito .periodo button{padding:8px 14px;border-radius:8px;border:0;background:transparent;color:var(--mut);font:800 .7rem/1 var(--body);letter-spacing:.04em;text-transform:uppercase;cursor:pointer;transition:.16s}
+.nito .periodo button:hover{color:var(--txt)}
+.nito .periodo button.on{background:var(--grad);color:#fff}
+.nito .prod{display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--line)}
+.nito .prod:last-child{border-bottom:0}
+.nito .prod .pos{width:24px;font:900 .82rem/1 var(--disp);color:var(--mut2);text-align:center}
+.nito .prod .nm{flex:1;min-width:0}
+.nito .prod .nm b{display:block;font-size:.84rem;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nito .prod .nm .qtd{font:700 .64rem/1 var(--mono);color:var(--mut2)}
+.nito .prod .vl{font:800 .82rem/1 var(--mono);color:var(--green)}
+.nito .prod .barp{height:4px;border-radius:20px;background:rgba(255,255,255,.06);margin-top:6px;overflow:hidden}
+.nito .prod .barp i{display:block;height:100%;background:var(--gradgreen);border-radius:20px}
+.nito .ticket{display:flex;align-items:center;gap:13px;padding:14px 16px;border-radius:13px;border:1px solid var(--line);background:rgba(255,255,255,.025);margin-bottom:10px;cursor:pointer;transition:.16s}
+.nito .ticket:hover{border-color:var(--line2);background:rgba(255,255,255,.05)}
+.nito .ticket .tid{font:800 .68rem/1 var(--mono);color:var(--mut2);flex:none}
+.nito .ticket .tt{flex:1;min-width:0}
+.nito .ticket .tt b{display:block;font-size:.86rem;font-weight:700}
+.nito .ticket .tt span{font:700 .64rem/1 var(--mono);color:var(--mut2)}
+.nito .ticket.aberto{border-color:rgba(255,194,58,.3)}
+.nito .ticket.andamento{border-color:rgba(34,230,255,.3)}
+@media (max-width:1180px){
+.nito .grid2{grid-template-columns:1fr}
+}
+@media (max-width:1000px){
+.nito{--rail:206px}
+.nito .nav button, .nito .nav a{padding:10px;font-size:.76rem;gap:9px}
+.nito .view{padding:20px 16px}
+.nito .title-xl{font-size:1.6rem}
+}
+@media (max-width:760px){
+.nito{--rail:178px}
+.nito .rail{padding:14px 9px;gap:11px}
+.nito .logo b{font-size:1rem}
+.nito .tagchip{font-size:.5rem;padding:4px 6px}
+.nito .nav button, .nito .nav a{padding:9px 8px;font-size:.7rem;letter-spacing:0}
+.nito .nav button svg, .nito .nav a svg{width:15px;height:15px}
+.nito .player{padding:10px}
+.nito .player .medal{width:26px;height:26px;font-size:.72rem}
+.nito .player .pnome{font-size:.72rem}
+.nito .topbar{padding:11px 14px}
+.nito .hello{font-size:.8rem}
+.nito .hello span{display:none}
+.nito .view{padding:16px 12px}
+.nito .title-xl{font-size:1.35rem}
+.nito .cards{grid-template-columns:1fr;gap:11px}
+}
