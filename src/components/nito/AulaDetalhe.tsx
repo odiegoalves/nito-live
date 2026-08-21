@@ -11,14 +11,30 @@ import { Aulas, AulasAdmin, Aula, AulaMaterial, AulaComentario, Fmt } from "@/li
 import { iniciais } from "@/lib/nito-gamificacao";
 import { Icone } from "./NitoIcones";
 
-// Converte link do YouTube / Vimeo no endereco que da para embutir.
+// Descobre como tocar o endereco que o administrador colou.
+// Aceita YouTube, Vimeo, os players de curso (Panda, Bunny, Cakto), qualquer
+// pagina de incorporacao, e arquivo de video direto.
 export function paraEmbed(url?: string | null): { tipo: "iframe" | "video" | null; src: string } {
-  if (!url) return { tipo: null, src: "" };
-  const yt = url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|live\/)|youtu\.be\/)([\w-]{6,})/);
-  if (yt) return { tipo: "iframe", src: `https://www.youtube.com/embed/${yt[1]}` };
-  const vm = url.match(/vimeo\.com\/(?:video\/)?(\d+)/);
+  const limpo = (url ?? "").trim();
+  if (!limpo) return { tipo: null, src: "" };
+
+  // Se colaram o <iframe ...> inteiro, aproveita o endereco de dentro.
+  const dentroDoIframe = limpo.match(/<iframe[^>]+src=["']([^"']+)["']/i);
+  const alvo = dentroDoIframe ? dentroDoIframe[1] : limpo;
+
+  const yt = alvo.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|live\/)|youtu\.be\/)([\w-]{6,})/);
+  if (yt) return { tipo: "iframe", src: `https://www.youtube.com/embed/${yt[1]}?rel=0&playsinline=1` };
+
+  const vm = alvo.match(/vimeo\.com\/(?:video\/)?(\d+)/);
   if (vm) return { tipo: "iframe", src: `https://player.vimeo.com/video/${vm[1]}` };
-  return { tipo: "video", src: url };
+
+  // Arquivo de video direto (Bunny, Cakto, Supabase, servidor proprio...).
+  if (/\.(mp4|webm|ogg|mov|m3u8)(\?|$)/i.test(alvo)) return { tipo: "video", src: alvo };
+
+  // Qualquer outro player de incorporacao: Panda, Bunny iframe, Cakto etc.
+  if (/^https?:\/\//i.test(alvo)) return { tipo: "iframe", src: alvo };
+
+  return { tipo: null, src: "" };
 }
 
 function tamanho(bytes?: number | null) {
@@ -139,7 +155,15 @@ export function AulaDetalhe({
             </div>
           )}
           {video.tipo === "video" && (
-            <video src={video.src} controls style={{ width: "100%", borderRadius: 13, border: "1px solid var(--line)", display: "block" }} />
+            <video
+              src={video.src}
+              controls
+              controlsList="nodownload noplaybackrate"
+              disablePictureInPicture
+              onContextMenu={(e) => e.preventDefault()}
+              playsInline
+              style={{ width: "100%", borderRadius: 13, border: "1px solid var(--line)", display: "block", background: "#000" }}
+            />
           )}
           {!video.tipo && (
             <div className="foto-post" style={{ aspectRatio: "16/9" }}>

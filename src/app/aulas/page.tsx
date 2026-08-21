@@ -246,8 +246,11 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
                 <input
                   value={form.video_url}
                   onChange={(e) => setForm({ ...form, video_url: e.target.value })}
-                  placeholder="https://youtube.com/watch?v=…"
+                  placeholder="cole o link ou o código de incorporação"
                 />
+                <span className="tiny muted" style={{ display: "block", marginTop: 6 }}>
+                  Aceita YouTube, Vimeo, Panda, Bunny, arquivo .mp4 ou o &lt;iframe&gt; inteiro copiado de outra plataforma.
+                </span>
               </div>
               <div className="campo">
                 <label>Duração em segundos</label>
