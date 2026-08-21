@@ -147,11 +147,22 @@ export interface Venda {
   criado_em: string;
 }
 
+export interface Modulo {
+  id: string;
+  nome: string;
+  descricao?: string | null;
+  ordem: number;
+  criado_em: string;
+}
+
 export interface Aula {
   id: string;
   modulo: string;
   // Ordem em que o MODULO aparece na trilha (os dois vieram na migracao 10).
   modulo_ordem?: number;
+  // Vinculo com a tabela de modulos (migracao 13). O texto `modulo` continua
+  // preenchido para nao quebrar o que ja existia.
+  modulo_id?: string | null;
   // Aula que precisa estar concluida para esta liberar. Ainda nao usado na tela.
   liberada_apos?: string | null;
   ordem: number;
@@ -852,6 +863,47 @@ export const Aulas = {
 // ---------------------------------------------------------------------------
 // STORAGE
 // ---------------------------------------------------------------------------
+export const Modulos = {
+  async listar(): Promise<Modulo[]> {
+    const { data, error } = await sb
+      .from("aulas_modulos")
+      .select("*")
+      .order("ordem", { ascending: true })
+      .order("criado_em", { ascending: true });
+    if (error) throw error;
+    return (data as Modulo[]) ?? [];
+  },
+
+  async salvar(m: { id?: string; nome: string; ordem?: number; descricao?: string }): Promise<Modulo> {
+    const { data, error } = await sb
+      .from("aulas_modulos")
+      .upsert(
+        { id: m.id, nome: m.nome.trim(), ordem: m.ordem ?? 1, descricao: m.descricao ?? null },
+        { onConflict: "id" }
+      )
+      .select("*")
+      .single();
+    if (error) throw error;
+    return data as unknown as Modulo;
+  },
+
+  // Quantas aulas dependem deste modulo. A tela usa isso para avisar antes
+  // de apagar - modulo cheio nao some sem a pessoa saber o que perde.
+  async quantasAulas(moduloId: string): Promise<number> {
+    const { count, error } = await sb
+      .from("aulas")
+      .select("id", { count: "exact", head: true })
+      .eq("modulo_id", moduloId);
+    if (error) throw error;
+    return count ?? 0;
+  },
+
+  async apagar(moduloId: string) {
+    const { error } = await sb.from("aulas_modulos").delete().eq("id", moduloId);
+    if (error) throw error;
+  },
+};
+
 export const AulasAdmin = {
   // A politica do banco ja recusa quem nao e staff. Isto aqui e a comodidade
   // de ter os comandos num lugar so.
@@ -862,6 +914,7 @@ export const AulasAdmin = {
         {
           id: aula.id,
           modulo: aula.modulo,
+          modulo_id: aula.modulo_id ?? null,
           modulo_ordem: aula.modulo_ordem ?? 1,
           ordem: aula.ordem ?? 1,
           titulo: aula.titulo,

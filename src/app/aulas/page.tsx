@@ -14,7 +14,9 @@ import { Icone } from "@/components/nito/NitoIcones";
 import {
   Aulas,
   AulasAdmin,
+  Modulos,
   Aula,
+  Modulo,
   AulaMaterial,
   AulaProgresso,
   Perfil,
@@ -30,6 +32,7 @@ function duracao(seg?: number | null) {
 const AULA_VAZIA = {
   id: undefined as string | undefined,
   modulo: "",
+  modulo_id: "" as string,
   modulo_ordem: 1,
   ordem: 1,
   titulo: "",
@@ -43,6 +46,10 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
   const admin = ehAdmin(perfil);
 
   const [aulas, setAulas] = useState<Aula[]>([]);
+  const [modulos, setModulos] = useState<Modulo[]>([]);
+  const [gerenciandoModulos, setGerenciandoModulos] = useState(false);
+  const [novoModulo, setNovoModulo] = useState("");
+  const [avisoModulo, setAvisoModulo] = useState<string | null>(null);
   const [progresso, setProgresso] = useState<Record<string, AulaProgresso>>({});
   const [materiais, setMateriais] = useState<Record<string, AulaMaterial[]>>({});
   const [curtidas, setCurtidas] = useState<Record<string, number>>({});
@@ -58,8 +65,9 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
   const carregar = useCallback(async () => {
     setCarregando(true);
     try {
-      const lista = await Aulas.listar(admin);
+      const [lista, mods] = await Promise.all([Aulas.listar(admin), Modulos.listar()]);
       setAulas(lista);
+      setModulos(mods);
       const ids = lista.map((a) => a.id);
       const [prog, mats, cont, minhas] = await Promise.all([
         Aulas.meuProgresso(),
@@ -82,16 +90,30 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
     carregar();
   }, [carregar]);
 
-  // Agrupa por modulo mantendo a ordem que veio do banco.
-  const modulos = useMemo(() => {
-    const mapa = new Map<string, Aula[]>();
+  // A trilha e montada a partir dos MODULOS, nao das aulas. Assim um modulo
+  // recem criado aparece vazio, esperando a primeira aula.
+  const trilha = useMemo(() => {
+    const porModulo = new Map<string, Aula[]>();
     aulas.forEach((a) => {
-      const chave = a.modulo || "Sem módulo";
-      if (!mapa.has(chave)) mapa.set(chave, []);
-      mapa.get(chave)!.push(a);
+      const chave = a.modulo_id ?? "sem-modulo";
+      if (!porModulo.has(chave)) porModulo.set(chave, []);
+      porModulo.get(chave)!.push(a);
     });
-    return Array.from(mapa.entries());
-  }, [aulas]);
+
+    const blocos = modulos.map((m) => ({
+      modulo: m,
+      aulas: porModulo.get(m.id) ?? [],
+    }));
+
+    const soltas = porModulo.get("sem-modulo") ?? [];
+    if (soltas.length) {
+      blocos.push({
+        modulo: { id: "sem-modulo", nome: "Sem módulo", ordem: 999, criado_em: "" } as Modulo,
+        aulas: soltas,
+      });
+    }
+    return blocos;
+  }, [aulas, modulos]);
 
   const concluidas = aulas.filter((a) => progresso[a.id]?.concluida).length;
   const pct = aulas.length ? Math.round((concluidas / aulas.length) * 100) : 0;
@@ -109,14 +131,71 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
     }));
   }
 
+  async function criarModulo() {
+    const nome = novoModulo.trim();
+    if (!nome || salvando) return;
+    setSalvando(true);
+    setAvisoModulo(null);
+    try {
+      await Modulos.salvar({ nome, ordem: modulos.length + 1 });
+      setNovoModulo("");
+      await carregar();
+    } catch (e) {
+      setAvisoModulo(e instanceof Error ? e.message : "Não consegui criar o módulo.");
+    } finally {
+      setSalvando(false);
+    }
+  }
+
+  async function apagarModulo(m: Modulo) {
+    if (salvando) return;
+    setAvisoModulo(null);
+    try {
+      const quantas = await Modulos.quantasAulas(m.id);
+      if (quantas > 0) {
+        setAvisoModulo(
+          `"${m.nome}" tem ${quantas} ${quantas === 1 ? "aula" : "aulas"}. Apague ou mova ${
+            quantas === 1 ? "ela" : "elas"
+          } antes de excluir o módulo.`
+        );
+        return;
+      }
+      if (!window.confirm(`Excluir o módulo "${m.nome}"? Ele está vazio, então nada de conteúdo se perde.`)) return;
+      setSalvando(true);
+      await Modulos.apagar(m.id);
+      await carregar();
+    } catch (e) {
+      setAvisoModulo(e instanceof Error ? e.message : "Não consegui excluir o módulo.");
+    } finally {
+      setSalvando(false);
+    }
+  }
+
+  async function apagarAula(a: Aula) {
+    if (salvando) return;
+    if (!window.confirm(`Excluir a aula "${a.titulo}"? Os comentários e o progresso dos alunos vão junto. Isso não tem volta.`)) return;
+    setSalvando(true);
+    try {
+      await AulasAdmin.apagarAula(a.id);
+      if (aberta?.id === a.id) setAberta(null);
+      await carregar();
+    } catch (e) {
+      setErro(e instanceof Error ? e.message : "Não consegui excluir a aula.");
+    } finally {
+      setSalvando(false);
+    }
+  }
+
   async function salvarAula() {
-    if (!form.titulo.trim() || !form.modulo.trim() || salvando) return;
+    if (!form.titulo.trim() || !form.modulo_id || salvando) return;
     setSalvando(true);
     setErro(null);
     try {
+      const mod = modulos.find((m) => m.id === form.modulo_id);
       await AulasAdmin.salvarAula({
         id: form.id,
-        modulo: form.modulo.trim(),
+        modulo_id: form.modulo_id,
+        modulo: mod?.nome ?? form.modulo,
         modulo_ordem: Number(form.modulo_ordem) || 1,
         ordem: Number(form.ordem) || 1,
         titulo: form.titulo.trim(),
@@ -139,6 +218,7 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
     setForm({
       id: a.id,
       modulo: a.modulo ?? "",
+      modulo_id: a.modulo_id ?? "",
       modulo_ordem: a.modulo_ordem ?? 1,
       ordem: a.ordem ?? 1,
       titulo: a.titulo ?? "",
@@ -168,17 +248,87 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
             <span className="tag">ADMIN</span>
             <b>Você é o único que publica aqui.</b>
             <div className="push-a">
+              <button className="btn g" onClick={() => setGerenciandoModulos((v) => !v)} type="button">
+                {gerenciandoModulos ? "Fechar módulos" : "Módulos"}
+              </button>
               <button
                 className="btn gold"
                 onClick={() => {
                   setForm({ ...AULA_VAZIA });
                   setMostrarForm((v) => !v);
                 }}
+                disabled={modulos.length === 0}
                 type="button"
               >
                 {mostrarForm ? "Cancelar" : "+ Nova aula"}
               </button>
             </div>
+          </div>
+        )}
+
+        {admin && modulos.length === 0 && (
+          <div className="aviso" style={{ marginTop: 4 }}>
+            <span className="avisoIcone">✦</span>
+            <div>
+              <strong>Crie um módulo primeiro</strong>
+              Toda aula precisa morar dentro de um módulo. Clique em <b>Módulos</b> acima.
+            </div>
+          </div>
+        )}
+
+        {admin && gerenciandoModulos && (
+          <div className="panel pad" style={{ marginBottom: 18 }}>
+            <h2 className="h-sec" style={{ marginBottom: 16 }}>Módulos da trilha</h2>
+
+            <div className="row" style={{ gap: 10, marginBottom: 16, flexWrap: "wrap" }}>
+              <input
+                style={{ flex: 1, minWidth: 220, padding: "12px 14px", borderRadius: 11,
+                         background: "rgba(0,0,0,.42)", border: "1px solid var(--line)",
+                         color: "var(--txt)", fontFamily: "inherit", fontSize: ".88rem", outline: 0 }}
+                value={novoModulo}
+                onChange={(e) => setNovoModulo(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && criarModulo()}
+                placeholder="Nome do módulo. Ex: Módulo 1 · Fundamentos"
+              />
+              <button className="btn p" onClick={criarModulo} disabled={salvando || !novoModulo.trim()} type="button">
+                Criar módulo
+              </button>
+            </div>
+
+            {avisoModulo && (
+              <div className="aviso erro">
+                <span className="avisoIcone">!</span>
+                <div>{avisoModulo}</div>
+              </div>
+            )}
+
+            {modulos.length === 0 && (
+              <div className="muted tiny">Nenhum módulo ainda. Crie o primeiro no campo acima.</div>
+            )}
+
+            {modulos.map((m) => {
+              const quantas = aulas.filter((a) => a.modulo_id === m.id).length;
+              return (
+                <div className="material" key={m.id}>
+                  <div className="mi">📚</div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <b>{m.nome}</b>
+                    <span>{quantas} {quantas === 1 ? "aula" : "aulas"}</span>
+                  </div>
+                  <button
+                    className="btn g"
+                    style={{ padding: "6px 11px", fontSize: ".62rem",
+                             color: quantas ? "var(--mut2)" : "var(--red)",
+                             borderColor: quantas ? "var(--line)" : "rgba(255,15,61,.4)" }}
+                    onClick={() => apagarModulo(m)}
+                    disabled={salvando}
+                    type="button"
+                  >
+                    EXCLUIR
+                  </button>
+                </div>
+              );
+            })}
           </div>
         )}
 
@@ -191,17 +341,18 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
             <div className="grid3">
               <div className="campo">
                 <label>Módulo</label>
-                <input
-                  list="lista-modulos"
-                  value={form.modulo}
-                  onChange={(e) => setForm({ ...form, modulo: e.target.value })}
-                  placeholder="Módulo 1 · Fundamentos"
-                />
-                <datalist id="lista-modulos">
-                  {modulos.map(([nome]) => (
-                    <option key={nome} value={nome} />
+                <select
+                  value={form.modulo_id}
+                  onChange={(e) => setForm({ ...form, modulo_id: e.target.value })}
+                  style={{ width: "100%", padding: "12px 14px", borderRadius: 11,
+                           background: "rgba(0,0,0,.42)", border: "1px solid var(--line)",
+                           color: "var(--txt)", fontFamily: "inherit", fontSize: ".88rem", outline: 0 }}
+                >
+                  <option value="">Escolha o módulo…</option>
+                  {modulos.map((m) => (
+                    <option key={m.id} value={m.id}>{m.nome}</option>
                   ))}
-                </datalist>
+                </select>
               </div>
               <div className="campo">
                 <label>Ordem do módulo</label>
@@ -279,9 +430,21 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
                 />
                 Publicar para os alunos agora
               </label>
-              <button className="btn p" onClick={salvarAula} disabled={salvando} type="button">
-                {salvando ? "Salvando…" : form.id ? "Salvar alterações" : "Criar aula"}
-              </button>
+              <div className="row" style={{ gap: 12, flexWrap: "wrap" }}>
+                {(!form.modulo_id || !form.titulo.trim()) && (
+                  <span className="regra">
+                    Falta {!form.modulo_id ? "escolher o módulo" : "escrever o título"}.
+                  </span>
+                )}
+                <button
+                  className="btn p"
+                  onClick={salvarAula}
+                  disabled={salvando || !form.modulo_id || !form.titulo.trim()}
+                  type="button"
+                >
+                  {salvando ? "Salvando…" : form.id ? "Salvar alterações" : "Criar aula"}
+                </button>
+              </div>
             </div>
           </div>
         )}
@@ -331,79 +494,109 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
           </div>
         )}
 
-        {modulos.map(([nome, doModulo]) => {
+        {trilha.map(({ modulo, aulas: doModulo }) => {
           const feitas = doModulo.filter((a) => progresso[a.id]?.concluida).length;
           const estado =
-            feitas === doModulo.length ? "ok" : feitas > 0 ? "wait" : "no";
+            doModulo.length === 0 ? "wait" : feitas === doModulo.length ? "ok" : feitas > 0 ? "wait" : "no";
           const rotulo =
-            feitas === doModulo.length ? "CONCLUÍDO" : feitas > 0 ? "EM ANDAMENTO" : "NÃO INICIADO";
+            doModulo.length === 0
+              ? "VAZIO"
+              : feitas === doModulo.length
+              ? "CONCLUÍDO"
+              : feitas > 0
+              ? "EM ANDAMENTO"
+              : "NÃO INICIADO";
+
+          // Modulo vazio so interessa a quem administra.
+          if (doModulo.length === 0 && !admin) return null;
 
           return (
-            <div key={nome}>
+            <div key={modulo.id}>
               <div className="spread" style={{ marginBottom: 14 }}>
-                <h2 className="h-sec">{nome}</h2>
+                <h2 className="h-sec">{modulo.nome}</h2>
                 <span className={`pill ${estado}`}>{rotulo}</span>
               </div>
 
-              <div className="trilha" style={{ marginBottom: 26 }}>
-                {doModulo.map((a) => {
-                  const p = progresso[a.id];
-                  const feita = !!p?.concluida;
-                  const pctAula =
-                    a.duracao_seg && p?.segundos
-                      ? Math.min(100, Math.round((p.segundos / a.duracao_seg) * 100))
-                      : 0;
+              {doModulo.length === 0 && (
+                <div className="panel pad muted tiny" style={{ marginBottom: 26 }}>
+                  Módulo vazio. Use <b>+ Nova aula</b> e escolha “{modulo.nome}”.
+                </div>
+              )}
 
-                  return (
-                    <article
-                      className={`panel aula${feita ? " done" : ""}`}
-                      key={a.id}
-                      onClick={() => setAberta(a)}
-                      role="button"
-                      tabIndex={0}
-                      onKeyDown={(e) => e.key === "Enter" && setAberta(a)}
-                    >
-                      <div className="thumb">
-                        <div className="play">
-                          <Icone nome="play" tam={16} />
-                        </div>
-                        <span className="mod">AULA {a.ordem}</span>
-                        {a.duracao_seg ? <span className="dur num">{duracao(a.duracao_seg)}</span> : null}
-                      </div>
-                      <div className="info">
-                        <b>{a.titulo}</b>
-                        {!feita && pctAula > 0 && (
-                          <div className="bar" style={{ marginTop: 9 }}>
-                            <i style={{ width: `${pctAula}%`, background: "var(--grad)", boxShadow: "0 0 12px rgba(255,15,61,.5)" }} />
+              {doModulo.length > 0 && (
+                <div className="trilha" style={{ marginBottom: 26 }}>
+                  {doModulo.map((a) => {
+                    const p = progresso[a.id];
+                    const feita = !!p?.concluida;
+                    const pctAula =
+                      a.duracao_seg && p?.segundos
+                        ? Math.min(100, Math.round((p.segundos / a.duracao_seg) * 100))
+                        : 0;
+
+                    return (
+                      <article
+                        className={`panel aula${feita ? " done" : ""}`}
+                        key={a.id}
+                        onClick={() => setAberta(a)}
+                        role="button"
+                        tabIndex={0}
+                        onKeyDown={(e) => e.key === "Enter" && setAberta(a)}
+                      >
+                        <div className="thumb">
+                          <div className="play">
+                            <Icone nome="play" tam={16} />
                           </div>
-                        )}
-                        <div className="meta">
-                          <span>
-                            {feita ? "✓ CONCLUÍDA" : pctAula > 0 ? `${pctAula}% ASSISTIDA` : "NÃO INICIADA"}
-                            {!a.publicado && " · RASCUNHO"}
-                          </span>
-                          <span>
-                            ♥ {curtidas[a.id] ?? 0}
-                            {admin && (
-                              <button
-                                className="btn g"
-                                style={{ padding: "4px 8px", fontSize: ".58rem", marginLeft: 8 }}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  editar(a);
-                                }}
-                                type="button"
-                              >
-                                Editar
-                              </button>
-                            )}
-                          </span>
+                          <span className="mod">AULA {a.ordem}</span>
+                          {a.duracao_seg ? <span className="dur num">{duracao(a.duracao_seg)}</span> : null}
                         </div>
-                      </div>
-                    </article>
-                  );
-                })}
-              </div>
+                        <div className="info">
+                          <b>{a.titulo}</b>
+                          {!feita && pctAula > 0 && (
+                            <div className="bar" style={{ marginTop: 9 }}>
+                              <i style={{ width: `${pctAula}%`, background: "var(--grad)", boxShadow: "0 0 12px rgba(255,15,61,.5)" }} />
+                            </div>
+                          )}
+                          <div className="meta">
+                            <span>
+                              {feita ? "✓ CONCLUÍDA" : pctAula > 0 ? `${pctAula}% ASSISTIDA` : "NÃO INICIADA"}
+                              {!a.publicado && " · RASCUNHO"}
+                            </span>
+                            <span className="row" style={{ gap: 6 }}>
+                              ♥ {curtidas[a.id] ?? 0}
+                              {admin && (
+                                <>
+                                  <button
+                                    className="btn g"
+                                    style={{ padding: "4px 8px", fontSize: ".58rem" }}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      editar(a);
+                                    }}
+                                    type="button"
+                                  >
+                                    Editar
+                                  </button>
+                                  <button
+                                    className="btn g"
+                                    style={{ padding: "4px 8px", fontSize: ".58rem", color: "var(--red)", borderColor: "rgba(255,15,61,.4)" }}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      apagarAula(a);
+                                    }}
+                                    type="button"
+                                  >
+                                    Excluir
+                                  </button>
+                                </>
+                              )}
+                            </span>
+                          </div>
+                        </div>
+                      </article>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           );
         })}

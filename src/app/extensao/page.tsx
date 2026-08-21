@@ -149,9 +149,20 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
             {erro && <div className="regra" style={{ display: "block", marginBottom: 9 }}>{erro}</div>}
             {ok && <div className="regra" style={{ display: "block", marginBottom: 9, color: "var(--green)" }}>{ok}</div>}
 
-            <button className="btn gold" onClick={publicar} disabled={enviando || !numero.trim() || !arquivo} type="button">
-              {enviando ? "Enviando…" : "Publicar esta versão"}
-            </button>
+            <div className="row" style={{ gap: 12, flexWrap: "wrap" }}>
+              {(!numero.trim() || !arquivo) && (
+                <span className="regra">
+                  Falta {!numero.trim() && !arquivo
+                    ? "digitar a versão e escolher o arquivo"
+                    : !numero.trim()
+                    ? "digitar o número da versão (o 1.1.0 cinza é só exemplo)"
+                    : "escolher o arquivo .zip"}.
+                </span>
+              )}
+              <button className="btn gold" onClick={publicar} disabled={enviando || !numero.trim() || !arquivo} type="button">
+                {enviando ? "Enviando…" : "Publicar esta versão"}
+              </button>
+            </div>
           </div>
         )}
 
