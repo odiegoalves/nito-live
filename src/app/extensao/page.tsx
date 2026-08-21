@@ -65,6 +65,15 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
   const ativa = chavesAtivas.length > 0 && (!venceEm || new Date(venceEm).getTime() > Date.now());
   const dias = diasRestantes(venceEm);
 
+  // Quem pode BAIXAR nao e a mesma pergunta de quem tem chave ativa.
+  // Quem acabou de comprar ainda nao gerou chave nenhuma, e precisa da
+  // extensao justamente para usar a chave que vai gerar. Se eu exigisse
+  // chave ativa para liberar o download, o cliente novo ficava preso:
+  // sem extensao para usar a chave, sem chave para baixar a extensao.
+  const situacao = String(chaves?.status ?? "").trim().toLowerCase();
+  const bloqueado = ["cancelled", "canceled", "refunded", "expired", "revoked", "inactive"].includes(situacao);
+  const podeBaixar = Boolean(chaves?.encontrado) && !bloqueado;
+
   async function publicar() {
     if (!numero.trim() || !arquivo || enviando) return;
     setEnviando(true);
@@ -180,7 +189,7 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
                       Versão {versao.versao} — sempre a mais recente publicada pela administração.
                       {versao.notas ? ` ${versao.notas}` : ""}
                     </p>
-                    {ativa ? (
+                    {podeBaixar ? (
                       <a
                         className="material"
                         href={versao.arquivo_url}
@@ -201,8 +210,12 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
                       <div className="aviso erro" style={{ marginTop: 12 }}>
                         <span className="avisoIcone">!</span>
                         <div>
-                          <strong>Assinatura inativa</strong>
-                          Renove para voltar a baixar e usar a extensão.
+                          <strong>{carregandoChaves ? "Verificando sua assinatura" : "Assinatura inativa"}</strong>
+                          {carregandoChaves
+                            ? "Um instante…"
+                            : chaves?.encontrado
+                            ? "Renove para voltar a baixar e usar a extensão."
+                            : "Não encontrei compra com este e-mail. Entre com o mesmo e-mail que usou na Cakto."}
                         </div>
                       </div>
                     )}
