@@ -12,7 +12,7 @@ import { Feed, Enquetes, TipoPost, Post } from "@/lib/nito-motor";
 import { iniciais } from "@/lib/nito-gamificacao";
 
 interface Props {
-  tipo: Exclude<TipoPost, "importante" | "texto" | "print_ganho" | "depoimento"> | "importante";
+  tipo: TipoPost;
   nomeAutor: string;
   exigeFoto?: boolean;
   permiteEnquete?: boolean;

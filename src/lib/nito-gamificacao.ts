@@ -25,15 +25,32 @@ export function patenteDoNivel(nivel: number): Patente {
   return PATENTES.find((p) => nivel >= p.nivelMin && nivel <= p.nivelMax) ?? PATENTES[0];
 }
 
-// Cada nivel custa 500 XP a mais que o anterior: 1000, 1500, 2000...
-export function xpDoNivel(nivel: number): number {
-  return 1000 + (nivel - 1) * 500;
+// XP TOTAL acumulado necessario para chegar ao nivel N.
+// Mesma formula do banco (fn_nivel_do_xp): 250 * (N-1) * (N+2).
+//   nivel 2 = 1.000 XP | nivel 3 = 2.500 | nivel 4 = 4.500 | nivel 8 = 17.500
+export function xpParaNivel(nivel: number): number {
+  const n = Math.max(1, Math.floor(nivel));
+  return 250 * (n - 1) * (n + 2);
 }
 
-export function progressoNoNivel(nivel: number, xp: number) {
-  const meta = xpDoNivel(nivel);
-  const atual = Math.max(0, Math.min(xp, meta));
-  return { atual, meta, percentual: meta > 0 ? Math.round((atual / meta) * 100) : 0 };
+export function nivelDoXp(xp: number): number {
+  const t = Math.max(0, xp) / 250;
+  return Math.max(1, Math.floor((-1 + Math.sqrt(1 + 4 * (t + 2))) / 2));
+}
+
+// Progresso DENTRO do nivel atual, para desenhar a barra.
+export function progressoNoNivel(nivel: number, xpTotal: number) {
+  const base = xpParaNivel(nivel);
+  const proximo = xpParaNivel(nivel + 1);
+  const faixa = Math.max(1, proximo - base);
+  const dentro = Math.max(0, Math.min(xpTotal - base, faixa));
+  return {
+    atual: dentro,
+    meta: faixa,
+    total: Math.max(0, xpTotal),
+    proximoNivel: proximo,
+    percentual: Math.round((dentro / faixa) * 100),
+  };
 }
 
 export function proximaPatente(nivel: number): Patente | null {

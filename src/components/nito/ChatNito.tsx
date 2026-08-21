@@ -57,7 +57,7 @@ export function ChatNito({ perfil, altura = 560 }: { perfil: Perfil; altura?: nu
       .then((m) => vivo && setMensagens(m))
       .catch(() => {});
 
-    const parar = Chat.assinar(
+    const canal = Chat.assinar(
       "geral",
       {
         onMensagem: (nova: MensagemChat) => {
@@ -72,7 +72,8 @@ export function ChatNito({ perfil, altura = 560 }: { perfil: Perfil; altura?: nu
 
     return () => {
       vivo = false;
-      parar?.();
+      // assinar() devolve { digitando, sair } - nao e uma funcao.
+      canal.sair();
     };
   }, [perfil]);
 

@@ -16,7 +16,7 @@ import { AppShell, ehAdmin } from "@/components/nito/AppShell";
 import { PostNito } from "@/components/nito/PostNito";
 import { CompositorNito } from "@/components/nito/CompositorNito";
 import { ChatNito } from "@/components/nito/ChatNito";
-import { Feed, Enquetes, Post, Enquete, Perfil, TipoPost } from "@/lib/nito-motor";
+import { Feed, Enquetes, Post, Enquete, Perfil } from "@/lib/nito-motor";
 
 type Sub = "importante" | "chat" | "resultado" | "insight" | "melhoria";
 
@@ -122,9 +122,16 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
         let sim = e.votos_sim;
         let nao = e.votos_nao;
         if (anterior === null || anterior === undefined) {
-          voto ? sim++ : nao++;
+          if (voto) sim += 1;
+          else nao += 1;
         } else if (anterior !== voto) {
-          voto ? (sim++, nao--) : (nao++, sim--);
+          if (voto) {
+            sim += 1;
+            nao -= 1;
+          } else {
+            nao += 1;
+            sim -= 1;
+          }
         }
         novo[chave] = { ...e, votos_sim: Math.max(0, sim), votos_nao: Math.max(0, nao), meu_voto: voto };
       }
@@ -138,7 +145,9 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
   }
 
   const podeCompor = sub !== "chat" && (sub !== "importante" || admin);
-  const t = sub === "chat" ? null : TEXTOS[sub];
+  // Fora da aba de chat, "sub" e sempre um tipo de publicacao valido.
+  const tipoPost = sub as Exclude<Sub, "chat">;
+  const t = sub === "chat" ? null : TEXTOS[tipoPost];
 
   return (
     <AppShell perfil={perfil} ativa="comunidade">
@@ -172,7 +181,7 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
           <>
             {podeCompor && t && (
               <CompositorNito
-                tipo={sub as TipoPost as never}
+                tipo={tipoPost}
                 nomeAutor={perfil.nome}
                 exigeFoto={sub === "resultado"}
                 permiteEnquete={sub === "melhoria"}
