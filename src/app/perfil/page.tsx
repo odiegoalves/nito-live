@@ -1,349 +1,211 @@
 "use client";
 
-import React, { useState } from "react";
+// =============================================================================
+// NITO LIVE - Meu Perfil.
+// Dados, foto e a vitrine de conquistas. As conquistas sao calculadas a partir
+// do que ja existe no banco (XP, nivel, papel) - nao ha tabela separada.
+// =============================================================================
+
+import React, { useRef, useState } from "react";
 import { AuthGuard } from "@/components/AuthGuard";
-import { Sidebar } from "@/components/community-beta/Sidebar";
-import { Topbar } from "@/components/community-beta/Topbar";
-import { CommunityFooter } from "@/components/community-beta/CommunityFooter";
+import { AppShell } from "@/components/nito/AppShell";
 import { Auth, Storage, Perfil } from "@/lib/nito-motor";
-import { User, Camera, Save, CheckCircle, AlertCircle } from "lucide-react";
+import { patenteDoNivel, progressoNoNivel, proximaPatente, iniciais } from "@/lib/nito-gamificacao";
 
-export default function PerfilPage() {
-  return (
-    <AuthGuard>
-      {(perfil) => <PerfilContent perfil={perfil} />}
-    </AuthGuard>
-  );
-}
+const TABELA_XP = [
+  ["Postar um resultado com foto", 150],
+  ["Concluir uma aula", 100],
+  ["Publicar na comunidade", 50],
+  ["Comentar", 15],
+  ["Receber uma curtida", 5],
+] as const;
 
-function PerfilContent({ perfil: perfilInicial }: { perfil: Perfil }) {
+function Conteudo({ perfilInicial }: { perfilInicial: Perfil }) {
   const [perfil, setPerfil] = useState<Perfil>(perfilInicial);
-  const [nome, setNome] = useState(perfilInicial.nome || "");
-  const [bio, setBio] = useState(perfilInicial.bio || "");
-  const [avatarFile, setAvatarFile] = useState<File | null>(null);
-  const [avatarPreview, setAvatarPreview] = useState<string | null>(perfilInicial.avatar_url || null);
+  const [nome, setNome] = useState(perfil.nome ?? "");
+  const [username, setUsername] = useState(perfil.username ?? "");
+  const [bio, setBio] = useState(perfil.bio ?? "");
   const [salvando, setSalvando] = useState(false);
-  const [mensagem, setMensagem] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [enviandoFoto, setEnviandoFoto] = useState(false);
+  const [recado, setRecado] = useState<{ tipo: "ok" | "erro"; texto: string } | null>(null);
+  const fotoRef = useRef<HTMLInputElement>(null);
 
-  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setAvatarFile(file);
-      setAvatarPreview(URL.createObjectURL(file));
-    }
-  };
+  const patente = patenteDoNivel(perfil.nivel ?? 1);
+  const prox = proximaPatente(perfil.nivel ?? 1);
+  const prog = progressoNoNivel(perfil.nivel ?? 1, perfil.xp ?? 0);
 
-  const handleSalvar = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const conquistas = [
+    { em: "🏆", nome: "Fundador", ganha: perfil.papel === "fundador", falta: "SÓ PARA A EQUIPE" },
+    { em: "🌱", nome: "Primeiros passos", ganha: (perfil.xp ?? 0) > 0, falta: "GANHE SEU PRIMEIRO XP" },
+    { em: "💬", nome: "Voz ativa", ganha: (perfil.xp ?? 0) >= 500, falta: `${perfil.xp ?? 0} / 500 XP` },
+    { em: "⚡", nome: "Nível 5", ganha: (perfil.nivel ?? 1) >= 5, falta: `NÍVEL ${perfil.nivel ?? 1} / 5` },
+    { em: "🎯", nome: "Operador", ganha: (perfil.nivel ?? 1) >= 10, falta: `NÍVEL ${perfil.nivel ?? 1} / 10` },
+    { em: "👑", nome: "Estrategista", ganha: (perfil.nivel ?? 1) >= 20, falta: `NÍVEL ${perfil.nivel ?? 1} / 20` },
+    { em: "🔥", nome: "Mestre da Live", ganha: (perfil.nivel ?? 1) >= 35, falta: `NÍVEL ${perfil.nivel ?? 1} / 35` },
+    { em: "💎", nome: "Lenda NITO", ganha: (perfil.nivel ?? 1) >= 50, falta: `NÍVEL ${perfil.nivel ?? 1} / 50` },
+  ];
+  const ganhas = conquistas.filter((c) => c.ganha).length;
+
+  async function salvar() {
+    if (salvando) return;
     setSalvando(true);
-    setMensagem(null);
-
+    setRecado(null);
     try {
-      let avatar_url = perfil.avatar_url;
-
-      if (avatarFile) {
-        avatar_url = await Storage.enviar("avatars", avatarFile);
-      }
-
-      const perfilAtualizado = await Auth.atualizarPerfil({
+      const atualizado = await Auth.atualizarPerfil({
         nome: nome.trim(),
-        bio: bio.trim() || undefined,
-        avatar_url,
+        username: username.trim(),
+        bio: bio.trim(),
       });
-
-      setPerfil(perfilAtualizado);
-      setMensagem({ type: "success", text: "Perfil atualizado com sucesso!" });
-    } catch (err: any) {
-      setMensagem({ type: "error", text: err?.message || "Erro ao salvar perfil." });
+      setPerfil(atualizado);
+      setRecado({ tipo: "ok", texto: "Perfil salvo." });
+    } catch (e) {
+      setRecado({
+        tipo: "erro",
+        texto: e instanceof Error ? e.message : "Não consegui salvar.",
+      });
     } finally {
       setSalvando(false);
     }
-  };
+  }
+
+  async function trocarFoto(f: File | null) {
+    if (!f || enviandoFoto) return;
+    if (!f.type.startsWith("image/")) {
+      setRecado({ tipo: "erro", texto: "Escolha uma imagem JPG ou PNG." });
+      return;
+    }
+    if (f.size > 5 * 1024 * 1024) {
+      setRecado({ tipo: "erro", texto: "Imagem muito grande. O limite é 5 MB." });
+      return;
+    }
+    setEnviandoFoto(true);
+    setRecado(null);
+    try {
+      const url = await Storage.enviar("avatars", f);
+      const atualizado = await Auth.atualizarPerfil({ avatar_url: url });
+      setPerfil(atualizado);
+      setRecado({ tipo: "ok", texto: "Foto atualizada." });
+    } catch (e) {
+      setRecado({ tipo: "erro", texto: e instanceof Error ? e.message : "Não consegui enviar a foto." });
+    } finally {
+      setEnviandoFoto(false);
+    }
+  }
 
   return (
-    <div style={styles.appContainer}>
-      <Sidebar activePath="/perfil" perfil={perfil} />
+    <AppShell perfil={perfil} ativa="perfil">
+      <div className="view on">
+        <div>
+          <h1 className="title-xl">
+            Meu <em>perfil</em>.
+          </h1>
+          <p className="sub">É assim que a comunidade te vê.</p>
+        </div>
 
-      <div style={styles.mainWrapper}>
-        <Topbar perfil={perfil} />
+        <div className="panel pad" style={{ margin: "22px 0" }}>
+          <div className="perfil-head">
+            <input ref={fotoRef} type="file" accept="image/*" hidden onChange={(e) => trocarFoto(e.target.files?.[0] ?? null)} />
+            <button className="foto" onClick={() => fotoRef.current?.click()} type="button" title="Alterar foto do perfil"
+                    style={perfil.avatar_url ? { backgroundImage: `url(${perfil.avatar_url})`, backgroundSize: "cover", backgroundPosition: "center" } : undefined}>
+              {!perfil.avatar_url && <span className="ini">{iniciais(perfil.nome)}</span>}
+              <span className="cam">{enviandoFoto ? "⏳" : "📷"}</span>
+            </button>
 
-        <div style={styles.contentBody}>
-          {/* Header */}
-          <div style={styles.pageHeader}>
-            <div style={styles.headerTitleGroup}>
-              <div style={styles.headerIconBox}>
-                <User size={22} color="#ef4444" />
+            <div style={{ flex: 1, minWidth: 220 }}>
+              <div className="row" style={{ gap: 9, marginBottom: 5, flexWrap: "wrap" }}>
+                <b style={{ font: "900 1.3rem/1 var(--disp)", textTransform: "uppercase" }}>{perfil.nome}</b>
+                <span className={`pat-chip ${patente.cor}`}>{patente.nome}</span>
+                {perfil.papel === "fundador" && <span className="tagchip">FUNDADOR</span>}
               </div>
-              <div>
-                <h1 style={styles.pageTitle}>Meu Perfil</h1>
-                <p style={styles.pageSubtitle}>
-                  Atualize suas informações pessoais, avatar e biografia da comunidade.
-                </p>
+              <div className="eyebrow" style={{ marginBottom: 6 }}>
+                @{perfil.username} · MEMBRO DESDE{" "}
+                {new Date(perfil.criado_em).toLocaleDateString("pt-BR", { month: "short", year: "numeric" }).toUpperCase()}
+              </div>
+              <p className="muted tiny" style={{ margin: "0 0 12px" }}>
+                Toque na foto para trocar — do computador ou da galeria do celular. JPG ou PNG, até 5 MB.
+              </p>
+
+              <div className="bar">
+                <i style={{ width: `${prog.percentual}%` }} />
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", marginTop: 7,
+                            font: "700 .64rem/1 var(--mono)", color: "var(--mut)", flexWrap: "wrap", gap: 8 }}>
+                <span>NÍVEL {perfil.nivel ?? 1} · {patente.nome.toUpperCase()}</span>
+                <span>
+                  <b style={{ color: "var(--gold)" }}>{(perfil.xp ?? 0).toLocaleString("pt-BR")}</b> XP
+                  {prox ? ` · PRÓXIMA PATENTE: ${prox.nome.toUpperCase()}` : " · PATENTE MÁXIMA"}
+                </span>
               </div>
             </div>
           </div>
+        </div>
 
-          <div style={styles.profileCard}>
-            {mensagem && (
-              <div
-                style={{
-                  padding: "0.75rem 1rem",
-                  borderRadius: "8px",
-                  marginBottom: "1rem",
-                  fontSize: "0.875rem",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "0.5rem",
-                  backgroundColor:
-                    mensagem.type === "success" ? "rgba(34, 197, 94, 0.1)" : "rgba(239, 68, 68, 0.1)",
-                  border:
-                    mensagem.type === "success"
-                      ? "1px solid rgba(34, 197, 94, 0.3)"
-                      : "1px solid rgba(239, 68, 68, 0.3)",
-                  color: mensagem.type === "success" ? "#4ade80" : "#f87171",
-                }}
-              >
-                {mensagem.type === "success" ? <CheckCircle size={16} /> : <AlertCircle size={16} />}
-                <span>{mensagem.text}</span>
+        <div className="grid2">
+          <div className="panel pad">
+            <h2 className="h-sec" style={{ marginBottom: 18 }}>Seus dados</h2>
+
+            <div className="campo">
+              <label>Nome de exibição</label>
+              <input value={nome} onChange={(e) => setNome(e.target.value)} />
+            </div>
+            <div className="campo">
+              <label>Nome de usuário</label>
+              <input value={username} onChange={(e) => setUsername(e.target.value)} />
+            </div>
+            <div className="campo">
+              <label>Biografia</label>
+              <textarea rows={3} value={bio} onChange={(e) => setBio(e.target.value)}
+                        placeholder="Conte em uma linha o que você vende nas lives." />
+            </div>
+
+            {recado && (
+              <div className={`aviso ${recado.tipo === "ok" ? "sucesso" : "erro"}`}>
+                <span className="avisoIcone">{recado.tipo === "ok" ? "✓" : "!"}</span>
+                <div>{recado.texto}</div>
               </div>
             )}
 
-            <form onSubmit={handleSalvar} style={styles.form}>
-              {/* Avatar Box */}
-              <div style={styles.avatarSection}>
-                <div style={styles.avatarWrapper}>
-                  {avatarPreview ? (
-                    <img src={avatarPreview} alt={nome} style={styles.avatarImage} />
-                  ) : (
-                    <div style={styles.avatarPlaceholder}>
-                      {(nome || "M").charAt(0).toUpperCase()}
-                    </div>
-                  )}
-                  <label style={styles.cameraBtn}>
-                    <Camera size={16} color="#ffffff" />
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={handleAvatarChange}
-                      style={{ display: "none" }}
-                    />
-                  </label>
-                </div>
-                <span style={styles.avatarHint}>Clique no ícone de câmera para alterar a foto</span>
-              </div>
-
-              {/* Username (Readonly) */}
-              <div style={styles.fieldGroup}>
-                <label style={styles.label}>Nome de Usuário</label>
-                <input
-                  type="text"
-                  value={`@${perfil.username}`}
-                  disabled
-                  style={{ ...styles.input, opacity: 0.6, cursor: "not-allowed" }}
-                />
-              </div>
-
-              {/* Nome Completo */}
-              <div style={styles.fieldGroup}>
-                <label style={styles.label}>Nome de Exibição *</label>
-                <input
-                  type="text"
-                  value={nome}
-                  onChange={(e) => setNome(e.target.value)}
-                  required
-                  style={styles.input}
-                  placeholder="Seu nome"
-                />
-              </div>
-
-              {/* Bio */}
-              <div style={styles.fieldGroup}>
-                <label style={styles.label}>Biografia (Bio)</label>
-                <textarea
-                  value={bio}
-                  onChange={(e) => setBio(e.target.value)}
-                  rows={4}
-                  style={styles.textarea}
-                  placeholder="Conte um pouco sobre suas lives e resultados..."
-                />
-              </div>
-
-              {/* Submit */}
-              <button type="submit" disabled={salvando} style={styles.submitBtn}>
-                <Save size={18} />
-                <span>{salvando ? "SALVANDO..." : "SALVAR ALTERAÇÕES"}</span>
-              </button>
-            </form>
+            <button className="btn p" onClick={salvar} disabled={salvando} type="button">
+              {salvando ? "Salvando…" : "Salvar alterações"}
+            </button>
           </div>
 
-          <CommunityFooter />
+          <div className="stack">
+            <div className="panel pad">
+              <div className="spread" style={{ marginBottom: 16 }}>
+                <h2 className="h-sec">Conquistas</h2>
+                <span className="eyebrow">{ganhas} DE {conquistas.length}</span>
+              </div>
+              <div className="conq">
+                {conquistas.map((c) => (
+                  <div className={`medalha${c.ganha ? " got" : ""}`} key={c.nome}>
+                    <div className="em">{c.em}</div>
+                    <b>{c.nome}</b>
+                    <span>{c.ganha ? "DESBLOQUEADA" : c.falta}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="panel pad">
+              <h2 className="h-sec" style={{ marginBottom: 14 }}>Como ganhar XP</h2>
+              {TABELA_XP.map(([acao, pontos], i) => (
+                <div className="spread" key={acao}
+                     style={{ padding: "9px 0", borderBottom: i < TABELA_XP.length - 1 ? "1px solid var(--line)" : "none" }}>
+                  <span className="tiny">{acao}</span>
+                  <span className="num" style={{ color: "var(--gold)", fontWeight: 800, fontSize: ".76rem" }}>
+                    +{pontos}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
-    </div>
+    </AppShell>
   );
 }
 
-const styles: Record<string, React.CSSProperties> = {
-  appContainer: {
-    display: "flex",
-    minHeight: "100vh",
-    backgroundColor: "#09090b",
-    color: "#f8fafc",
-    fontFamily:
-      'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif',
-  },
-  mainWrapper: {
-    flex: 1,
-    display: "flex",
-    flexDirection: "column",
-    minWidth: 0,
-    overflowX: "hidden",
-  },
-  contentBody: {
-    flex: 1,
-    padding: "1.75rem 2rem",
-    display: "flex",
-    flexDirection: "column",
-    maxWidth: "800px",
-    width: "100%",
-    margin: "0 auto",
-  },
-  pageHeader: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: "1.5rem",
-  },
-  headerTitleGroup: {
-    display: "flex",
-    alignItems: "center",
-    gap: "1rem",
-  },
-  headerIconBox: {
-    width: "48px",
-    height: "48px",
-    borderRadius: "14px",
-    backgroundColor: "rgba(239, 68, 68, 0.12)",
-    border: "1px solid rgba(239, 68, 68, 0.3)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  pageTitle: {
-    fontSize: "1.5rem",
-    fontWeight: 900,
-    color: "#ffffff",
-    margin: 0,
-  },
-  pageSubtitle: {
-    fontSize: "0.875rem",
-    color: "#94a3b8",
-    margin: 0,
-  },
-  profileCard: {
-    backgroundColor: "#121215",
-    border: "1px solid rgba(255, 255, 255, 0.08)",
-    borderRadius: "18px",
-    padding: "2rem",
-    marginBottom: "2rem",
-  },
-  form: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "1.25rem",
-  },
-  avatarSection: {
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    gap: "0.5rem",
-    marginBottom: "1rem",
-  },
-  avatarWrapper: {
-    position: "relative",
-    width: "90px",
-    height: "90px",
-  },
-  avatarImage: {
-    width: "100%",
-    height: "100%",
-    borderRadius: "50%",
-    objectFit: "cover",
-    border: "2px solid rgba(239, 68, 68, 0.5)",
-  },
-  avatarPlaceholder: {
-    width: "100%",
-    height: "100%",
-    borderRadius: "50%",
-    backgroundColor: "#ef4444",
-    color: "#ffffff",
-    fontSize: "2.2rem",
-    fontWeight: 800,
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  cameraBtn: {
-    position: "absolute",
-    bottom: 0,
-    right: 0,
-    backgroundColor: "#ef4444",
-    borderRadius: "50%",
-    padding: "0.45rem",
-    cursor: "pointer",
-    boxShadow: "0 0 10px rgba(0,0,0,0.5)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  avatarHint: {
-    fontSize: "0.75rem",
-    color: "#94a3b8",
-  },
-  fieldGroup: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "0.4rem",
-  },
-  label: {
-    fontSize: "0.8rem",
-    fontWeight: 700,
-    color: "#cbd5e1",
-  },
-  input: {
-    backgroundColor: "#09090b",
-    border: "1px solid rgba(255, 255, 255, 0.1)",
-    borderRadius: "10px",
-    padding: "0.75rem 1rem",
-    color: "#ffffff",
-    fontSize: "0.875rem",
-    outline: "none",
-  },
-  textarea: {
-    backgroundColor: "#09090b",
-    border: "1px solid rgba(255, 255, 255, 0.1)",
-    borderRadius: "10px",
-    padding: "0.75rem 1rem",
-    color: "#ffffff",
-    fontSize: "0.875rem",
-    outline: "none",
-    resize: "vertical",
-    fontFamily: "inherit",
-  },
-  submitBtn: {
-    display: "inline-flex",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: "0.5rem",
-    backgroundColor: "#ef4444",
-    color: "#ffffff",
-    border: "none",
-    padding: "0.85rem 1.5rem",
-    borderRadius: "10px",
-    fontWeight: 800,
-    fontSize: "0.875rem",
-    cursor: "pointer",
-    boxShadow: "0 0 15px rgba(239, 68, 68, 0.4)",
-    marginTop: "0.5rem",
-  },
-};
+export default function PerfilPage() {
+  return <AuthGuard>{(perfil) => <Conteudo perfilInicial={perfil} />}</AuthGuard>;
+}

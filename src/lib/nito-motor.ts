@@ -919,8 +919,174 @@ export const AulasAdmin = {
   },
 };
 
+export interface Chamado {
+  id: number;
+  user_id: string;
+  assunto: string;
+  situacao: "aguardando" | "em_atendimento" | "resolvido";
+  criado_em: string;
+  atualizado_em: string;
+  resolvido_em?: string | null;
+}
+
+export interface ChamadoMensagem {
+  id: string;
+  chamado_id: number;
+  autor_id: string;
+  do_suporte: boolean;
+  conteudo: string;
+  anexo_url?: string | null;
+  criado_em: string;
+}
+
+export const Chamados = {
+  async meus(): Promise<Chamado[]> {
+    const { data, error } = await sb
+      .from("chamados")
+      .select("*")
+      .order("atualizado_em", { ascending: false });
+    if (error) throw error;
+    return (data as Chamado[]) ?? [];
+  },
+
+  async abrir(assunto: string, primeiraMensagem: string): Promise<Chamado> {
+    const {
+      data: { user },
+    } = await sb.auth.getUser();
+    if (!user) throw new Error("Precisa estar logado.");
+
+    const { data, error } = await sb
+      .from("chamados")
+      .insert({ user_id: user.id, assunto: assunto.trim() })
+      .select("*")
+      .single();
+    if (error) throw error;
+
+    const chamado = data as unknown as Chamado;
+    if (primeiraMensagem.trim()) {
+      await sb.from("chamado_mensagens").insert({
+        chamado_id: chamado.id,
+        autor_id: user.id,
+        do_suporte: false,
+        conteudo: primeiraMensagem.trim(),
+      });
+    }
+    return chamado;
+  },
+
+  async mensagens(chamadoId: number): Promise<ChamadoMensagem[]> {
+    const { data, error } = await sb
+      .from("chamado_mensagens")
+      .select("*")
+      .eq("chamado_id", chamadoId)
+      .order("criado_em", { ascending: true });
+    if (error) throw error;
+    return (data as ChamadoMensagem[]) ?? [];
+  },
+
+  async responder(chamadoId: number, conteudo: string, doSuporte: boolean, anexo?: File | null) {
+    const {
+      data: { user },
+    } = await sb.auth.getUser();
+    if (!user) throw new Error("Precisa estar logado.");
+
+    let anexo_url: string | null = null;
+    if (anexo) anexo_url = await Storage.enviar("midias", anexo);
+
+    const { data, error } = await sb
+      .from("chamado_mensagens")
+      .insert({
+        chamado_id: chamadoId,
+        autor_id: user.id,
+        do_suporte: doSuporte,
+        conteudo: conteudo.trim(),
+        anexo_url,
+      })
+      .select("*")
+      .single();
+    if (error) throw error;
+    return data as unknown as ChamadoMensagem;
+  },
+
+  async encerrar(chamadoId: number) {
+    const { error } = await sb
+      .from("chamados")
+      .update({ situacao: "resolvido", resolvido_em: new Date().toISOString() })
+      .eq("id", chamadoId);
+    if (error) throw error;
+  },
+
+  // Mensagem nova do outro lado aparece sem recarregar.
+  assinar(chamadoId: number, onMensagem: (m: ChamadoMensagem) => void) {
+    const canal = sb
+      .channel(`chamado-${chamadoId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "chamado_mensagens",
+          filter: `chamado_id=eq.${chamadoId}`,
+        },
+        ({ new: linha }) => onMensagem(linha as unknown as ChamadoMensagem)
+      )
+      .subscribe();
+    return () => {
+      sb.removeChannel(canal);
+    };
+  },
+};
+
+export interface VersaoExtensao {
+  id: string;
+  versao: string;
+  arquivo_url: string;
+  tamanho_bytes?: number | null;
+  notas?: string | null;
+  atual: boolean;
+  publicado_em: string;
+}
+
+export const Extensao = {
+  async versaoAtual(): Promise<VersaoExtensao | null> {
+    const { data, error } = await sb
+      .from("extensao_versoes")
+      .select("*")
+      .eq("atual", true)
+      .order("publicado_em", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error) throw error;
+    return (data as VersaoExtensao) ?? null;
+  },
+
+  // So a administracao consegue: a politica do banco recusa o resto.
+  async publicarVersao(versao: string, arquivo: File, notas?: string): Promise<VersaoExtensao> {
+    const {
+      data: { user },
+    } = await sb.auth.getUser();
+    if (!user) throw new Error("Precisa estar logado.");
+
+    const url = await Storage.enviar("extensao", arquivo);
+    const { data, error } = await sb
+      .from("extensao_versoes")
+      .insert({
+        versao,
+        arquivo_url: url,
+        tamanho_bytes: arquivo.size,
+        notas: notas ?? null,
+        atual: true,
+        publicado_por: user.id,
+      })
+      .select("*")
+      .single();
+    if (error) throw error;
+    return data as unknown as VersaoExtensao;
+  },
+};
+
 export const Storage = {
-  async enviar(bucket: "avatars" | "prints" | "midias", file: File): Promise<string> {
+  async enviar(bucket: "avatars" | "prints" | "midias" | "extensao", file: File): Promise<string> {
     const {
       data: { user },
     } = await sb.auth.getUser();
