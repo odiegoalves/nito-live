@@ -52,8 +52,18 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
       .finally(() => setCarregando(false));
   }, []);
 
-  const dias = diasRestantes(perfil.assinatura_expira_em);
-  const ativa = perfil.assinatura_ativa;
+  // A licenca de verdade vive no servidor de licencas, nao no perfil do site.
+  // Usar o perfil aqui fazia a tela dizer "inativa" com a chave ativa logo
+  // abaixo - o cliente le isso e abre chamado. Entao mandamos as chaves.
+  const chavesAtivas = (chaves?.chaves ?? []).filter((c) => c.ativa);
+  const venceEm = chavesAtivas
+    .map((c) => c.expira_em)
+    .filter((d): d is string => !!d)
+    .sort()
+    .pop() ?? null;
+
+  const ativa = chavesAtivas.length > 0 && (!venceEm || new Date(venceEm).getTime() > Date.now());
+  const dias = diasRestantes(venceEm);
 
   async function publicar() {
     if (!numero.trim() || !arquivo || enviando) return;
@@ -225,14 +235,22 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
 
               <div className="spread" style={{ padding: "10px 0", borderBottom: "1px solid var(--line)" }}>
                 <span className="muted tiny">Status</span>
-                <span className={`pill ${ativa ? "ok" : "no"}`}>{ativa ? "Ativa" : "Inativa"}</span>
+                {carregandoChaves ? (
+                  <span className="pill wait">Verificando</span>
+                ) : (
+                  <span className={`pill ${ativa ? "ok" : "no"}`}>{ativa ? "Ativa" : "Inativa"}</span>
+                )}
+              </div>
+              <div className="spread" style={{ padding: "10px 0", borderBottom: "1px solid var(--line)" }}>
+                <span className="muted tiny">Plano</span>
+                <span className="num" style={{ fontWeight: 700, textTransform: "uppercase" }}>
+                  {chaves?.plano ?? "—"}
+                </span>
               </div>
               <div className="spread" style={{ padding: "10px 0", borderBottom: "1px solid var(--line)" }}>
                 <span className="muted tiny">Renova em</span>
                 <span className="num" style={{ fontWeight: 700 }}>
-                  {perfil.assinatura_expira_em
-                    ? new Date(perfil.assinatura_expira_em).toLocaleDateString("pt-BR")
-                    : "—"}
+                  {venceEm ? new Date(venceEm).toLocaleDateString("pt-BR") : "—"}
                 </span>
               </div>
               <div className="spread" style={{ padding: "10px 0" }}>
