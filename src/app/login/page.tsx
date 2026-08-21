@@ -41,9 +41,15 @@ function traduzirErro(bruto: unknown): string {
   if (m.includes("email not confirmed")) return "Sua conta ainda não foi confirmada. Use o código que enviamos por e-mail.";
   if (m.includes("user already registered") || m.includes("already been registered"))
     return "Esse e-mail já tem conta. Tente entrar ou recuperar a senha.";
-  if (m.includes("token has expired") || m.includes("expired"))
-    return "Esse código expirou. Peça um novo.";
-  if (m.includes("invalid") && m.includes("token")) return "Código incorreto. Confira os 6 dígitos.";
+  // O Supabase responde "Token has expired or is invalid" nos dois casos:
+  // codigo errado E codigo vencido. Nao da para separar, entao a mensagem cobre os dois.
+  if (m.includes("expired") && m.includes("invalid"))
+    return "Código incorreto ou já vencido. Confira os dígitos ou peça um novo.";
+  if (m.includes("expired")) return "Esse código expirou. Peça um novo.";
+  if (m.includes("invalid") && m.includes("token"))
+    return "Código incorreto. Confira os dígitos do e-mail.";
+  if (m.includes("otp") && m.includes("invalid"))
+    return "Código incorreto. Confira os dígitos do e-mail.";
   if (m.includes("should be at least") || m.includes("password"))
     return "A senha precisa ter pelo menos 6 caracteres.";
   if (m.includes("rate limit") || m.includes("too many"))
@@ -185,7 +191,7 @@ export default function AcessoPage() {
     confirmar: {
       chapeu: "Confirmar e-mail",
       titulo: <>Digite o <span className={estilo.destaque}>código</span> que enviamos.</>,
-      sub: "Enviamos um código de 6 dígitos para o seu e-mail.",
+      sub: "Enviamos um código de 6 dígitos para o seu e-mail. Ele vale por 1 hora.",
       botao: "Confirmar minha conta →",
     },
     recuperar: {
