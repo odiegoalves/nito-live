@@ -53,8 +53,8 @@ export function SeloVerificado({ tam = 15 }: { tam?: number }) {
       viewBox="0 0 24 24"
       aria-hidden="true"
       style={{ display: "inline-block", verticalAlign: "middle", marginLeft: 4, flexShrink: 0 }}
-      title="Verificado"
     >
+      <title>Verificado</title>
       <path
         d="M12 2.5l2.4 1.4 2.7-.5 1.3 2.4 2.4 1.3-.5 2.7 1.4 2.4-1.4 2.4.5 2.7-2.4 1.3-1.3 2.4-2.7-.5-2.4 1.4-2.4-1.4-2.7.5-1.3-2.4-2.4-1.3.5-2.7L2.5 12l1.4-2.4-.5-2.7 2.4-1.3 1.3-2.4 2.7.5z"
         fill="#2b8bff"
