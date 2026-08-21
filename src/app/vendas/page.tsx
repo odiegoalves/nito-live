@@ -1,187 +1,198 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { AuthGuard } from "@/components/AuthGuard";
-import { Sidebar } from "@/components/community-beta/Sidebar";
-import { Topbar } from "@/components/community-beta/Topbar";
-import { CommunityFooter } from "@/components/community-beta/CommunityFooter";
-import { Vendas, Venda, Fmt, Perfil } from "@/lib/nito-motor";
-import { TrendingUp, DollarSign, ShoppingBag, CreditCard, RefreshCw } from "lucide-react";
+// =============================================================================
+// NITO LIVE - Minhas Vendas.
+// Tudo que a extensao registrou nas lives do TikTok Shop. O filtro de periodo
+// vale para os tres numeros do topo, para o historico e para o ranking de
+// produtos ao mesmo tempo - senao a pessoa compara mes com semana sem perceber.
+// =============================================================================
 
-export default function VendasPage() {
-  return (
-    <AuthGuard>
-      {(perfil) => <VendasContent perfil={perfil} />}
-    </AuthGuard>
-  );
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { AuthGuard } from "@/components/AuthGuard";
+import { AppShell } from "@/components/nito/AppShell";
+import { Vendas, Venda, Perfil, Fmt } from "@/lib/nito-motor";
+
+const PERIODOS = [
+  { chave: "dia", rotulo: "Dia", dias: 1 },
+  { chave: "semana", rotulo: "Semana", dias: 7 },
+  { chave: "mes", rotulo: "Mês", dias: 30 },
+  { chave: "ano", rotulo: "Ano", dias: 365 },
+] as const;
+
+type Chave = (typeof PERIODOS)[number]["chave"];
+
+const SITUACAO: Record<Venda["status"], { pill: string; texto: string }> = {
+  aprovado: { pill: "ok", texto: "Aprovado" },
+  pendente: { pill: "wait", texto: "Processando" },
+  cancelado: { pill: "no", texto: "Cancelado" },
+  reembolsado: { pill: "no", texto: "Reembolsado" },
+};
+
+function faixaDeDatas(dias: number) {
+  const fim = new Date();
+  const ini = new Date(Date.now() - dias * 864e5);
+  const f = (d: Date) => d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
+  if (dias === 1) return fim.toLocaleDateString("pt-BR");
+  return `${f(ini)} A ${fim.toLocaleDateString("pt-BR")}`;
 }
 
-function VendasContent({ perfil }: { perfil: Perfil }) {
-  const [vendas, setVendas] = useState<Venda[]>([]);
-  const [resumo, setResumo] = useState({
-    faturamento_centavos: 0,
-    pedidos_aprovados: 0,
-    ticket_medio_centavos: 0,
-  });
-  const [highlightId, setHighlightId] = useState<string | null>(null);
-  const [carregando, setCarregando] = useState(true);
+function quando(iso: string) {
+  const d = new Date(iso);
+  return `${d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })} · ${d.toLocaleTimeString(
+    "pt-BR",
+    { hour: "2-digit", minute: "2-digit" }
+  )}`;
+}
 
-  const recarregarResumo = async () => {
+function Conteudo({ perfil }: { perfil: Perfil }) {
+  const [periodo, setPeriodo] = useState<Chave>("mes");
+  const [vendas, setVendas] = useState<Venda[]>([]);
+  const [carregando, setCarregando] = useState(true);
+  const [ultimaSync, setUltimaSync] = useState<string | null>(null);
+
+  const dias = PERIODOS.find((p) => p.chave === periodo)!.dias;
+
+  const carregar = useCallback(async () => {
+    setCarregando(true);
     try {
-      const res = await Vendas.resumo(30);
-      setResumo(res);
-    } catch (err) {
-      console.error("Erro ao carregar resumo de vendas:", err);
+      const lista = await Vendas.listar({ dias, limite: 1000 });
+      setVendas(lista);
+      setUltimaSync(lista[0]?.criado_em ?? null);
+    } catch {
+      setVendas([]);
+    } finally {
+      setCarregando(false);
     }
-  };
+  }, [dias]);
 
   useEffect(() => {
-    let mounted = true;
+    carregar();
+  }, [carregar]);
 
-    async function carregarVendas() {
-      setCarregando(true);
-      try {
-        const [lista, res] = await Promise.all([Vendas.listar(), Vendas.resumo(30)]);
-        if (mounted) {
-          setVendas(lista);
-          setResumo(res);
-        }
-      } catch (err) {
-        console.error("Erro ao carregar vendas:", err);
-      } finally {
-        if (mounted) setCarregando(false);
-      }
-    }
+  // Venda nova chega da extensao sem a pessoa recarregar a pagina.
+  useEffect(() => {
+    const parar = Vendas.assinar(() => carregar());
+    return () => parar();
+  }, [carregar]);
 
-    carregarVendas();
-
-    // Assinatura Realtime
-    const unsub = Vendas.assinar((novaVenda) => {
-      if (!mounted) return;
-      if (novaVenda) {
-        setVendas((prev) => [novaVenda, ...prev.filter((v) => v.id !== novaVenda.id)]);
-        setHighlightId(novaVenda.id);
-        recarregarResumo();
-
-        setTimeout(() => {
-          if (mounted) setHighlightId(null);
-        }, 3000);
-      }
-    });
-
-    return () => {
-      mounted = false;
-      unsub();
+  const resumo = useMemo(() => {
+    const aprovadas = vendas.filter((v) => v.status === "aprovado");
+    const faturamento = aprovadas.reduce((t, v) => t + (v.valor_centavos ?? 0), 0);
+    const pendentes = vendas.filter((v) => v.status === "pendente").length;
+    return {
+      faturamento,
+      pedidos: aprovadas.length,
+      ticket: aprovadas.length ? Math.round(faturamento / aprovadas.length) : 0,
+      pendentes,
     };
-  }, []);
+  }, [vendas]);
+
+  const ranking = useMemo(() => Vendas.agruparPorProduto(vendas).slice(0, 6), [vendas]);
+  const topo = ranking[0]?.centavos ?? 1;
 
   return (
-    <div style={styles.appContainer}>
-      <Sidebar activePath="/vendas" perfil={perfil} />
+    <AppShell perfil={perfil} ativa="vendas">
+      <div className="view on">
+        <div className="spread" style={{ alignItems: "flex-start" }}>
+          <div>
+            <h1 className="title-xl">
+              Minhas <em>vendas</em>.
+            </h1>
+            <p className="sub">
+              Tudo que a extensão NITO registrou nas suas lives do TikTok Shop, em tempo real.
+            </p>
+          </div>
+        </div>
 
-      <div style={styles.mainWrapper}>
-        <Topbar perfil={perfil} />
+        <div className="spread" style={{ margin: "20px 0 4px", flexWrap: "wrap", gap: 10 }}>
+          <div className="periodo">
+            {PERIODOS.map((p) => (
+              <button
+                key={p.chave}
+                className={periodo === p.chave ? "on" : ""}
+                onClick={() => setPeriodo(p.chave)}
+                type="button"
+              >
+                {p.rotulo}
+              </button>
+            ))}
+          </div>
+          <span className="eyebrow">{faixaDeDatas(dias)}</span>
+        </div>
 
-        <div style={styles.contentBody}>
-          {/* Header */}
-          <div style={styles.pageHeader}>
-            <div style={styles.headerTitleGroup}>
-              <div style={styles.headerIconBox}>
-                <TrendingUp size={22} color="#ef4444" />
-              </div>
-              <div>
-                <h1 style={styles.pageTitle}>Minhas Vendas (TikTok Shop)</h1>
-                <p style={styles.pageSubtitle}>
-                  Vendas capturadas em tempo real pela extensão NITO LIVE.
-                </p>
-              </div>
+        <div className="cards">
+          <div className="panel kpi money">
+            <div className="lab">💰 Faturamento</div>
+            <div className="val">{carregando ? "—" : Fmt.brl(resumo.faturamento)}</div>
+            <div className="dt">{PERIODOS.find((p) => p.chave === periodo)!.rotulo.toLowerCase()} atual</div>
+          </div>
+          <div className="panel kpi">
+            <div className="lab">📦 Pedidos aprovados</div>
+            <div className="val">{carregando ? "—" : resumo.pedidos.toLocaleString("pt-BR")}</div>
+            <div className="dt">
+              {resumo.pendentes > 0
+                ? `${resumo.pendentes} aguardando confirmação`
+                : "nenhum pendente"}
             </div>
           </div>
-
-          {/* Cards Superiores */}
-          <div style={styles.cardsGrid}>
-            <div style={styles.metricCard}>
-              <div style={styles.cardHeader}>
-                <span style={styles.cardTitle}>Faturamento (30 dias)</span>
-                <DollarSign size={20} color="#10b981" />
-              </div>
-              <div style={styles.cardValue}>{Fmt.brl(resumo.faturamento_centavos)}</div>
-            </div>
-
-            <div style={styles.metricCard}>
-              <div style={styles.cardHeader}>
-                <span style={styles.cardTitle}>Pedidos Aprovados</span>
-                <ShoppingBag size={20} color="#3b82f6" />
-              </div>
-              <div style={styles.cardValue}>{resumo.pedidos_aprovados}</div>
-            </div>
-
-            <div style={styles.metricCard}>
-              <div style={styles.cardHeader}>
-                <span style={styles.cardTitle}>Ticket Médio</span>
-                <CreditCard size={20} color="#ef4444" />
-              </div>
-              <div style={styles.cardValue}>{Fmt.brl(resumo.ticket_medio_centavos)}</div>
-            </div>
+          <div className="panel kpi gold">
+            <div className="lab">🎯 Ticket médio</div>
+            <div className="val">{carregando ? "—" : Fmt.brl(resumo.ticket)}</div>
+            <div className="dt">por pedido aprovado</div>
           </div>
+          <div className="panel kpi cyan">
+            <div className="lab">📡 Sincronização</div>
+            <div className="val" style={{ fontSize: "1.15rem" }}>
+              {ultimaSync ? Fmt.quando(ultimaSync) : "sem dados"}
+            </div>
+            <div className="dt">última venda registrada pela extensão</div>
+          </div>
+        </div>
 
-          {/* Tabela de Vendas */}
-          <div style={styles.tableCard}>
-            <h2 style={styles.tableTitle}>Histórico de Vendas</h2>
+        <div className="grid2">
+          <div className="panel">
+            <div className="pad spread" style={{ borderBottom: "1px solid var(--line)" }}>
+              <h2 className="h-sec">Histórico de vendas</h2>
+              <span className="eyebrow">
+                {vendas.length} {vendas.length === 1 ? "PEDIDO" : "PEDIDOS"}
+              </span>
+            </div>
 
-            {carregando ? (
-              <div style={styles.emptyBox}>
-                <RefreshCw size={24} className="spin" style={{ marginBottom: "0.5rem" }} />
-                <span>Carregando registro de vendas...</span>
+            {carregando && (
+              <div className="pad muted" style={{ textAlign: "center" }}>Carregando vendas…</div>
+            )}
+
+            {!carregando && vendas.length === 0 && (
+              <div className="pad muted" style={{ textAlign: "center" }}>
+                Nenhuma venda neste período. Quando a extensão registrar uma venda na sua live, ela
+                aparece aqui sozinha.
               </div>
-            ) : vendas.length === 0 ? (
-              <div style={styles.emptyBox}>
-                Nenhuma venda registrada ainda. Conecte a extensão NITO LIVE.
-              </div>
-            ) : (
-              <div style={{ overflowX: "auto" }}>
-                <table style={styles.table}>
+            )}
+
+            {!carregando && vendas.length > 0 && (
+              <div className="tabela-wrap">
+                <table>
                   <thead>
                     <tr>
-                      <th style={styles.th}>ID Pedido</th>
-                      <th style={styles.th}>Produto</th>
-                      <th style={styles.th}>Origem</th>
-                      <th style={styles.th}>Valor</th>
-                      <th style={styles.th}>Status</th>
-                      <th style={styles.th}>Data</th>
+                      <th>Pedido</th>
+                      <th>Produto</th>
+                      <th>Live</th>
+                      <th>Valor</th>
+                      <th>Status</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {vendas.map((venda) => {
-                      const isHighlighted = venda.id === highlightId;
-
+                    {vendas.slice(0, 100).map((v) => {
+                      const st = SITUACAO[v.status] ?? SITUACAO.pendente;
                       return (
-                        <tr
-                          key={venda.id}
-                          style={{
-                            ...styles.tr,
-                            ...(isHighlighted ? styles.trHighlight : {}),
-                          }}
-                        >
-                          <td style={styles.tdId}>{venda.id_pedido}</td>
-                          <td style={styles.td}>{venda.produto || "Produto não identificado"}</td>
-                          <td style={styles.td}>{venda.origem}</td>
-                          <td style={styles.tdValor}>{Fmt.brl(venda.valor_centavos)}</td>
-                          <td style={styles.td}>
-                            <span
-                              style={{
-                                ...styles.statusBadge,
-                                backgroundColor:
-                                  venda.status === "aprovado"
-                                    ? "rgba(16, 185, 129, 0.12)"
-                                    : "rgba(239, 68, 68, 0.12)",
-                                color: venda.status === "aprovado" ? "#10b981" : "#ef4444",
-                              }}
-                            >
-                              {venda.status.toUpperCase()}
-                            </span>
+                        <tr key={v.id}>
+                          <td className="num">{v.id_pedido}</td>
+                          <td>{v.produto ?? "—"}</td>
+                          <td className="muted num">{quando(v.ocorrido_em)}</td>
+                          <td className="v">{Fmt.brl(v.valor_centavos)}</td>
+                          <td>
+                            <span className={`pill ${st.pill}`}>{st.texto}</span>
                           </td>
-                          <td style={styles.tdData}>{Fmt.quando(venda.ocorrido_em)}</td>
                         </tr>
                       );
                     })}
@@ -191,172 +202,62 @@ function VendasContent({ perfil }: { perfil: Perfil }) {
             )}
           </div>
 
-          <CommunityFooter />
+          <div className="stack">
+            <div className="panel pad">
+              <div className="spread" style={{ marginBottom: 14 }}>
+                <h2 className="h-sec">Mais vendidos</h2>
+                <span className="eyebrow">no período</span>
+              </div>
+
+              {ranking.length === 0 && (
+                <div className="muted tiny">Sem vendas aprovadas para ranquear ainda.</div>
+              )}
+
+              {ranking.map((p, i) => (
+                <div className="prod" key={p.produto}>
+                  <span className="pos">{i + 1}</span>
+                  <div className="nm">
+                    <b>{p.produto}</b>
+                    <span className="qtd">
+                      {p.unidades} {p.unidades === 1 ? "unidade" : "unidades"}
+                    </span>
+                    <div className="barp">
+                      <i style={{ width: `${Math.max(6, Math.round((p.centavos / topo) * 100))}%` }} />
+                    </div>
+                  </div>
+                  <span className="vl">{Fmt.brl(p.centavos)}</span>
+                </div>
+              ))}
+            </div>
+
+            <div
+              className="panel pad"
+              style={{
+                borderColor: "rgba(34,230,255,.24)",
+                background: "linear-gradient(160deg,rgba(34,230,255,.06),var(--surf))",
+              }}
+            >
+              <div className="row" style={{ alignItems: "flex-start", gap: 12 }}>
+                <div style={{ fontSize: "1.3rem" }}>📡</div>
+                <div>
+                  <b style={{ fontSize: ".88rem" }}>
+                    {ultimaSync ? "Conectado à extensão" : "Aguardando a extensão"}
+                  </b>
+                  <p className="muted tiny" style={{ marginTop: 5 }}>
+                    {ultimaSync
+                      ? "Toda venda fechada na sua live aparece aqui sozinha, sem você lançar nada."
+                      : "Nenhuma venda chegou ainda. A ponte entre a extensão e o site é o próximo passo do projeto."}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
-    </div>
+    </AppShell>
   );
 }
 
-const styles: Record<string, React.CSSProperties> = {
-  appContainer: {
-    display: "flex",
-    minHeight: "100vh",
-    backgroundColor: "#09090b",
-    color: "#f8fafc",
-    fontFamily:
-      'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif',
-  },
-  mainWrapper: {
-    flex: 1,
-    display: "flex",
-    flexDirection: "column",
-    minWidth: 0,
-    overflowX: "hidden",
-  },
-  contentBody: {
-    flex: 1,
-    padding: "1.75rem 2rem",
-    display: "flex",
-    flexDirection: "column",
-    maxWidth: "1340px",
-    width: "100%",
-    margin: "0 auto",
-  },
-  pageHeader: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: "1.5rem",
-  },
-  headerTitleGroup: {
-    display: "flex",
-    alignItems: "center",
-    gap: "1rem",
-  },
-  headerIconBox: {
-    width: "48px",
-    height: "48px",
-    borderRadius: "14px",
-    backgroundColor: "rgba(239, 68, 68, 0.12)",
-    border: "1px solid rgba(239, 68, 68, 0.3)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  pageTitle: {
-    fontSize: "1.5rem",
-    fontWeight: 900,
-    color: "#ffffff",
-    margin: 0,
-  },
-  pageSubtitle: {
-    fontSize: "0.875rem",
-    color: "#94a3b8",
-    margin: 0,
-  },
-  cardsGrid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
-    gap: "1.25rem",
-    marginBottom: "2rem",
-  },
-  metricCard: {
-    backgroundColor: "#121215",
-    border: "1px solid rgba(255, 255, 255, 0.08)",
-    borderRadius: "16px",
-    padding: "1.25rem",
-    display: "flex",
-    flexDirection: "column",
-    gap: "0.75rem",
-  },
-  cardHeader: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  cardTitle: {
-    fontSize: "0.825rem",
-    color: "#94a3b8",
-    fontWeight: 600,
-  },
-  cardValue: {
-    fontSize: "1.6rem",
-    fontWeight: 900,
-    color: "#ffffff",
-  },
-  tableCard: {
-    backgroundColor: "#121215",
-    border: "1px solid rgba(255, 255, 255, 0.08)",
-    borderRadius: "18px",
-    padding: "1.5rem",
-    marginBottom: "2rem",
-  },
-  tableTitle: {
-    fontSize: "1.1rem",
-    fontWeight: 800,
-    color: "#ffffff",
-    marginBottom: "1.25rem",
-    margin: 0,
-  },
-  emptyBox: {
-    padding: "3rem",
-    textAlign: "center",
-    color: "#94a3b8",
-    fontSize: "0.95rem",
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  table: {
-    width: "100%",
-    borderCollapse: "collapse",
-    textAlign: "left",
-  },
-  th: {
-    padding: "0.75rem 1rem",
-    borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
-    color: "#94a3b8",
-    fontSize: "0.775rem",
-    fontWeight: 700,
-    textTransform: "uppercase",
-    letterSpacing: "0.05em",
-  },
-  tr: {
-    borderBottom: "1px solid rgba(255, 255, 255, 0.04)",
-    transition: "background-color 0.3s ease",
-  },
-  trHighlight: {
-    backgroundColor: "rgba(239, 68, 68, 0.2)",
-  },
-  td: {
-    padding: "0.85rem 1rem",
-    fontSize: "0.85rem",
-    color: "#e2e8f0",
-  },
-  tdId: {
-    padding: "0.85rem 1rem",
-    fontSize: "0.8rem",
-    fontFamily: "monospace",
-    color: "#ef4444",
-    fontWeight: 700,
-  },
-  tdValor: {
-    padding: "0.85rem 1rem",
-    fontSize: "0.875rem",
-    fontWeight: 800,
-    color: "#10b981",
-  },
-  statusBadge: {
-    fontSize: "0.7rem",
-    fontWeight: 800,
-    padding: "0.2rem 0.5rem",
-    borderRadius: "4px",
-  },
-  tdData: {
-    padding: "0.85rem 1rem",
-    fontSize: "0.8rem",
-    color: "#64748b",
-  },
-};
+export default function VendasPage() {
+  return <AuthGuard>{(perfil) => <Conteudo perfil={perfil} />}</AuthGuard>;
+}

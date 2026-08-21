@@ -676,14 +676,29 @@ export const Chat = {
 // VENDAS
 // ---------------------------------------------------------------------------
 export const Vendas = {
-  async listar({ limite = 100 }: { limite?: number } = {}): Promise<Venda[]> {
-    const { data, error } = await sb
-      .from("vendas")
-      .select("*")
-      .order("ocorrido_em", { ascending: false })
-      .limit(limite);
+  async listar({ limite = 100, dias = null }: { limite?: number; dias?: number | null } = {}): Promise<Venda[]> {
+    let q = sb.from("vendas").select("*");
+    if (dias) q = q.gte("ocorrido_em", new Date(Date.now() - dias * 864e5).toISOString());
+    const { data, error } = await q.order("ocorrido_em", { ascending: false }).limit(limite);
     if (error) throw error;
     return (data as Venda[]) || [];
+  },
+
+  // Ranking de produtos do periodo. Somo aqui no navegador em vez de criar
+  // outra funcao no banco: o volume e pequeno e evita mais uma peca para dar
+  // manutencao. Se um dia passar de alguns milhares de vendas, viro RPC.
+  agruparPorProduto(vendas: Venda[]) {
+    const mapa = new Map<string, { produto: string; unidades: number; centavos: number }>();
+    vendas
+      .filter((v) => v.status === "aprovado")
+      .forEach((v) => {
+        const nome = (v.produto ?? "Sem nome").trim() || "Sem nome";
+        const atual = mapa.get(nome) ?? { produto: nome, unidades: 0, centavos: 0 };
+        atual.unidades += 1;
+        atual.centavos += v.valor_centavos ?? 0;
+        mapa.set(nome, atual);
+      });
+    return Array.from(mapa.values()).sort((a, b) => b.centavos - a.centavos);
   },
 
   async resumo(dias = 30): Promise<{ faturamento_centavos: number; pedidos_aprovados: number; ticket_medio_centavos: number }> {
