@@ -366,11 +366,13 @@ export const Feed = {
     conteudo,
     imagemFile = null,
     tipo = "insight",
+    fixado = false,
   }: {
     titulo?: string | null;
     conteudo: string;
     imagemFile?: File | null;
     tipo?: TipoPost;
+    fixado?: boolean;
   }): Promise<Post> {
     const {
       data: { user },
@@ -384,11 +386,18 @@ export const Feed = {
 
     const { data, error } = await sb
       .from("posts")
-      .insert({ autor_id: user.id, titulo, conteudo, imagem_url, tipo })
+      .insert({ autor_id: user.id, titulo, conteudo, imagem_url, tipo, fixado })
       .select(SELECT_POST)
       .single();
     if (error) throw error;
     return data as unknown as Post;
+  },
+
+  // Fixar e desafixar. A politica do banco so deixa o autor ou a
+  // administracao alterarem - a tela nao e a unica guarda.
+  async fixar(postId: string, fixado: boolean): Promise<void> {
+    const { error } = await sb.from("posts").update({ fixado }).eq("id", postId);
+    if (error) throw comoErro(error, "Nao consegui alterar a fixacao.");
   },
 
   async apagar(postId: string) {

@@ -7,7 +7,7 @@
 // =============================================================================
 
 import React, { useEffect, useRef, useState } from "react";
-import { Aulas, AulasAdmin, Aula, AulaMaterial, AulaComentario, Fmt } from "@/lib/nito-motor";
+import { Aulas, AulasAdmin, Aula, AulaMaterial, AulaComentario, Fmt, comoErro } from "@/lib/nito-motor";
 import { iniciais } from "@/lib/nito-gamificacao";
 import { Icone } from "./NitoIcones";
 
@@ -103,7 +103,7 @@ export function AulaDetalhe({
       setComentarios((a) => [...a, novo]);
       setTexto("");
     } catch (e) {
-      setErro(e instanceof Error ? e.message : "Não consegui comentar.");
+      setErro(comoErro(e, "Não consegui comentar.").message);
     } finally {
       setOcupado(false);
     }
@@ -126,7 +126,7 @@ export function AulaDetalhe({
       setMUrl("");
       setMArquivo(null);
     } catch (e) {
-      setErro(e instanceof Error ? e.message : "Não consegui anexar.");
+      setErro(comoErro(e, "Não consegui anexar.").message);
     } finally {
       setOcupado(false);
     }

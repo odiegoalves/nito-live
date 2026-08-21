@@ -8,7 +8,7 @@
 // =============================================================================
 
 import React, { useRef, useState } from "react";
-import { Feed, Enquetes, TipoPost, Post } from "@/lib/nito-motor";
+import { Feed, Enquetes, TipoPost, Post, comoErro } from "@/lib/nito-motor";
 import { iniciais } from "@/lib/nito-gamificacao";
 
 interface Props {
@@ -16,6 +16,7 @@ interface Props {
   nomeAutor: string;
   exigeFoto?: boolean;
   permiteEnquete?: boolean;
+  permiteFixar?: boolean;
   placeholder: string;
   rotuloBotao: string;
   onPublicado: (post: Post) => void;
@@ -26,6 +27,7 @@ export function CompositorNito({
   nomeAutor,
   exigeFoto = false,
   permiteEnquete = false,
+  permiteFixar = false,
   placeholder,
   rotuloBotao,
   onPublicado,
@@ -34,6 +36,7 @@ export function CompositorNito({
   const [arquivo, setArquivo] = useState<File | null>(null);
   const [previa, setPrevia] = useState<string | null>(null);
   const [comEnquete, setComEnquete] = useState(true);
+  const [fixar, setFixar] = useState(false);
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -60,7 +63,12 @@ export function CompositorNito({
     setEnviando(true);
     setErro(null);
     try {
-      const post = await Feed.criar({ conteudo: texto.trim(), imagemFile: arquivo, tipo });
+      const post = await Feed.criar({
+        conteudo: texto.trim(),
+        imagemFile: arquivo,
+        tipo,
+        fixado: permiteFixar && fixar,
+      });
       if (permiteEnquete && comEnquete) {
         try {
           await Enquetes.abrir(post.id);
@@ -71,9 +79,10 @@ export function CompositorNito({
       setTexto("");
       setArquivo(null);
       setPrevia(null);
+      setFixar(false);
       onPublicado(post);
     } catch (e) {
-      setErro(e instanceof Error ? e.message : "Não consegui publicar. Tente de novo.");
+      setErro(comoErro(e, "Não consegui publicar. Tente de novo.").message);
     } finally {
       setEnviando(false);
     }
@@ -99,7 +108,7 @@ export function CompositorNito({
         </div>
 
         <div style={{ flex: 1, minWidth: 0 }}>
-          {exigeFoto &&
+          {(exigeFoto || previa) &&
             (previa ? (
               <div style={{ position: "relative", marginBottom: 11 }}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -152,6 +161,17 @@ export function CompositorNito({
             onChange={(e) => escolher(e.target.files?.[0] ?? null)}
           />
 
+          {!exigeFoto && !previa && (
+            <button
+              className="btn g"
+              style={{ marginTop: 11, padding: "9px 14px", fontSize: ".68rem" }}
+              onClick={() => inputRef.current?.click()}
+              type="button"
+            >
+              📷 Adicionar foto
+            </button>
+          )}
+
           <textarea
             rows={2}
             placeholder={placeholder}
@@ -167,20 +187,33 @@ export function CompositorNito({
           )}
 
           <div className="spread" style={{ marginTop: 11, flexWrap: "wrap", gap: 10 }}>
-            {exigeFoto ? (
-              <span className="regra">⚠️ Aqui a foto é obrigatória. Publicação só com texto não entra.</span>
-            ) : permiteEnquete ? (
-              <label className="check">
-                <input
-                  type="checkbox"
-                  checked={comEnquete}
-                  onChange={(e) => setComEnquete(e.target.checked)}
-                />
-                Abrir enquete Sim / Não
-              </label>
-            ) : (
-              <span className="regra muted">Foto é opcional aqui.</span>
-            )}
+            <div className="row" style={{ gap: 16, flexWrap: "wrap" }}>
+              {exigeFoto && (
+                <span className="regra">⚠️ Aqui a foto é obrigatória. Publicação só com texto não entra.</span>
+              )}
+
+              {permiteEnquete && (
+                <label className="check">
+                  <input
+                    type="checkbox"
+                    checked={comEnquete}
+                    onChange={(e) => setComEnquete(e.target.checked)}
+                  />
+                  Abrir enquete Sim / Não
+                </label>
+              )}
+
+              {permiteFixar && (
+                <label className="check">
+                  <input type="checkbox" checked={fixar} onChange={(e) => setFixar(e.target.checked)} />
+                  📌 Fixar no topo
+                </label>
+              )}
+
+              {!exigeFoto && !permiteEnquete && !permiteFixar && (
+                <span className="regra muted">Foto é opcional aqui.</span>
+              )}
+            </div>
 
             <button className="btn p" onClick={publicar} disabled={!podePublicar || enviando} type="button">
               {enviando ? "Publicando…" : rotuloBotao}

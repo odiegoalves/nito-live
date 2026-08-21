@@ -9,7 +9,7 @@
 import React, { useRef, useState } from "react";
 import { AuthGuard } from "@/components/AuthGuard";
 import { AppShell } from "@/components/nito/AppShell";
-import { Auth, Storage, Perfil } from "@/lib/nito-motor";
+import { Auth, Storage, Perfil, comoErro } from "@/lib/nito-motor";
 import { patenteDoNivel, progressoNoNivel, proximaPatente, iniciais } from "@/lib/nito-gamificacao";
 
 const TABELA_XP = [
@@ -61,7 +61,7 @@ function Conteudo({ perfilInicial }: { perfilInicial: Perfil }) {
     } catch (e) {
       setRecado({
         tipo: "erro",
-        texto: e instanceof Error ? e.message : "Não consegui salvar.",
+        texto: comoErro(e, "Não consegui salvar.").message,
       });
     } finally {
       setSalvando(false);
@@ -86,7 +86,7 @@ function Conteudo({ perfilInicial }: { perfilInicial: Perfil }) {
       setPerfil(atualizado);
       setRecado({ tipo: "ok", texto: "Foto atualizada." });
     } catch (e) {
-      setRecado({ tipo: "erro", texto: e instanceof Error ? e.message : "Não consegui enviar a foto." });
+      setRecado({ tipo: "erro", texto: comoErro(e, "Não consegui enviar a foto.").message });
     } finally {
       setEnviandoFoto(false);
     }

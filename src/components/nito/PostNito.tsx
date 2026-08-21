@@ -29,13 +29,24 @@ function corDe(id: string) {
 interface Props {
   post: Post;
   curtiu: boolean;
+  admin?: boolean;
   enquete?: Enquete | null;
   onCurtir: (postId: string, curtiu: boolean) => void;
   onVotar?: (enqueteId: string, voto: boolean) => void;
   onAbrirComentarios?: (postId: string) => void;
+  onFixar?: (postId: string, fixado: boolean) => void;
 }
 
-export function PostNito({ post, curtiu, enquete, onCurtir, onVotar, onAbrirComentarios }: Props) {
+export function PostNito({
+  post,
+  curtiu,
+  admin = false,
+  enquete,
+  onCurtir,
+  onVotar,
+  onAbrirComentarios,
+  onFixar,
+}: Props) {
   const [ocupado, setOcupado] = useState(false);
   const autor = post.autor ?? {};
   const oficial = post.tipo === "importante";
@@ -56,6 +67,17 @@ export function PostNito({ post, curtiu, enquete, onCurtir, onVotar, onAbrirCome
     }
   }
 
+  async function alternarFixado() {
+    if (ocupado) return;
+    setOcupado(true);
+    try {
+      await Feed.fixar(post.id, !post.fixado);
+      onFixar?.(post.id, !post.fixado);
+    } finally {
+      setOcupado(false);
+    }
+  }
+
   async function votar(voto: boolean) {
     if (!enquete || ocupado) return;
     setOcupado(true);
@@ -68,7 +90,10 @@ export function PostNito({ post, curtiu, enquete, onCurtir, onVotar, onAbrirCome
   }
 
   return (
-    <article className="panel post">
+    <article
+      className="panel post"
+      style={post.fixado ? { borderColor: "rgba(255,194,58,.35)", boxShadow: "0 0 30px rgba(255,194,58,.06)" } : undefined}
+    >
       <div className="head">
         <div
           className="av"
@@ -85,7 +110,10 @@ export function PostNito({ post, curtiu, enquete, onCurtir, onVotar, onAbrirCome
               <span className={`pat-chip ${patente.cor}`}>{patente.nome}</span>
             )}
           </b>
-          <span>{Fmt.quando(post.criado_em).toUpperCase()}</span>
+          <span>
+            {Fmt.quando(post.criado_em).toUpperCase()}
+            {post.fixado && " · 📌 FIXADO NO TOPO"}
+          </span>
         </div>
       </div>
 
@@ -172,6 +200,18 @@ export function PostNito({ post, curtiu, enquete, onCurtir, onVotar, onAbrirCome
           {post.comentarios_count ?? 0}{" "}
           {(post.comentarios_count ?? 0) === 1 ? "comentário" : "comentários"}
         </button>
+        {admin && (
+          <button
+            style={{ marginLeft: "auto", color: post.fixado ? "var(--gold)" : "var(--mut2)" }}
+            onClick={alternarFixado}
+            disabled={ocupado}
+            type="button"
+            title={post.fixado ? "Tirar do topo" : "Fixar no topo"}
+          >
+            📌 {post.fixado ? "Fixado" : "Fixar"}
+          </button>
+        )}
+
         {post.situacao === "em_analise" && (
           <button style={{ marginLeft: "auto", color: "var(--gold)" }} type="button">
             ★ Em análise

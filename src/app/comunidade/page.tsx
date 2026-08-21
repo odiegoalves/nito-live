@@ -112,6 +112,17 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
     );
   }
 
+  function aoFixar(postId: string, fixado: boolean) {
+    setPosts((antes) => {
+      const atualizado = antes.map((p) => (p.id === postId ? { ...p, fixado } : p));
+      // Mesma ordem do banco: fixados primeiro, depois os mais recentes.
+      return [...atualizado].sort((a, b) => {
+        if (a.fixado !== b.fixado) return a.fixado ? -1 : 1;
+        return new Date(b.criado_em).getTime() - new Date(a.criado_em).getTime();
+      });
+    });
+  }
+
   function aoVotar(enqueteId: string, voto: boolean) {
     setEnquetes((antes) => {
       const novo = { ...antes };
@@ -185,6 +196,7 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
                 nomeAutor={perfil.nome}
                 exigeFoto={sub === "resultado"}
                 permiteEnquete={sub === "melhoria"}
+                permiteFixar={admin}
                 placeholder={t.placeholder}
                 rotuloBotao={t.botao}
                 onPublicado={aoPublicar}
@@ -209,9 +221,11 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
                   key={p.id}
                   post={p}
                   curtiu={curtidos.has(p.id)}
+                  admin={admin}
                   enquete={enquetes[p.id] ?? null}
                   onCurtir={aoCurtir}
                   onVotar={aoVotar}
+                  onFixar={aoFixar}
                 />
               ))}
           </>

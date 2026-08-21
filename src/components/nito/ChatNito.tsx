@@ -7,7 +7,7 @@
 // =============================================================================
 
 import React, { useEffect, useRef, useState } from "react";
-import { Chat, MensagemChat, Perfil } from "@/lib/nito-motor";
+import { Chat, MensagemChat, Perfil, comoErro } from "@/lib/nito-motor";
 import { iniciais } from "@/lib/nito-gamificacao";
 import { Icone } from "./NitoIcones";
 
@@ -109,7 +109,7 @@ export function ChatNito({ perfil }: { perfil: Perfil }) {
       setTexto("");
       setArquivo(null);
     } catch (e) {
-      setErro(e instanceof Error ? e.message : "Não consegui enviar.");
+      setErro(comoErro(e, "Não consegui enviar.").message);
     } finally {
       setEnviando(false);
     }

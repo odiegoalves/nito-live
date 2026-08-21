@@ -10,7 +10,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { AuthGuard } from "@/components/AuthGuard";
 import { AppShell, ehAdmin } from "@/components/nito/AppShell";
 import { Icone } from "@/components/nito/NitoIcones";
-import { Chamados, Chamado, ChamadoMensagem, Perfil, Fmt } from "@/lib/nito-motor";
+import { Chamados, Chamado, ChamadoMensagem, Perfil, Fmt, comoErro } from "@/lib/nito-motor";
 
 const ROTULO: Record<Chamado["situacao"], { pill: string; texto: string }> = {
   aguardando: { pill: "wait", texto: "Aguardando" },
@@ -79,7 +79,7 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
       await carregar();
       setAberto(c);
     } catch (e) {
-      setErro(e instanceof Error ? e.message : "Não consegui abrir o chamado.");
+      setErro(comoErro(e, "Não consegui abrir o chamado.").message);
     } finally {
       setOcupado(false);
     }
@@ -93,7 +93,7 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
       setResposta("");
       carregar();
     } catch (e) {
-      setErro(e instanceof Error ? e.message : "Não consegui enviar.");
+      setErro(comoErro(e, "Não consegui enviar.").message);
     } finally {
       setOcupado(false);
     }

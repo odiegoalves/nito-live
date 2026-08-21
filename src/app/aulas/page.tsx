@@ -20,6 +20,7 @@ import {
   AulaMaterial,
   AulaProgresso,
   Perfil,
+  comoErro,
 } from "@/lib/nito-motor";
 
 function duracao(seg?: number | null) {
@@ -141,7 +142,7 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
       setNovoModulo("");
       await carregar();
     } catch (e) {
-      setAvisoModulo(e instanceof Error ? e.message : "Não consegui criar o módulo.");
+      setAvisoModulo(comoErro(e, "Não consegui criar o módulo.").message);
     } finally {
       setSalvando(false);
     }
@@ -165,7 +166,7 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
       await Modulos.apagar(m.id);
       await carregar();
     } catch (e) {
-      setAvisoModulo(e instanceof Error ? e.message : "Não consegui excluir o módulo.");
+      setAvisoModulo(comoErro(e, "Não consegui excluir o módulo.").message);
     } finally {
       setSalvando(false);
     }
@@ -180,7 +181,7 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
       if (aberta?.id === a.id) setAberta(null);
       await carregar();
     } catch (e) {
-      setErro(e instanceof Error ? e.message : "Não consegui excluir a aula.");
+      setErro(comoErro(e, "Não consegui excluir a aula.").message);
     } finally {
       setSalvando(false);
     }
@@ -208,7 +209,7 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
       setMostrarForm(false);
       await carregar();
     } catch (e) {
-      setErro(e instanceof Error ? e.message : "Não consegui salvar a aula.");
+      setErro(comoErro(e, "Não consegui salvar a aula.").message);
     } finally {
       setSalvando(false);
     }
