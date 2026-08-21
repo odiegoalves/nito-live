@@ -158,6 +158,37 @@ export const Auth = {
     return data;
   },
 
+  // Confirma a conta com o codigo de 6 digitos que chegou no e-mail.
+  async confirmarCadastro(email: string, codigo: string) {
+    const { data, error } = await sb.auth.verifyOtp({
+      email,
+      token: codigo,
+      type: "signup",
+    });
+    if (error) throw error;
+    return data;
+  },
+
+  // Reenvia o codigo de confirmacao de cadastro.
+  async reenviarCodigo(email: string) {
+    const { error } = await sb.auth.resend({ type: "signup", email });
+    if (error) throw error;
+  },
+
+  // Valida o codigo de recuperacao e ja grava a senha nova.
+  async confirmarRecuperacao(email: string, codigo: string, novaSenha: string) {
+    const { error: erroCodigo } = await sb.auth.verifyOtp({
+      email,
+      token: codigo,
+      type: "recovery",
+    });
+    if (erroCodigo) throw erroCodigo;
+
+    const { data, error } = await sb.auth.updateUser({ password: novaSenha });
+    if (error) throw error;
+    return data;
+  },
+
   async entrar(email: string, senha: string) {
     const { data, error } = await sb.auth.signInWithPassword({ email, password: senha });
     if (error) throw error;
@@ -165,9 +196,8 @@ export const Auth = {
   },
 
   async esqueciSenha(email: string) {
-    const { data, error } = await sb.auth.resetPasswordForEmail(email, {
-      redirectTo: typeof window !== "undefined" ? `${window.location.origin}/login` : undefined,
-    });
+    // Envia o codigo de recuperacao (o modelo de e-mail no Supabase usa {{ .Token }}).
+    const { data, error } = await sb.auth.resetPasswordForEmail(email);
     if (error) throw error;
     return data;
   },
@@ -496,7 +526,15 @@ export const Chat = {
 
     return {
       digitando: (nome: string) => canal.send({ type: "broadcast", event: "digitando", payload: { nome } }),
-      sair: () => {
+      sair: async () => {
+        // untrack ANTES de remover: avisa os outros navegadores que esta
+        // pessoa saiu. Sem isso, a presenca antiga fica pendurada e, se a
+        // pessoa voltar logo, ela aparece duas vezes na lista de online.
+        try {
+          await canal.untrack();
+        } catch {
+          // canal ja pode estar fechado - seguir para a remocao
+        }
         sb.removeChannel(canal);
       },
     };

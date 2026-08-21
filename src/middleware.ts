@@ -4,6 +4,8 @@ import { NextResponse, type NextRequest } from "next/server";
 const ROTAS_PUBLICAS = [
   "/login",
   "/cadastro",
+  "/criar-conta",
+  "/recuperar-senha",
   "/auth/callback",
   "/landing",
   "/afiliados",
@@ -57,7 +59,8 @@ async function proteger(request: NextRequest) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
-  if (user && (caminho === "/login" || caminho === "/cadastro")) {
+  const telasDeAcesso = ["/login", "/cadastro", "/criar-conta", "/recuperar-senha"];
+  if (user && telasDeAcesso.includes(caminho)) {
     return NextResponse.redirect(new URL("/", request.url));
   }
 

@@ -4,7 +4,7 @@
 // Esta rota continua existindo para nao quebrar links antigos.
 import { useEffect } from "react";
 
-export default function CadastroPage() {
+export default function CriarContaPage() {
   useEffect(() => {
     window.location.replace("/login?modo=cadastro");
   }, []);
