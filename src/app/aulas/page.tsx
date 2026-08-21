@@ -304,7 +304,6 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
         {aberta && (
           <AulaDetalhe
             aula={aberta}
-            perfil={perfil}
             admin={admin}
             materiais={materiais[aberta.id] ?? []}
             curtiu={curtidas_minhas.has(aberta.id)}

@@ -7,7 +7,7 @@
 // =============================================================================
 
 import React, { useEffect, useRef, useState } from "react";
-import { Aulas, AulasAdmin, Aula, AulaMaterial, AulaComentario, Perfil, Fmt } from "@/lib/nito-motor";
+import { Aulas, AulasAdmin, Aula, AulaMaterial, AulaComentario, Fmt } from "@/lib/nito-motor";
 import { iniciais } from "@/lib/nito-gamificacao";
 import { Icone } from "./NitoIcones";
 
@@ -29,7 +29,6 @@ function tamanho(bytes?: number | null) {
 
 interface Props {
   aula: Aula;
-  perfil: Perfil;
   admin: boolean;
   materiais: AulaMaterial[];
   curtiu: boolean;
@@ -41,7 +40,6 @@ interface Props {
 
 export function AulaDetalhe({
   aula,
-  perfil,
   admin,
   materiais,
   curtiu,
