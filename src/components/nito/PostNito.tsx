@@ -48,6 +48,7 @@ export function PostNito({
   onFixar,
 }: Props) {
   const [ocupado, setOcupado] = useState(false);
+  const [ampliada, setAmpliada] = useState(false);
   const autor = post.autor ?? {};
   const oficial = post.tipo === "importante";
   const patente = patenteDoNivel(autor.nivel ?? 1);
@@ -118,20 +119,71 @@ export function PostNito({
       </div>
 
       {post.imagem_url && (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={post.imagem_url}
-          alt=""
+        <div style={{ position: "relative", marginBottom: 13 }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={post.imagem_url}
+            alt=""
+            onClick={() => setAmpliada(true)}
+            style={{
+              width: "100%",
+              aspectRatio: "1 / 1",
+              objectFit: "cover",
+              borderRadius: 13,
+              border: "1px solid var(--line)",
+              display: "block",
+              cursor: "zoom-in",
+            }}
+          />
+          <button
+            type="button"
+            onClick={() => setAmpliada(true)}
+            style={{
+              position: "absolute",
+              right: 10,
+              bottom: 10,
+              padding: "6px 12px",
+              fontSize: ".68rem",
+              fontWeight: 700,
+              borderRadius: 8,
+              border: "1px solid rgba(255,255,255,.25)",
+              background: "rgba(0,0,0,.55)",
+              color: "#fff",
+              cursor: "pointer",
+            }}
+          >
+            Ver imagem
+          </button>
+        </div>
+      )}
+
+      {post.imagem_url && ampliada && (
+        <div
+          onClick={() => setAmpliada(false)}
           style={{
-            width: "100%",
-            maxHeight: 260,
-            objectFit: "cover",
-            borderRadius: 13,
-            border: "1px solid var(--line)",
-            marginBottom: 13,
-            display: "block",
+            position: "fixed",
+            inset: 0,
+            zIndex: 999,
+            background: "rgba(4,5,10,.9)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 24,
+            cursor: "zoom-out",
           }}
-        />
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={post.imagem_url}
+            alt=""
+            style={{
+              maxWidth: "100%",
+              maxHeight: "100%",
+              borderRadius: 13,
+              objectFit: "contain",
+            }}
+          />
+        </div>
       )}
 
       {post.titulo && (
