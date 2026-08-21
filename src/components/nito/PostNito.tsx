@@ -93,7 +93,14 @@ export function PostNito({
   return (
     <article
       className="panel post"
-      style={post.fixado ? { borderColor: "rgba(255,194,58,.35)", boxShadow: "0 0 30px rgba(255,194,58,.06)" } : undefined}
+      style={{
+        maxWidth: 520,
+        marginLeft: "auto",
+        marginRight: "auto",
+        ...(post.fixado
+          ? { borderColor: "rgba(255,194,58,.35)", boxShadow: "0 0 30px rgba(255,194,58,.06)" }
+          : null),
+      }}
     >
       <div className="head">
         <div
@@ -119,7 +126,7 @@ export function PostNito({
       </div>
 
       {post.imagem_url && (
-        <div style={{ position: "relative", marginBottom: 13, maxWidth: 420, marginLeft: "auto", marginRight: "auto" }}>
+        <div style={{ position: "relative", marginBottom: 13 }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={post.imagem_url}
