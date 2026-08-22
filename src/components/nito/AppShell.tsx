@@ -10,13 +10,13 @@ import React from "react";
 import Link from "next/link";
 import { Auth, Perfil } from "@/lib/nito-motor";
 import { SpriteIcones, Icone } from "./NitoIcones";
+import { SinoNotificacoes } from "./SinoNotificacoes";
 import {
   patenteDoNivel,
   progressoNoNivel,
   proximaPatente,
   diasRestantes,
   saudacao,
-  iniciais,
 } from "@/lib/nito-gamificacao";
 
 export type AbaAtiva =
@@ -122,7 +122,7 @@ export function AppShell({ perfil, ativa, children, recado }: Props) {
                 ASSINATURA · {dias} {dias === 1 ? "DIA" : "DIAS"}
               </div>
             )}
-            <div className="avatar">{iniciais(perfil.nome)}</div>
+            <SinoNotificacoes />
           </header>
 
           {children}

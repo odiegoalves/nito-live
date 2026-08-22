@@ -1264,6 +1264,257 @@ export const Fmt = {
   },
 };
 
+// ---------------------------------------------------------------------------
+// SININHO DE NOTIFICACOES
+//
+// Nao existe tabela de notificacoes de proposito. O que existe e uma marca de
+// "ate quando voce ja viu", guardada no seu perfil, e as notificacoes sao
+// montadas na hora a partir do proprio conteudo: comunicado, publicacao nova,
+// comentario no seu post e curtida no seu post.
+//
+// Vantagem: nada de gatilho no banco para dar manutencao, e o conteudo e a
+// unica fonte de verdade. Limite honesto: some tudo de uma vez quando voce
+// abre o sininho - nao da para marcar uma notificacao e deixar outra.
+//
+// A marca fica no perfil para valer em qualquer aparelho. Se a coluna ainda
+// nao existir no banco, cai para o navegador em vez de quebrar a tela.
+// ---------------------------------------------------------------------------
+const MARCA_LOCAL = "nito_notificacoes_vistas_em";
+const JANELA_INICIAL_DIAS = 7;
+
+export type TipoNotificacao = "comunicado" | "publicacao" | "comentario" | "curtida";
+
+export interface Notificacao {
+  id: string;
+  tipo: TipoNotificacao;
+  icone: string;
+  titulo: string;
+  detalhe: string;
+  criado_em: string;
+  href: string;
+}
+
+function marcaLocal(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    return window.localStorage.getItem(MARCA_LOCAL);
+  } catch {
+    return null;
+  }
+}
+
+function guardarMarcaLocal(quando: string) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(MARCA_LOCAL, quando);
+  } catch {
+    /* sem armazenamento: vale so nesta sessao */
+  }
+}
+
+function resumo(texto?: string | null, limite = 90): string {
+  const limpo = (texto ?? "").replace(/\s+/g, " ").trim();
+  if (!limpo) return "";
+  return limpo.length > limite ? limpo.slice(0, limite - 1) + "…" : limpo;
+}
+
+export const Notificacoes = {
+  /** Ate quando a pessoa ja viu. Null = nunca abriu. */
+  async vistasEm(): Promise<string | null> {
+    const {
+      data: { user },
+    } = await sb.auth.getUser();
+    if (!user) return null;
+    try {
+      const { data, error } = await sb
+        .from("perfis")
+        .select("notificacoes_vistas_em")
+        .eq("id", user.id)
+        .single();
+      if (error) throw error;
+      const doBanco = (data as { notificacoes_vistas_em?: string } | null)?.notificacoes_vistas_em;
+      if (doBanco) return doBanco;
+    } catch {
+      /* coluna ainda nao existe no banco: usa a marca do navegador */
+    }
+    return marcaLocal();
+  },
+
+  /** Marca tudo como visto, agora. */
+  async marcarVistas(): Promise<void> {
+    const agora = new Date().toISOString();
+    guardarMarcaLocal(agora);
+    const {
+      data: { user },
+    } = await sb.auth.getUser();
+    if (!user) return;
+    try {
+      await sb.from("perfis").update({ notificacoes_vistas_em: agora }).eq("id", user.id);
+    } catch {
+      /* sem a coluna, a marca do navegador ja segurou */
+    }
+  },
+
+  /**
+   * Monta a lista do que aconteceu desde a ultima vez.
+   *
+   * Cada bloco e independente: se um falhar (permissao do banco, coluna que
+   * nao existe), os outros continuam aparecendo em vez de a tela inteira ficar
+   * vazia sem explicacao.
+   */
+  async listar(limite = 20): Promise<Notificacao[]> {
+    const {
+      data: { user },
+    } = await sb.auth.getUser();
+    if (!user) return [];
+
+    const marca =
+      (await this.vistasEm()) ??
+      new Date(Date.now() - JANELA_INICIAL_DIAS * 86400000).toISOString();
+
+    // Os posts da propria pessoa, para saber onde comentaram e curtiram.
+    let meusPosts: { id: string; conteudo?: string }[] = [];
+    try {
+      const { data } = await sb
+        .from("posts")
+        .select("id, conteudo")
+        .eq("autor_id", user.id)
+        .order("criado_em", { ascending: false })
+        .limit(200);
+      meusPosts = (data as { id: string; conteudo?: string }[]) ?? [];
+    } catch {
+      /* segue sem os blocos que dependem dos meus posts */
+    }
+    const meusIds = meusPosts.map((p) => p.id);
+    const textoDoPost = new Map(meusPosts.map((p) => [p.id, resumo(p.conteudo, 60)]));
+
+    const comunicados = async (): Promise<Notificacao[]> => {
+      const { data, error } = await sb
+        .from("posts")
+        .select("id, conteudo, criado_em")
+        .eq("tipo", "importante")
+        .neq("autor_id", user.id)
+        .gt("criado_em", marca)
+        .order("criado_em", { ascending: false })
+        .limit(limite);
+      if (error) throw error;
+      return ((data as { id: string; conteudo?: string; criado_em: string }[]) ?? []).map((p) => ({
+        id: "com-" + p.id,
+        tipo: "comunicado" as const,
+        icone: "📌",
+        titulo: "Comunicado da NITO LIVE",
+        detalhe: resumo(p.conteudo),
+        criado_em: p.criado_em,
+        href: "/comunidade",
+      }));
+    };
+
+    const publicacoes = async (): Promise<Notificacao[]> => {
+      const { data, error } = await sb
+        .from("posts")
+        .select("id, conteudo, tipo, criado_em, autor_id")
+        .in("tipo", ["resultado", "insight", "melhoria"])
+        .neq("autor_id", user.id)
+        .gt("criado_em", marca)
+        .order("criado_em", { ascending: false })
+        .limit(limite);
+      if (error) throw error;
+      const linhas = (data as { id: string; conteudo?: string; tipo: string; criado_em: string; autor_id: string }[]) ?? [];
+      const nomes = await nomesDe(linhas.map((l) => l.autor_id));
+      const rotulo: Record<string, string> = {
+        resultado: "publicou um resultado",
+        insight: "publicou um insight",
+        melhoria: "sugeriu uma melhoria",
+      };
+      return linhas.map((p) => ({
+        id: "pub-" + p.id,
+        tipo: "publicacao" as const,
+        icone: p.tipo === "resultado" ? "📸" : p.tipo === "insight" ? "💡" : "🛠",
+        titulo: `${nomes.get(p.autor_id) ?? "Um membro"} ${rotulo[p.tipo] ?? "publicou"}`,
+        detalhe: resumo(p.conteudo),
+        criado_em: p.criado_em,
+        href: "/comunidade",
+      }));
+    };
+
+    const comentarios = async (): Promise<Notificacao[]> => {
+      if (!meusIds.length) return [];
+      const { data, error } = await sb
+        .from("comentarios")
+        .select("id, post_id, autor_id, conteudo, criado_em")
+        .in("post_id", meusIds)
+        .neq("autor_id", user.id)
+        .gt("criado_em", marca)
+        .order("criado_em", { ascending: false })
+        .limit(limite);
+      if (error) throw error;
+      const linhas = (data as { id: string; post_id: string; autor_id: string; conteudo?: string; criado_em: string }[]) ?? [];
+      const nomes = await nomesDe(linhas.map((l) => l.autor_id));
+      return linhas.map((c) => ({
+        id: "cmt-" + c.id,
+        tipo: "comentario" as const,
+        icone: "💬",
+        titulo: `${nomes.get(c.autor_id) ?? "Um membro"} comentou na sua publicação`,
+        detalhe: resumo(c.conteudo),
+        criado_em: c.criado_em,
+        href: "/comunidade",
+      }));
+    };
+
+    const curtidas = async (): Promise<Notificacao[]> => {
+      if (!meusIds.length) return [];
+      const { data, error } = await sb
+        .from("curtidas")
+        .select("post_id, user_id, criado_em")
+        .in("post_id", meusIds)
+        .neq("user_id", user.id)
+        .gt("criado_em", marca)
+        .order("criado_em", { ascending: false })
+        .limit(limite);
+      if (error) throw error;
+      const linhas = (data as { post_id: string; user_id: string; criado_em: string }[]) ?? [];
+      const nomes = await nomesDe(linhas.map((l) => l.user_id));
+      return linhas.map((c) => ({
+        id: "cur-" + c.post_id + "-" + c.user_id,
+        tipo: "curtida" as const,
+        icone: "❤️",
+        titulo: `${nomes.get(c.user_id) ?? "Um membro"} curtiu sua publicação`,
+        detalhe: textoDoPost.get(c.post_id) ?? "",
+        criado_em: c.criado_em,
+        href: "/comunidade",
+      }));
+    };
+
+    const partes = await Promise.allSettled([
+      comunicados(),
+      publicacoes(),
+      comentarios(),
+      curtidas(),
+    ]);
+
+    const tudo: Notificacao[] = [];
+    partes.forEach((p) => {
+      if (p.status === "fulfilled") tudo.push(...p.value);
+    });
+
+    return tudo
+      .sort((a, b) => new Date(b.criado_em).getTime() - new Date(a.criado_em).getTime())
+      .slice(0, limite);
+  },
+};
+
+/** Nomes das pessoas envolvidas, numa consulta so. */
+async function nomesDe(ids: string[]): Promise<Map<string, string>> {
+  const unicos = Array.from(new Set(ids.filter(Boolean)));
+  if (!unicos.length) return new Map();
+  try {
+    const { data } = await sb.from("perfis").select("id, nome").in("id", unicos);
+    return new Map(((data as { id: string; nome?: string }[]) ?? []).map((p) => [p.id, p.nome ?? "Um membro"]));
+  } catch {
+    return new Map();
+  }
+}
+
 export const Nito = {
   sb,
   Auth,
