@@ -241,7 +241,11 @@ function useSino() {
     baixar();
   }, [baixar]);
 
-  return { liberar, tocar, rodando };
+  // Consulta direta ao navegador, sem passar por estado de React: quem chama
+  // precisa da verdade do instante, nao da verdade do ultimo desenho da tela.
+  const estaRodando = useCallback(() => ctxRef.current?.state === "running", []);
+
+  return { liberar, tocar, rodando, estaRodando };
 }
 
 /** Toca o quadro ja decodificado. Som e extra: nunca derruba o alerta visual. */
@@ -283,23 +287,37 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
   // base nela - foi o que fazia a pagina avisar junto com o servidor.
   const ligadoRef = useRef(false);
   const inscritoRef = useRef(false);
-  const { liberar, tocar, rodando } = useSino();
+  const { liberar, tocar, rodando, estaRodando } = useSino();
 
-  // O aviso de som so aparece se o navegador continuar segurando o audio por
-  // alguns segundos COM a tela na frente. Sem essa espera ele piscaria toda vez
-  // que o app volta do segundo plano - o iPhone interrompe o audio nessa hora
-  // e retoma sozinho, o que nao e defeito e nao e assunto do cliente.
-  const [avisarSom, setAvisarSom] = useState(false);
+  // Aviso de som, em vermelho e em destaque.
+  //
+  // Todo navegador exige um toque por abertura para liberar audio - nao ha como
+  // fugir disso. Em vez de esconder a exigencia, a tela diz o que fazer, bem
+  // visivel, e some sozinha no primeiro toque.
+  //
+  // "perdeuSom" e o caso mais grave: uma venda REAL ja chegou muda. Ai o texto
+  // muda para dizer isso, porque deixou de ser aviso e virou prejuizo.
+  const [perdeuSom, setPerdeuSom] = useState(false);
+  useEffect(() => {
+    if (rodando) setPerdeuSom(false);
+  }, [rodando]);
+
+  // Espera curta antes de acusar som travado quando ele JA tinha sido liberado:
+  // ao voltar do segundo plano o iPhone interrompe o audio por um instante e
+  // retoma sozinho - sem essa espera o aviso piscaria a toa.
+  const [travouDepois, setTravouDepois] = useState(false);
   useEffect(() => {
     if (!somLiberado || rodando) {
-      setAvisarSom(false);
+      setTravouDepois(false);
       return;
     }
     const t = window.setTimeout(() => {
-      if (document.visibilityState === "visible") setAvisarSom(true);
+      if (document.visibilityState === "visible") setTravouDepois(true);
     }, 2500);
     return () => window.clearTimeout(t);
   }, [somLiberado, rodando]);
+
+  const avisarSom = ligado && (!somLiberado || travouDepois);
   const wakeRef = useRef<{ release: () => Promise<void> } | null>(null);
 
   // Volta ligado sozinho quando a pessoa ja ativou antes neste aparelho.
@@ -356,6 +374,7 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
       setPiscar(true);
       setTimeout(() => setPiscar(false), 1400);
       if (!ligadoRef.current) return;
+      if (!estaRodando()) setPerdeuSom(true);
       tocar();
       try {
         if (navigator.vibrate) navigator.vibrate([120, 60, 120]);
@@ -380,7 +399,7 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
         /* notificacao bloqueada: som e tela ainda avisam */
       }
     },
-    [tocar]
+    [tocar, estaRodando]
   );
 
   // ---- inscrever o aparelho para receber com o app fechado ----------------
@@ -677,6 +696,32 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
         </div>
       )}
 
+      {avisarSom && (
+        <div
+          role="status"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            background: "rgba(239,68,68,.12)",
+            border: `1.5px solid ${COR.vermelho}`,
+            borderRadius: 14,
+            padding: "13px 15px",
+            color: COR.vermelho,
+            fontSize: 13.5,
+            fontWeight: 700,
+            lineHeight: 1.4,
+          }}
+        >
+          <span style={{ fontSize: 18, lineHeight: 1 }}>🔊</span>
+          <span>
+            {perdeuSom
+              ? "Chegou venda com o som travado. Toque na tela para reativar o som."
+              : "Toque em qualquer lugar da tela para liberar o som das vendas."}
+          </span>
+        </div>
+      )}
+
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
         <div style={{ background: COR.cartao, border: `1px solid ${COR.linha}`, borderRadius: 14, padding: "14px 15px" }}>
           <div style={{ fontSize: 10.5, letterSpacing: ".1em", textTransform: "uppercase", color: COR.fraco, fontWeight: 700 }}>Hoje</div>
@@ -710,16 +755,6 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
             {inscrito
               ? "Avisos chegam mesmo com o app fechado e a tela bloqueada."
               : "Avisos só enquanto esta tela estiver aberta."}
-            {!somLiberado && (
-              <span style={{ display: "block", color: COR.fraco, marginTop: 3 }}>
-                Toque em qualquer lugar da tela para liberar o som.
-              </span>
-            )}
-            {avisarSom && (
-              <span style={{ display: "block", color: COR.fraco, marginTop: 3 }}>
-                Toque na tela uma vez para liberar o som.
-              </span>
-            )}
           </span>
         </div>
       )}
@@ -809,7 +844,7 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
       </div>
 
       <p style={{ fontSize: 11, color: COR.fraco, lineHeight: 1.5, margin: 0, textAlign: "center" }}>
-        Deixe o celular ao lado durante a live. No iPhone não há vibração — o Safari não permite. <span style={{ opacity: .55 }}>v11</span>
+        Deixe o celular ao lado durante a live. No iPhone não há vibração — o Safari não permite. <span style={{ opacity: .55 }}>v13</span>
       </p>
     </div>
   );
