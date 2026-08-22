@@ -193,8 +193,12 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
       } catch {
         /* aparelho sem vibracao */
       }
+      // Quando este aparelho esta inscrito no push, quem mostra o aviso e o
+      // servidor - se a pagina mostrasse tambem, a pessoa receberia dois avisos
+      // da mesma venda. Aqui a pagina so avisa quando o push nao existe
+      // (computador sem inscricao, navegador sem suporte).
       try {
-        if (typeof Notification !== "undefined" && Notification.permission === "granted") {
+        if (!inscrito && typeof Notification !== "undefined" && Notification.permission === "granted") {
           const valor = venda.valor_centavos ? Fmt.brl(venda.valor_centavos) : "venda registrada";
           new Notification("Venda na sua live", {
             body: `${valor}${venda.produto ? " — " + venda.produto : ""}`,
@@ -207,7 +211,7 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
         /* notificacao bloqueada: som e tela ainda avisam */
       }
     },
-    [ligado, tocar]
+    [ligado, tocar, inscrito]
   );
 
   // ---- inscrever o aparelho para receber com o app fechado ----------------
@@ -578,7 +582,7 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
       </div>
 
       <p style={{ fontSize: 11, color: COR.fraco, lineHeight: 1.5, margin: 0, textAlign: "center" }}>
-        Deixe o celular ao lado durante a live. No iPhone não há vibração — o Safari não permite. <span style={{ opacity: .55 }}>v5</span>
+        Deixe o celular ao lado durante a live. No iPhone não há vibração — o Safari não permite. <span style={{ opacity: .55 }}>v6</span>
       </p>
     </div>
   );
