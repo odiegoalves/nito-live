@@ -84,9 +84,9 @@ export function SinoNotificacoes() {
         title="Notificações"
         style={{
           position: "relative",
-          width: 40,
-          height: 40,
-          borderRadius: 12,
+          width: 42,
+          height: 42,
+          borderRadius: 13,
           display: "grid",
           placeItems: "center",
           background: "var(--surf2)",
@@ -96,23 +96,33 @@ export function SinoNotificacoes() {
           flex: "none",
         }}
       >
-        <Icone nome="bell" tam={19} />
+        <Icone nome="bell" tam={20} />
         {naoVistas > 0 && (
           <span
             style={{
               position: "absolute",
-              top: -6,
-              right: -6,
+              top: -5,
+              right: -5,
               minWidth: 20,
               height: 20,
               padding: "0 5px",
               borderRadius: 999,
-              background: "var(--red)",
+              background: "#ff0f3d",
               color: "#fff",
-              font: "800 .68rem/20px var(--body)",
-              textAlign: "center",
-              border: "2px solid var(--bg)",
-              boxShadow: "0 0 10px rgba(255,15,61,.55)",
+              // Medidas em pixel e sem brilho de proposito: a barra do topo tem
+              // desfoque atras, e sombra vermelha somada a borda escura fazia o
+              // numero sair borrado, parecendo baixa resolucao.
+              fontSize: 11,
+              fontWeight: 800,
+              lineHeight: 1,
+              letterSpacing: 0,
+              fontVariantNumeric: "tabular-nums",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              // Anel do tamanho exato, desenhado por sombra: fica nitido, e nao
+              // empurra o tamanho da bolinha como uma borda faria.
+              boxShadow: "0 0 0 2px #07070d",
             }}
           >
             {naoVistas > 9 ? "9+" : naoVistas}
