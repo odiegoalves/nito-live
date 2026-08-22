@@ -140,8 +140,16 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
   const [inscrito, setInscrito] = useState(false);
   const [avisoPush, setAvisoPush] = useState<string | null>(null);
   const vistos = useRef<Set<string>>(new Set());
+  // Espelhos do estado. A escuta de vendas e montada uma vez so; sem eles ela
+  // guardaria uma fotografia do estado de quando foi montada e decidiria com
+  // base nela - foi o que fazia a pagina avisar junto com o servidor.
+  const ligadoRef = useRef(false);
+  const inscritoRef = useRef(false);
   const { liberar, tocar } = useSino();
   const wakeRef = useRef<{ release: () => Promise<void> } | null>(null);
+
+  useEffect(() => { ligadoRef.current = ligado; }, [ligado]);
+  useEffect(() => { inscritoRef.current = inscrito; }, [inscrito]);
 
   // ---- carga inicial: o que ja vendeu hoje --------------------------------
   useEffect(() => {
@@ -180,13 +188,13 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
       parar();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ligado]);
+  }, []);
 
   const avisar = useCallback(
     (venda: Venda) => {
       setPiscar(true);
       setTimeout(() => setPiscar(false), 1400);
-      if (!ligado) return;
+      if (!ligadoRef.current) return;
       tocar();
       try {
         if (navigator.vibrate) navigator.vibrate([120, 60, 120]);
@@ -198,7 +206,7 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
       // da mesma venda. Aqui a pagina so avisa quando o push nao existe
       // (computador sem inscricao, navegador sem suporte).
       try {
-        if (!inscrito && typeof Notification !== "undefined" && Notification.permission === "granted") {
+        if (!inscritoRef.current && typeof Notification !== "undefined" && Notification.permission === "granted") {
           const valor = venda.valor_centavos ? Fmt.brl(venda.valor_centavos) : "venda registrada";
           new Notification("Venda na sua live", {
             body: `${valor}${venda.produto ? " — " + venda.produto : ""}`,
@@ -211,7 +219,7 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
         /* notificacao bloqueada: som e tela ainda avisam */
       }
     },
-    [ligado, tocar, inscrito]
+    [tocar]
   );
 
   // ---- inscrever o aparelho para receber com o app fechado ----------------
@@ -247,9 +255,15 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
       const usuario = sessao?.user;
       if (!usuario) return;
 
-      // Apaga o registro anterior deste mesmo endereco antes de gravar, para
-      // nao depender de politica de atualizacao no banco.
-      await sb.from("push_inscricoes").delete().eq("endpoint", dados.endpoint);
+      // Cada reinstalacao do app gera um endereco de entrega novo. Sem limpar o
+      // anterior, o mesmo celular acumula cadastros e a pessoa recebe o mesmo
+      // aviso varias vezes. Por isso apagamos os registros anteriores deste
+      // mesmo tipo de aparelho antes de gravar o atual.
+      //
+      // Efeito colateral aceito: quem usar dois iPhones recebe no ultimo que
+      // abriu o app. Basta abrir no outro para ele voltar a receber.
+      const aparelho = nomeDoAparelho();
+      await sb.from("push_inscricoes").delete().eq("user_id", usuario.id).eq("aparelho", aparelho);
 
       const { error } = await sb.from("push_inscricoes").insert({
         user_id: usuario.id,
@@ -257,7 +271,7 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
         endpoint: dados.endpoint,
         p256dh: dados.keys.p256dh,
         auth: dados.keys.auth,
-        aparelho: nomeDoAparelho(),
+        aparelho: aparelho,
       });
 
       if (error) {
@@ -275,8 +289,8 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
   // Ao abrir, descobre se este aparelho ja esta inscrito.
   useEffect(() => {
     if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
-    navigator.serviceWorker.getRegistration("/alertas")
-      .then((r) => (r ? r.pushManager.getSubscription() : null))
+    navigator.serviceWorker.ready
+      .then((r) => r.pushManager.getSubscription())
       .then((i) => setInscrito(!!i))
       .catch(() => {
         /* sem suporte: o app segue funcionando com a tela aberta */
@@ -582,7 +596,7 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
       </div>
 
       <p style={{ fontSize: 11, color: COR.fraco, lineHeight: 1.5, margin: 0, textAlign: "center" }}>
-        Deixe o celular ao lado durante a live. No iPhone não há vibração — o Safari não permite. <span style={{ opacity: .55 }}>v6</span>
+        Deixe o celular ao lado durante a live. No iPhone não há vibração — o Safari não permite. <span style={{ opacity: .55 }}>v8</span>
       </p>
     </div>
   );
