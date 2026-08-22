@@ -21,7 +21,7 @@
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { AuthGuard } from "@/components/AuthGuard";
-import { Vendas, Venda, Perfil, Fmt } from "@/lib/nito-motor";
+import { Vendas, Venda, Perfil, Fmt, sb } from "@/lib/nito-motor";
 
 const COR = {
   fundo: "#09090b",
@@ -33,6 +33,35 @@ const COR = {
   ciano: "#38bdf8",
   vermelho: "#ef4444",
 };
+
+// Chave publica do push. E publica por natureza - ela so serve para o
+// aparelho pedir inscricao; quem assina o aviso e a chave privada, que fica
+// somente no servidor. Pode ser trocada por variavel de ambiente sem publicar
+// o site de novo.
+const VAPID_PUBLICA =
+  process.env.NEXT_PUBLIC_VAPID_PUBLICA ||
+  "BHrBri1QWdXlcJ5mzHOCEwzU2sGAvlxMTBHH75Kw4Gz6e44HHReLSKhtqO86k9gZcSmoBScPSvV0jwvlnJAPiiY";
+
+/** O navegador exige a chave em bytes, nao no texto base64 da url. */
+function chaveParaBytes(base64url: string): Uint8Array {
+  const resto = "=".repeat((4 - (base64url.length % 4)) % 4);
+  const base64 = (base64url + resto).replace(/-/g, "+").replace(/_/g, "/");
+  const cru = window.atob(base64);
+  const bytes = new Uint8Array(cru.length);
+  for (let i = 0; i < cru.length; i++) bytes[i] = cru.charCodeAt(i);
+  return bytes;
+}
+
+/** Descricao curta do aparelho, so para voce reconhecer na lista. */
+function nomeDoAparelho(): string {
+  const ua = navigator.userAgent;
+  if (/iPhone/.test(ua)) return "iPhone";
+  if (/iPad/.test(ua)) return "iPad";
+  if (/Android/.test(ua)) return "Android";
+  if (/Macintosh/.test(ua)) return "Mac";
+  if (/Windows/.test(ua)) return "Windows";
+  return "Navegador";
+}
 
 function hojeInicio() {
   const d = new Date();
@@ -92,6 +121,9 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
   // Dentro do Safari comum a Apple nao libera, entao o cliente precisa saber
   // disso - senao ele acha que o alerta esta quebrado.
   const [precisaInstalarNoIphone, setPrecisaInstalarNoIphone] = useState(false);
+  // "inscrito" = o servidor consegue avisar mesmo com o app fechado.
+  const [inscrito, setInscrito] = useState(false);
+  const [avisoPush, setAvisoPush] = useState<string | null>(null);
   const vistos = useRef<Set<string>>(new Set());
   const { liberar, tocar } = useSino();
   const wakeRef = useRef<{ release: () => Promise<void> } | null>(null);
@@ -163,6 +195,75 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
     [ligado, tocar]
   );
 
+  // ---- inscrever o aparelho para receber com o app fechado ----------------
+  const inscreverParaPush = useCallback(async () => {
+    try {
+      if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
+        setAvisoPush("Este navegador não recebe aviso com o app fechado.");
+        return;
+      }
+      // Se o responsavel nao assumir, isto avisa em vez de esperar para sempre.
+      const registro = await Promise.race([
+        navigator.serviceWorker.ready,
+        new Promise<ServiceWorkerRegistration>((_, rejeitar) =>
+          setTimeout(() => rejeitar(new Error("o serviço de avisos não iniciou")), 8000)
+        ),
+      ]);
+
+      let inscricao = await registro.pushManager.getSubscription();
+      if (!inscricao) {
+        inscricao = await registro.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: chaveParaBytes(VAPID_PUBLICA) as BufferSource,
+        });
+      }
+
+      const dados = inscricao.toJSON() as { endpoint?: string; keys?: { p256dh?: string; auth?: string } };
+      if (!dados.endpoint || !dados.keys?.p256dh || !dados.keys?.auth) {
+        setAvisoPush("Não consegui registrar este aparelho.");
+        return;
+      }
+
+      const { data: sessao } = await sb.auth.getUser();
+      const usuario = sessao?.user;
+      if (!usuario) return;
+
+      // Apaga o registro anterior deste mesmo endereco antes de gravar, para
+      // nao depender de politica de atualizacao no banco.
+      await sb.from("push_inscricoes").delete().eq("endpoint", dados.endpoint);
+
+      const { error } = await sb.from("push_inscricoes").insert({
+        user_id: usuario.id,
+        email: (usuario.email || "").toLowerCase(),
+        endpoint: dados.endpoint,
+        p256dh: dados.keys.p256dh,
+        auth: dados.keys.auth,
+        aparelho: nomeDoAparelho(),
+      });
+
+      if (error) {
+        setAvisoPush("Não consegui salvar este aparelho: " + error.message);
+        return;
+      }
+      setInscrito(true);
+      setAvisoPush(null);
+    } catch (e) {
+      const m = e instanceof Error ? e.message : String(e);
+      setAvisoPush("Aviso com o app fechado indisponível neste aparelho. " + m);
+    }
+  }, []);
+
+  // Ao abrir, descobre se este aparelho ja esta inscrito.
+  useEffect(() => {
+    if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
+    navigator.serviceWorker.getRegistration("/alertas")
+      .then((r) => (r ? r.pushManager.getSubscription() : null))
+      .then((i) => setInscrito(!!i))
+      .catch(() => {
+        /* sem suporte: o app segue funcionando com a tela aberta */
+      });
+  }, []);
+
   // ---- manter a tela acesa durante a live ---------------------------------
   const segurarTela = useCallback(async () => {
     try {
@@ -189,8 +290,11 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
     };
     window.addEventListener("beforeinstallprompt", aoPoderInstalar);
     if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("/alertas/sw.js", { scope: "/alertas/" }).catch(() => {
-        /* sem trabalhador de servico o app funciona, so nao instala */
+      // O arquivo mora na RAIZ de proposito. Um trabalhador de servico so
+      // governa a pasta dele para baixo: se estivesse em /alertas/, a propria
+      // pagina /alertas ficaria de fora e o registro travaria calado.
+      navigator.serviceWorker.register("/nito-alertas-sw.js", { scope: "/alertas" }).catch(() => {
+        /* sem trabalhador de servico o app funciona, so nao avisa fechado */
       });
     }
     if (typeof Notification !== "undefined") setPermissao(Notification.permission);
@@ -219,7 +323,10 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
     }
     segurarTela();
     setLigado(true);
-  }, [liberar, tocar, segurarTela]);
+    if (typeof Notification !== "undefined" && Notification.permission === "granted") {
+      inscreverParaPush();
+    }
+  }, [liberar, tocar, segurarTela, inscreverParaPush]);
 
   const instalar = useCallback(async () => {
     const evento = instalavel as unknown as { prompt?: () => Promise<void> };
@@ -345,6 +452,34 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
           <div style={{ fontSize: 27, fontWeight: 800, marginTop: 4, fontVariantNumeric: "tabular-nums" }}>{doDia.length}</div>
         </div>
       </div>
+
+      {ligado && (
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            fontSize: 12,
+            color: inscrito ? COR.verde : COR.fraco,
+            background: COR.cartao,
+            border: `1px solid ${COR.linha}`,
+            borderRadius: 12,
+            padding: "10px 13px",
+            lineHeight: 1.45,
+          }}
+        >
+          <span style={{ fontSize: 14 }}>{inscrito ? "✓" : "•"}</span>
+          <span>
+            {inscrito
+              ? "Avisos chegam mesmo com o app fechado e a tela bloqueada."
+              : "Avisos só enquanto esta tela estiver aberta."}
+          </span>
+        </div>
+      )}
+
+      {avisoPush && (
+        <div style={{ fontSize: 12, color: COR.fraco, lineHeight: 1.5 }}>{avisoPush}</div>
+      )}
 
       {instalavel && (
         <button
