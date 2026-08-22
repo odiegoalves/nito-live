@@ -87,8 +87,8 @@ export function SinoNotificacoes() {
         title="Notificações"
         style={{
           position: "relative",
-          width: 42,
-          height: 42,
+          width: 44,
+          height: 44,
           borderRadius: 13,
           display: "grid",
           placeItems: "center",
@@ -99,32 +99,35 @@ export function SinoNotificacoes() {
           flex: "none",
         }}
       >
-        <Icone nome="bell" tam={20} />
+        <Icone nome="bell" tam={21} />
         {naoVistas > 0 && (
           <span
             style={{
               position: "absolute",
-              top: -5,
-              right: -5,
-              minWidth: 20,
-              height: 20,
-              padding: "0 5px",
+              top: -7,
+              right: -7,
+              minWidth: 22,
+              height: 22,
+              padding: "0 6px",
               borderRadius: 999,
-              background: "#ff0f3d",
+              // Vermelho um tom mais fechado que o da marca. O #ff0f3d e claro
+              // demais para segurar texto branco: o numero parecia esfumacado,
+              // e nao pequeno.
+              background: "#d90032",
               color: "#fff",
-              // Medidas em pixel e sem brilho de proposito: a barra do topo tem
-              // desfoque atras, e sombra vermelha somada a borda escura fazia o
-              // numero sair borrado, parecendo baixa resolucao.
-              fontSize: 11,
-              fontWeight: 800,
+              // Fonte de titulo, que e pesada, no lugar da fonte de texto. E o
+              // que da contorno firme num numero deste tamanho.
+              fontFamily: "var(--disp)",
+              fontSize: 12,
+              fontWeight: 900,
               lineHeight: 1,
-              letterSpacing: 0,
+              letterSpacing: "-.01em",
               fontVariantNumeric: "tabular-nums",
+              textRendering: "geometricPrecision",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              // Anel do tamanho exato, desenhado por sombra: fica nitido, e nao
-              // empurra o tamanho da bolinha como uma borda faria.
+              // Anel desenhado por sombra: fica nitido e nao aumenta a bolinha.
               boxShadow: "0 0 0 2px #07070d",
             }}
           >
