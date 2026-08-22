@@ -6,7 +6,7 @@
 // entao ninguem precisa recarregar a pagina.
 // =============================================================================
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Chat, MensagemChat, Perfil, comoErro } from "@/lib/nito-motor";
 import { iniciais, ehVerificado } from "@/lib/nito-gamificacao";
 import { Icone, SeloVerificado } from "./NitoIcones";
@@ -41,6 +41,84 @@ function comMencoes(texto: string) {
   );
 }
 
+const CHAVE_SOM = "nito_chat_som";
+
+/**
+ * Aviso sonoro do chat.
+ *
+ * O som e gerado na hora, sem arquivo: um "pop" curto de duas notas. Nao e
+ * economia de arquivo - e que um arquivo pode nao chegar e o chat ficar mudo
+ * sem ninguem entender, enquanto isto aqui sempre toca.
+ *
+ * Como em qualquer navegador, audio so e liberado depois de um toque da
+ * pessoa. O primeiro clique em qualquer lugar da pagina resolve, calado.
+ */
+function useSomChat() {
+  const ctxRef = useRef<AudioContext | null>(null);
+
+  const liberar = useCallback(() => {
+    if (ctxRef.current) {
+      if (ctxRef.current.state !== "running") {
+        try {
+          const p = ctxRef.current.resume() as unknown as Promise<void> | undefined;
+          if (p && typeof p.catch === "function") p.catch(() => {});
+        } catch {
+          /* so tenta */
+        }
+      }
+      return;
+    }
+    try {
+      const C =
+        window.AudioContext ||
+        (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      if (!C) return;
+      const ctx = new C();
+      const p = ctx.resume() as unknown as Promise<void> | undefined;
+      if (p && typeof p.catch === "function") p.catch(() => {});
+      ctxRef.current = ctx;
+    } catch {
+      /* aparelho sem Web Audio: o chat continua, so nao apita */
+    }
+  }, []);
+
+  // O contexto nasce dentro do toque de proposito: no iPhone, um contexto
+  // criado fora de um toque pode nunca mais ser destravado.
+  useEffect(() => {
+    const eventos = ["touchend", "click", "pointerdown", "keydown"] as const;
+    const aoTocar = () => liberar();
+    eventos.forEach((e) => window.addEventListener(e, aoTocar));
+    return () => eventos.forEach((e) => window.removeEventListener(e, aoTocar));
+  }, [liberar]);
+
+  const tocar = useCallback(() => {
+    const ctx = ctxRef.current;
+    if (!ctx || ctx.state !== "running") return;
+    try {
+      const agora = ctx.currentTime;
+      // Duas notas em quinta, com queda rapida: soa como aviso de mensagem,
+      // e nao como bip de aparelho.
+      [880, 1320].forEach((hz, i) => {
+        const osc = ctx.createOscillator();
+        const vol = ctx.createGain();
+        osc.type = "sine";
+        osc.frequency.value = hz;
+        const inicio = agora + i * 0.075;
+        vol.gain.setValueAtTime(0.0001, inicio);
+        vol.gain.exponentialRampToValueAtTime(0.16, inicio + 0.012);
+        vol.gain.exponentialRampToValueAtTime(0.0001, inicio + 0.19);
+        osc.connect(vol).connect(ctx.destination);
+        osc.start(inicio);
+        osc.stop(inicio + 0.22);
+      });
+    } catch {
+      /* som e um extra, nunca pode atrapalhar a conversa */
+    }
+  }, []);
+
+  return { tocar };
+}
+
 export function ChatNito({ perfil }: { perfil: Perfil }) {
   const [mensagens, setMensagens] = useState<MensagemChat[]>([]);
   const [texto, setTexto] = useState("");
@@ -51,20 +129,50 @@ export function ChatNito({ perfil }: { perfil: Perfil }) {
   const [membros, setMembros] = useState<{ id?: string; nome?: string }[]>([]);
   const fimRef = useRef<HTMLDivElement>(null);
   const inputArquivo = useRef<HTMLInputElement>(null);
+  const vistosRef = useRef<Set<string>>(new Set());
+
+  // Som: ligado por padrao, e a escolha fica guardada neste aparelho.
+  const { tocar } = useSomChat();
+  const [mudo, setMudo] = useState(false);
+  const mudoRef = useRef(false);
+  useEffect(() => {
+    try {
+      const guardado = window.localStorage.getItem(CHAVE_SOM);
+      if (guardado === "0") setMudo(true);
+    } catch {
+      /* sem armazenamento: comeca ligado */
+    }
+  }, []);
+  useEffect(() => {
+    mudoRef.current = mudo;
+    try {
+      window.localStorage.setItem(CHAVE_SOM, mudo ? "0" : "1");
+    } catch {
+      /* a escolha vale so nesta sessao */
+    }
+  }, [mudo]);
 
   useEffect(() => {
     let vivo = true;
     Chat.historico("geral", 60)
-      .then((m) => vivo && setMensagens(m))
+      .then((m) => {
+        if (!vivo) return;
+        // O que ja estava na tela nao pode apitar quando o tempo real repetir.
+        m.forEach((x) => x?.id && vistosRef.current.add(x.id));
+        setMensagens(m);
+      })
       .catch(() => {});
 
     const canal = Chat.assinar(
       "geral",
       {
         onMensagem: (nova: MensagemChat) => {
-          setMensagens((antes) =>
-            antes.some((m) => m.id === nova.id) ? antes : [...antes, nova]
-          );
+          // O controle de repetida fica fora do setState de proposito: tocar
+          // som dentro do atualizador faria o React repetir o aviso.
+          if (!nova?.id || vistosRef.current.has(nova.id)) return;
+          vistosRef.current.add(nova.id);
+          if (nova.autor_id !== perfil.id && !mudoRef.current) tocar();
+          setMensagens((antes) => [...antes, nova]);
         },
         onOnline: (qtd: number, lista: { id?: string; nome?: string }[]) => {
           setOnline(qtd);
@@ -122,9 +230,29 @@ export function ChatNito({ perfil }: { perfil: Perfil }) {
         style={{ borderBottom: "1px solid var(--line)", paddingTop: 15, paddingBottom: 15 }}
       >
         <h2 className="h-sec">Chat ao vivo</h2>
-        <span className="eyebrow" style={{ color: "var(--green)" }}>
-          ● {online > 0 ? `${online} ONLINE` : "AO VIVO"}
-        </span>
+        <div className="row" style={{ gap: 12, alignItems: "center" }}>
+          <button
+            type="button"
+            onClick={() => setMudo((m) => !m)}
+            title={mudo ? "Ligar o som das mensagens" : "Silenciar o som das mensagens"}
+            aria-label={mudo ? "Ligar o som das mensagens" : "Silenciar o som das mensagens"}
+            style={{
+              background: "transparent",
+              border: "1px solid var(--line)",
+              borderRadius: 9,
+              padding: "5px 10px",
+              cursor: "pointer",
+              color: mudo ? "var(--mut2)" : "var(--txt)",
+              fontSize: ".85rem",
+              lineHeight: 1,
+            }}
+          >
+            {mudo ? "🔇" : "🔔"}
+          </button>
+          <span className="eyebrow" style={{ color: "var(--green)" }}>
+            ● {online > 0 ? `${online} ONLINE` : "AO VIVO"}
+          </span>
+        </div>
       </div>
 
       <div className="chat-full">
