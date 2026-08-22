@@ -6,7 +6,7 @@
 // curte, comenta e baixa o material. Cada aula concluida rende 100 XP.
 // =============================================================================
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AuthGuard } from "@/components/AuthGuard";
 import { AppShell, ehAdmin } from "@/components/nito/AppShell";
 import { AulaDetalhe } from "@/components/nito/AulaDetalhe";
@@ -20,6 +20,7 @@ import {
   AulaMaterial,
   AulaProgresso,
   Perfil,
+  Storage,
   comoErro,
 } from "@/lib/nito-motor";
 
@@ -39,6 +40,7 @@ const AULA_VAZIA = {
   titulo: "",
   descricao: "",
   video_url: "",
+  thumb_url: "",
   duracao_seg: 0,
   publicado: true,
 };
@@ -62,6 +64,11 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
   const [mostrarForm, setMostrarForm] = useState(false);
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
+  // Capa da aula. O envio e separado do salvar: a imagem sobe assim que e
+  // escolhida e o formulario passa a guardar so o endereco dela, igual ja
+  // acontece com os materiais.
+  const [enviandoCapa, setEnviandoCapa] = useState(false);
+  const capaRef = useRef<HTMLInputElement>(null);
 
   const carregar = useCallback(async () => {
     setCarregando(true);
@@ -187,6 +194,30 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
     }
   }
 
+  async function escolherCapa(arquivo: File | null) {
+    if (!arquivo || enviandoCapa) return;
+    if (!arquivo.type.startsWith("image/")) {
+      setErro("A capa precisa ser uma imagem. Escolha um arquivo JPG ou PNG.");
+      return;
+    }
+    if (arquivo.size > 5 * 1024 * 1024) {
+      setErro("Imagem muito grande. O limite é 5 MB.");
+      return;
+    }
+    setEnviandoCapa(true);
+    setErro(null);
+    try {
+      const url = await Storage.enviar("midias", arquivo);
+      setForm((atual) => ({ ...atual, thumb_url: url }));
+    } catch (e) {
+      setErro(comoErro(e, "Não consegui enviar a capa.").message);
+    } finally {
+      setEnviandoCapa(false);
+      // Sem isto, escolher o MESMO arquivo de novo nao dispara nada.
+      if (capaRef.current) capaRef.current.value = "";
+    }
+  }
+
   async function salvarAula() {
     if (!form.titulo.trim() || !form.modulo_id || salvando) return;
     setSalvando(true);
@@ -202,6 +233,7 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
         titulo: form.titulo.trim(),
         descricao: form.descricao.trim() || undefined,
         video_url: form.video_url.trim() || undefined,
+        thumb_url: form.thumb_url.trim() || undefined,
         duracao_seg: Number(form.duracao_seg) || undefined,
         publicado: form.publicado,
       });
@@ -225,6 +257,7 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
       titulo: a.titulo ?? "",
       descricao: a.descricao ?? "",
       video_url: a.video_url ?? "",
+      thumb_url: a.thumb_url ?? "",
       duracao_seg: a.duracao_seg ?? 0,
       publicado: a.publicado ?? true,
     });
@@ -415,6 +448,78 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
               </div>
             </div>
 
+
+            <div className="campo">
+              <label>Capa da aula</label>
+
+              <input
+                ref={capaRef}
+                type="file"
+                accept="image/*"
+                hidden
+                onChange={(e) => escolherCapa(e.target.files?.[0] ?? null)}
+              />
+
+              {form.thumb_url ? (
+                <div
+                  style={{
+                    position: "relative",
+                    aspectRatio: "16 / 9",
+                    borderRadius: 12,
+                    overflow: "hidden",
+                    border: "1px solid var(--line)",
+                    marginBottom: 9,
+                  }}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={form.thumb_url}
+                    alt=""
+                    style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                  />
+                  <div style={{ position: "absolute", right: 9, bottom: 9, display: "flex", gap: 7 }}>
+                    <button
+                      className="btn g"
+                      type="button"
+                      style={{ padding: "6px 11px", fontSize: ".62rem" }}
+                      onClick={() => capaRef.current?.click()}
+                      disabled={enviandoCapa}
+                    >
+                      {enviandoCapa ? "Enviando…" : "Trocar"}
+                    </button>
+                    <button
+                      className="btn g"
+                      type="button"
+                      style={{ padding: "6px 11px", fontSize: ".62rem" }}
+                      onClick={() => setForm({ ...form, thumb_url: "" })}
+                    >
+                      Remover
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  className="btn g"
+                  type="button"
+                  onClick={() => capaRef.current?.click()}
+                  disabled={enviandoCapa}
+                  style={{ marginBottom: 9 }}
+                >
+                  {enviandoCapa ? "Enviando…" : "🖼 Escolher imagem do computador"}
+                </button>
+              )}
+
+              <input
+                value={form.thumb_url}
+                onChange={(e) => setForm({ ...form, thumb_url: e.target.value })}
+                placeholder="ou cole aqui o endereço de uma imagem"
+              />
+              <span className="tiny muted" style={{ display: "block", marginTop: 6 }}>
+                Formato 16 por 9, JPG ou PNG, até 5 MB. Sem capa, o cartão da aula continua
+                aparecendo com o fundo padrão.
+              </span>
+            </div>
+
             {erro && (
               <div className="aviso erro">
                 <span className="avisoIcone">!</span>
@@ -544,7 +649,32 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
                         onKeyDown={(e) => e.key === "Enter" && setAberta(a)}
                       >
                         <div className="thumb">
-                          <div className="play">
+                          {a.thumb_url && (
+                            <>
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img
+                                src={a.thumb_url}
+                                alt=""
+                                style={{
+                                  position: "absolute",
+                                  inset: 0,
+                                  width: "100%",
+                                  height: "100%",
+                                  objectFit: "cover",
+                                }}
+                              />
+                              {/* Veu escuro: o botao de play e as etiquetas
+                                  precisam continuar legiveis sobre capa clara. */}
+                              <div
+                                style={{
+                                  position: "absolute",
+                                  inset: 0,
+                                  background: "linear-gradient(180deg,rgba(0,0,0,.28),rgba(0,0,0,.52))",
+                                }}
+                              />
+                            </>
+                          )}
+                          <div className="play" style={{ position: "relative", zIndex: 1 }}>
                             <Icone nome="play" tam={16} />
                           </div>
                           <span className="mod">AULA {a.ordem}</span>
