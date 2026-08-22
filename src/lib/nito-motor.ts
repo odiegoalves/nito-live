@@ -1529,6 +1529,72 @@ async function nomesDe(ids: string[]): Promise<Map<string, string>> {
   }
 }
 
+// ---------------------------------------------------------------------------
+// INDICACOES — venda de afiliado do NITO LIVE
+//
+// Nada aqui vem da extensao. Estas sao as vendas do PROPRIO NITO LIVE feitas
+// por indicacao, que chegam pela Cakto: o servidor le o evento, calcula a
+// comissao de quem indicou e credita o XP.
+//
+// Regra do XP: R$ 1,00 de comissao = 10 XP. Reembolso e chargeback descontam.
+// ---------------------------------------------------------------------------
+export interface VendaAfiliado {
+  id: number;
+  email: string;
+  order_id?: string | null;
+  tipo: string;
+  sinal: number;
+  comissao_centavos: number;
+  xp: number;
+  produto?: string | null;
+  criado_em: string;
+}
+
+export interface RankingAfiliado {
+  user_id: string;
+  nome: string;
+  username?: string | null;
+  nivel: number;
+  xp: number;
+  vendas: number;
+  comissao_centavos: number;
+}
+
+export const Indicacoes = {
+  /** As vendas da pessoa que esta logada. A permissao do banco ja limita. */
+  async minhas(limite = 100): Promise<VendaAfiliado[]> {
+    const { data, error } = await sb
+      .from("afiliado_vendas")
+      .select("id, email, order_id, tipo, sinal, comissao_centavos, xp, produto, criado_em")
+      .order("criado_em", { ascending: false })
+      .limit(limite);
+    if (error) throw error;
+    return (data as unknown as VendaAfiliado[]) || [];
+  },
+
+  /** Totais do proprio usuario, somados na tela para nao criar mais uma rota. */
+  resumir(lista: VendaAfiliado[]) {
+    let vendas = 0, comissao = 0, xp = 0;
+    for (const v of lista) {
+      if (v.sinal > 0) vendas += 1;
+      comissao += (v.comissao_centavos || 0) * (v.sinal || 1);
+      xp += v.xp || 0;
+    }
+    return { vendas, comissao, xp };
+  },
+
+  /**
+   * O ranking. Vem de uma funcao do banco porque cada pessoa so enxerga as
+   * proprias vendas — sem ela, ninguem conseguiria ver a lista dos outros.
+   * Quem e da equipe fica de fora: fundador e moderador nao disputam.
+   */
+  async ranking(limite = 10): Promise<RankingAfiliado[]> {
+    const { data, error } = await sb.rpc("fn_ranking_afiliados", { p_limite: limite });
+    if (error) throw error;
+    return (data as unknown as RankingAfiliado[]) || [];
+  },
+};
+
 export const Nito = {
   sb,
   Auth,
