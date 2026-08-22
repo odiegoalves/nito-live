@@ -7,7 +7,7 @@
 // =============================================================================
 
 import React, { useState } from "react";
-import { Feed, Enquetes, Post, Enquete, Fmt } from "@/lib/nito-motor";
+import { Feed, Enquetes, Post, Enquete, Comentario, Fmt, comoErro } from "@/lib/nito-motor";
 import { patenteDoNivel, iniciais, ehVerificado } from "@/lib/nito-gamificacao";
 import { Icone, SeloVerificado } from "./NitoIcones";
 
@@ -55,6 +55,20 @@ export function PostNito({
 }: Props) {
   const [ocupado, setOcupado] = useState(false);
   const [ampliada, setAmpliada] = useState(false);
+
+  // ---- comentarios --------------------------------------------------------
+  // Ficam dentro do proprio cartao. Sao buscados na primeira vez que a pessoa
+  // abre, e nao no carregamento da aba: numa lista de vinte publicacoes isso
+  // seriam vinte consultas que quase ninguem ia ler.
+  const [abertos, setAbertos] = useState(false);
+  const [comentarios, setComentarios] = useState<Comentario[] | null>(null);
+  const [buscando, setBuscando] = useState(false);
+  const [texto, setTexto] = useState("");
+  const [enviando, setEnviando] = useState(false);
+  const [erroCom, setErroCom] = useState<string | null>(null);
+  // Contagem propria: a do banco so volta a bater no proximo carregamento, e
+  // ate la a pessoa precisa ver o comentario dela contado.
+  const [total, setTotal] = useState(post.comentarios_count ?? 0);
   const autor = post.autor ?? {};
   const oficial = post.tipo === "importante";
   const patente = patenteDoNivel(autor.nivel ?? 1);
@@ -62,6 +76,42 @@ export function PostNito({
   const totalVotos = (enquete?.votos_sim ?? 0) + (enquete?.votos_nao ?? 0);
   const pctSim = totalVotos ? Math.round(((enquete?.votos_sim ?? 0) / totalVotos) * 100) : 0;
   const pctNao = totalVotos ? 100 - pctSim : 0;
+
+  async function alternarComentarios() {
+    onAbrirComentarios?.(post.id);
+    const vaiAbrir = !abertos;
+    setAbertos(vaiAbrir);
+    if (!vaiAbrir || comentarios !== null || buscando) return;
+    setBuscando(true);
+    setErroCom(null);
+    try {
+      setComentarios(await Feed.comentarios(post.id));
+    } catch (e) {
+      setComentarios([]);
+      setErroCom(comoErro(e, "Nao consegui carregar os comentarios.").message);
+    } finally {
+      setBuscando(false);
+    }
+  }
+
+  async function enviarComentario() {
+    const limpo = texto.trim();
+    if (!limpo || enviando) return;
+    setEnviando(true);
+    setErroCom(null);
+    try {
+      const novo = await Feed.comentar(post.id, limpo);
+      setComentarios((antes) => [...(antes ?? []), novo]);
+      setTotal((n) => n + 1);
+      setTexto("");
+    } catch (e) {
+      // Falha de comentario nao pode sumir calada: a pessoa escreveu e precisa
+      // saber que nao entrou, e por que.
+      setErroCom(comoErro(e, "Nao consegui publicar seu comentario.").message);
+    } finally {
+      setEnviando(false);
+    }
+  }
 
   async function curtir() {
     if (ocupado) return;
@@ -263,10 +313,13 @@ export function PostNito({
           <Icone nome="heart" tam={16} />
           {post.curtidas_count ?? 0}
         </button>
-        <button onClick={() => onAbrirComentarios?.(post.id)} type="button">
+        <button
+          onClick={alternarComentarios}
+          type="button"
+          style={abertos ? { color: "var(--txt)", background: "rgba(255,255,255,.05)" } : undefined}
+        >
           <Icone nome="msg" tam={16} />
-          {post.comentarios_count ?? 0}{" "}
-          {(post.comentarios_count ?? 0) === 1 ? "comentário" : "comentários"}
+          {total} {total === 1 ? "comentário" : "comentários"}
         </button>
         {admin && (
           <button
@@ -286,6 +339,99 @@ export function PostNito({
           </button>
         )}
       </div>
+
+      {abertos && (
+        <div style={{ marginTop: 12, paddingTop: 13, borderTop: "1px solid var(--line)" }}>
+          {buscando && (
+            <div className="muted tiny" style={{ padding: "6px 0" }}>
+              Carregando comentários…
+            </div>
+          )}
+
+          {!buscando && comentarios && comentarios.length === 0 && (
+            <div className="muted tiny" style={{ padding: "6px 0" }}>
+              Nenhum comentário ainda. Seja o primeiro a responder.
+            </div>
+          )}
+
+          {!buscando &&
+            comentarios?.map((c) => (
+              <div key={c.id} style={{ display: "flex", gap: 10, padding: "9px 0" }}>
+                <div
+                  style={{
+                    width: 30,
+                    height: 30,
+                    borderRadius: 9,
+                    flex: "none",
+                    display: "grid",
+                    placeItems: "center",
+                    font: "800 .72rem/1 var(--disp)",
+                    color: "#fff",
+                    background: corDe(c.autor_id ?? c.autor?.id),
+                  }}
+                >
+                  {iniciais(c.autor?.nome)}
+                </div>
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                    <b style={{ fontSize: ".82rem", fontWeight: 700 }}>{c.autor?.nome ?? "Membro"}</b>
+                    {ehVerificado(c.autor?.papel) && <SeloVerificado tam={13} />}
+                    <span className="num" style={{ fontSize: ".62rem", color: "var(--mut2)", letterSpacing: ".06em" }}>
+                      {Fmt.quando(c.criado_em).toUpperCase()}
+                    </span>
+                  </div>
+                  <div style={{ fontSize: ".87rem", color: "#dfe2ea", marginTop: 2, wordBreak: "break-word" }}>
+                    {c.conteudo}
+                  </div>
+                </div>
+              </div>
+            ))}
+
+          <div style={{ display: "flex", gap: 9, marginTop: 10, alignItems: "flex-end" }}>
+            <textarea
+              rows={1}
+              value={texto}
+              onChange={(e) => setTexto(e.target.value)}
+              onKeyDown={(e) => {
+                // Enter envia; Shift+Enter pula linha. E o que a pessoa espera
+                // de uma caixa de comentario.
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  enviarComentario();
+                }
+              }}
+              placeholder="Escreva um comentário…"
+              style={{
+                flex: 1,
+                minWidth: 0,
+                resize: "vertical",
+                padding: "10px 13px",
+                borderRadius: 11,
+                background: "rgba(0,0,0,.42)",
+                border: "1px solid var(--line)",
+                color: "var(--txt)",
+                font: "inherit",
+                fontSize: ".87rem",
+              }}
+            />
+            <button
+              className="btn p"
+              type="button"
+              onClick={enviarComentario}
+              disabled={!texto.trim() || enviando}
+              style={{ padding: "10px 16px", fontSize: ".68rem", flex: "none" }}
+            >
+              {enviando ? "Enviando…" : "Comentar"}
+            </button>
+          </div>
+
+          {erroCom && (
+            <div style={{ fontSize: ".78rem", color: "var(--red)", marginTop: 8, lineHeight: 1.45 }}>
+              {erroCom}
+            </div>
+          )}
+        </div>
+      )}
     </article>
   );
 }
