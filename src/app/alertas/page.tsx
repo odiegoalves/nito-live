@@ -63,6 +63,29 @@ function nomeDoAparelho(): string {
   return "Navegador";
 }
 
+// Marca de que a pessoa ja ativou os alertas neste aparelho. A permissao e a
+// inscricao no push duram para sempre; o que nao dura e a liberacao do som,
+// que todo navegador exige a cada abertura. Guardando esta marca, o app volta
+// ja ativado e libera o som no primeiro toque em qualquer lugar da tela - a
+// pessoa nunca percebe que houve um toque necessario.
+const MARCA_ATIVADO = "nito_alertas_ativado";
+
+function jaAtivouAntes(): boolean {
+  try {
+    return window.localStorage.getItem(MARCA_ATIVADO) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function guardarAtivado() {
+  try {
+    window.localStorage.setItem(MARCA_ATIVADO, "1");
+  } catch {
+    /* sem armazenamento: o botao volta a aparecer, e so */
+  }
+}
+
 function hojeInicio() {
   const d = new Date();
   d.setHours(0, 0, 0, 0);
@@ -139,6 +162,7 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
   // "inscrito" = o servidor consegue avisar mesmo com o app fechado.
   const [inscrito, setInscrito] = useState(false);
   const [avisoPush, setAvisoPush] = useState<string | null>(null);
+  const [somLiberado, setSomLiberado] = useState(false);
   const vistos = useRef<Set<string>>(new Set());
   // Espelhos do estado. A escuta de vendas e montada uma vez so; sem eles ela
   // guardaria uma fotografia do estado de quando foi montada e decidiria com
@@ -147,6 +171,13 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
   const inscritoRef = useRef(false);
   const { liberar, tocar } = useSino();
   const wakeRef = useRef<{ release: () => Promise<void> } | null>(null);
+
+  // Volta ligado sozinho quando a pessoa ja ativou antes neste aparelho.
+  useEffect(() => {
+    if (!jaAtivouAntes()) return;
+    const permitido = typeof Notification === "undefined" || Notification.permission === "granted";
+    if (permitido) setLigado(true);
+  }, []);
 
   useEffect(() => { ligadoRef.current = ligado; }, [ligado]);
   useEffect(() => { inscritoRef.current = inscrito; }, [inscrito]);
@@ -297,6 +328,36 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
       });
   }, []);
 
+  // Primeiro toque em qualquer lugar libera o som e segura a tela acesa.
+  // Sem isto a pessoa teria que apertar um botao a cada abertura so por causa
+  // da regra de audio dos navegadores.
+  useEffect(() => {
+    if (!ligado || somLiberado) return;
+    let vivo = true;
+    const aoTocar = async () => {
+      if (!vivo) return;
+      vivo = false;
+      await liberar();
+      setSomLiberado(true);
+      segurarTela();
+      // Garante que a inscricao no push continua de pe nesta abertura.
+      if (typeof Notification !== "undefined" && Notification.permission === "granted") {
+        inscreverParaPush();
+      }
+      janela();
+    };
+    const janela = () => {
+      window.removeEventListener("pointerdown", aoTocar);
+      window.removeEventListener("touchstart", aoTocar);
+      window.removeEventListener("keydown", aoTocar);
+    };
+    window.addEventListener("pointerdown", aoTocar, { once: true });
+    window.addEventListener("touchstart", aoTocar, { once: true });
+    window.addEventListener("keydown", aoTocar, { once: true });
+    return () => { vivo = false; janela(); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ligado, somLiberado]);
+
   // ---- manter a tela acesa durante a live ---------------------------------
   const segurarTela = useCallback(async () => {
     try {
@@ -355,6 +416,8 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
       /* navegador sem suporte a notificacao */
     }
     segurarTela();
+    setSomLiberado(true);
+    guardarAtivado();
     setLigado(true);
     if (typeof Notification !== "undefined" && Notification.permission === "granted") {
       inscreverParaPush();
@@ -507,6 +570,11 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
             {inscrito
               ? "Avisos chegam mesmo com o app fechado e a tela bloqueada."
               : "Avisos só enquanto esta tela estiver aberta."}
+            {!somLiberado && (
+              <span style={{ display: "block", color: COR.fraco, marginTop: 3 }}>
+                Toque em qualquer lugar da tela para liberar o som.
+              </span>
+            )}
           </span>
         </div>
       )}
@@ -596,7 +664,7 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
       </div>
 
       <p style={{ fontSize: 11, color: COR.fraco, lineHeight: 1.5, margin: 0, textAlign: "center" }}>
-        Deixe o celular ao lado durante a live. No iPhone não há vibração — o Safari não permite. <span style={{ opacity: .55 }}>v8</span>
+        Deixe o celular ao lado durante a live. No iPhone não há vibração — o Safari não permite. <span style={{ opacity: .55 }}>v9</span>
       </p>
     </div>
   );
