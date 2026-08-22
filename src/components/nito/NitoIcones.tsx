@@ -29,6 +29,7 @@ export function SpriteIcones() {
         <symbol id="ic-heart" viewBox="0 0 24 24" {...TRACO}><path d="M12 20s-7.5-4.6-7.5-9.4A4.1 4.1 0 0 1 12 8a4.1 4.1 0 0 1 7.5 2.6C19.5 15.4 12 20 12 20z" /></symbol>
         <symbol id="ic-msg" viewBox="0 0 24 24" {...TRACO}><path d="M21 11.5a7.5 7.5 0 0 1-7.5 7.5H8l-5 3v-7A7.5 7.5 0 0 1 10.5 4h3A7.5 7.5 0 0 1 21 11.5z" /></symbol>
         <symbol id="ic-play" viewBox="0 0 24 24" fill="#fff"><path d="M8 5.5v13l11-6.5z" /></symbol>
+        <symbol id="ic-bell" viewBox="0 0 24 24" {...TRACO}><path d="M6 9.5a6 6 0 0 1 12 0c0 4 1.5 5.5 1.5 5.5h-15S6 13.5 6 9.5z" /><path d="M10 18.5a2 2 0 0 0 4 0" /></symbol>
         <symbol id="ic-lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><rect x="5" y="10.5" width="14" height="10" rx="2.5" /><path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5" /></symbol>
       </defs>
     </svg>
