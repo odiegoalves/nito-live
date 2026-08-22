@@ -70,6 +70,10 @@ function nomeDoAparelho(): string {
 // pessoa nunca percebe que houve um toque necessario.
 const MARCA_ATIVADO = "nito_alertas_ativado";
 
+// O WebKit so considera o audio destravado em alguns tipos de toque. Escutar
+// os quatro cobre iPhone, Android e computador sem depender de um so.
+const EVENTOS_DE_TOQUE = ["touchend", "click", "pointerdown", "keydown"] as const;
+
 function jaAtivouAntes(): boolean {
   try {
     return window.localStorage.getItem(MARCA_ATIVADO) === "1";
@@ -107,33 +111,124 @@ function hojeInicio() {
 function useSino() {
   const ctxRef = useRef<AudioContext | null>(null);
   const bufferRef = useRef<AudioBuffer | null>(null);
+  const baixandoRef = useRef<Promise<void> | null>(null);
+  // "rodando" e a verdade do navegador, nao a nossa suposicao. Se ele continuar
+  // segurando o som, a tela avisa em vez de ficar muda sem explicacao.
+  const [rodando, setRodando] = useState(false);
 
-  const liberar = useCallback(async () => {
+  // O contexto pode nascer fora de toque: ele so vem "suspenso". Decodificar o
+  // mp3 tambem funciona suspenso. Assim, quando a pessoa encostar na tela,
+  // sobra apenas destravar - nada de rede, nada de espera.
+  const contexto = useCallback((): AudioContext | null => {
+    if (ctxRef.current) return ctxRef.current;
     try {
-      if (!ctxRef.current) {
-        const C =
-          window.AudioContext ||
-          (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-        ctxRef.current = new C();
-      }
-      if (ctxRef.current.state === "suspended") await ctxRef.current.resume();
-
-      if (!bufferRef.current) {
-        const resposta = await fetch("/alertas/venda.mp3");
-        const cru = await resposta.arrayBuffer();
-        bufferRef.current = await ctxRef.current.decodeAudioData(cru);
+      const C =
+        window.AudioContext ||
+        (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      if (C) {
+        const ctx = new C();
+        ctx.onstatechange = () => setRodando(ctx.state === "running");
+        setRodando(ctx.state === "running");
+        ctxRef.current = ctx;
       }
     } catch {
-      /* sem audio disponivel: o aviso visual e a notificacao continuam */
+      /* aparelho sem Web Audio: o alerta visual continua */
     }
+    return ctxRef.current;
   }, []);
+
+  const preparar = useCallback((): Promise<void> => {
+    if (bufferRef.current) return Promise.resolve();
+    if (baixandoRef.current) return baixandoRef.current;
+    const ctx = contexto();
+    if (!ctx) return Promise.resolve();
+    baixandoRef.current = (async () => {
+      try {
+        const resposta = await fetch("/alertas/venda.mp3", { cache: "force-cache" });
+        const cru = await resposta.arrayBuffer();
+        // Safari antigo so entende decodeAudioData com retorno por funcao.
+        // Atender as duas formas evita ficar sem som em iPhone mais velho.
+        const buffer = await new Promise<AudioBuffer>((pronto, falhou) => {
+          let promessa: unknown;
+          try {
+            promessa = ctx.decodeAudioData(cru, pronto, falhou);
+          } catch (e) {
+            falhou(e);
+            return;
+          }
+          const p = promessa as Promise<AudioBuffer> | undefined;
+          if (p && typeof p.then === "function") p.then(pronto, falhou);
+        });
+        bufferRef.current = buffer;
+      } catch {
+        /* sem som: o aviso visual e a notificacao continuam de pe */
+      } finally {
+        baixandoRef.current = null;
+      }
+    })();
+    return baixandoRef.current;
+  }, [contexto]);
+
+  /**
+   * Roda DENTRO do toque da pessoa e e sincrona de proposito.
+   *
+   * Nada de "await" aqui. No iPhone a promessa de resume() as vezes simplesmente
+   * nao se resolve, e quem esperava por ela ficava parado para sempre - foi o
+   * que deixava o aviso "toque na tela" preso mesmo depois do toque.
+   *
+   * O toque mudo (um quadro de som de 1 amostra) e o jeito que o WebKit aceita
+   * para considerar o audio destravado.
+   */
+  const liberar = useCallback(() => {
+    const ctx = contexto();
+    if (!ctx) return;
+    if (ctx.state === "running") {
+      preparar();
+      return;
+    }
+    try {
+      const p = ctx.resume() as unknown as Promise<void> | undefined;
+      if (p && typeof p.catch === "function") p.catch(() => {});
+    } catch {
+      /* alguns navegadores nem tem resume: seguem tocando normalmente */
+    }
+    try {
+      const mudo = ctx.createBufferSource();
+      mudo.buffer = ctx.createBuffer(1, 1, 22050);
+      mudo.connect(ctx.destination);
+      mudo.start(0);
+    } catch {
+      /* destravar e uma tentativa, nunca um bloqueio */
+    }
+    preparar();
+  }, [contexto, preparar]);
 
   const tocar = useCallback(() => {
     const ctx = ctxRef.current;
+    if (!ctx) return;
     const buffer = bufferRef.current;
-    if (!ctx || !buffer) return;
+    if (!buffer) {
+      // Chegou venda antes do arquivo terminar de carregar: carrega agora e
+      // toca em seguida, em vez de simplesmente ficar mudo.
+      preparar().then(() => {
+        const b = bufferRef.current;
+        if (!b || !ctxRef.current) return;
+        try {
+          const f = ctxRef.current.createBufferSource();
+          f.buffer = b;
+          f.connect(ctxRef.current.destination);
+          f.start(0);
+        } catch {
+          /* som e um extra, nunca pode derrubar o alerta visual */
+        }
+      });
+      return;
+    }
     try {
-      if (ctx.state === "suspended") ctx.resume();
+      if (ctx.state === "suspended") {
+        const p = ctx.resume() as unknown as Promise<void> | undefined;
+        if (p && typeof p.catch === "function") p.catch(() => {});
+      }
       const fonte = ctx.createBufferSource();
       const vol = ctx.createGain();
       vol.gain.value = 1;
@@ -143,9 +238,14 @@ function useSino() {
     } catch {
       /* som e um extra, nunca pode derrubar o alerta visual */
     }
-  }, []);
+  }, [preparar]);
 
-  return { liberar, tocar };
+  // Deixa o arquivo pronto assim que a tela abre.
+  useEffect(() => {
+    preparar();
+  }, [preparar]);
+
+  return { liberar, tocar, preparar, rodando };
 }
 
 function Conteudo({ perfil }: { perfil: Perfil }) {
@@ -169,7 +269,7 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
   // base nela - foi o que fazia a pagina avisar junto com o servidor.
   const ligadoRef = useRef(false);
   const inscritoRef = useRef(false);
-  const { liberar, tocar } = useSino();
+  const { liberar, tocar, rodando } = useSino();
   const wakeRef = useRef<{ release: () => Promise<void> } | null>(null);
 
   // Volta ligado sozinho quando a pessoa ja ativou antes neste aparelho.
@@ -331,32 +431,42 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
   // Primeiro toque em qualquer lugar libera o som e segura a tela acesa.
   // Sem isto a pessoa teria que apertar um botao a cada abertura so por causa
   // da regra de audio dos navegadores.
+  //
+  // Tudo que a interface depende acontece ANTES de qualquer espera: o aviso
+  // "toque na tela" some no mesmo instante do toque, e nunca mais fica preso
+  // por causa de uma promessa de audio que o iPhone deixou pendurada.
   useEffect(() => {
     if (!ligado || somLiberado) return;
     let vivo = true;
-    const aoTocar = async () => {
+    const janela = () => {
+      EVENTOS_DE_TOQUE.forEach((e) => window.removeEventListener(e, aoTocar));
+    };
+    const aoTocar = () => {
       if (!vivo) return;
       vivo = false;
-      await liberar();
+      liberar();
       setSomLiberado(true);
+      janela();
       segurarTela();
       // Garante que a inscricao no push continua de pe nesta abertura.
       if (typeof Notification !== "undefined" && Notification.permission === "granted") {
         inscreverParaPush();
       }
-      janela();
     };
-    const janela = () => {
-      window.removeEventListener("pointerdown", aoTocar);
-      window.removeEventListener("touchstart", aoTocar);
-      window.removeEventListener("keydown", aoTocar);
-    };
-    window.addEventListener("pointerdown", aoTocar, { once: true });
-    window.addEventListener("touchstart", aoTocar, { once: true });
-    window.addEventListener("keydown", aoTocar, { once: true });
+    EVENTOS_DE_TOQUE.forEach((e) => window.addEventListener(e, aoTocar));
     return () => { vivo = false; janela(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ligado, somLiberado]);
+
+  // Rede de seguranca: se o navegador tiver deixado o audio suspenso mesmo
+  // depois do primeiro toque, qualquer toque seguinte tenta de novo. E barato,
+  // silencioso, e evita o caso "a tela diz que esta liberado mas nao sai som".
+  useEffect(() => {
+    if (!ligado) return;
+    const tentarDeNovo = () => liberar();
+    EVENTOS_DE_TOQUE.forEach((e) => window.addEventListener(e, tentarDeNovo));
+    return () => EVENTOS_DE_TOQUE.forEach((e) => window.removeEventListener(e, tentarDeNovo));
+  }, [ligado, liberar]);
 
   // ---- manter a tela acesa durante a live ---------------------------------
   const segurarTela = useCallback(async () => {
@@ -403,7 +513,7 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
   }, []);
 
   const ativar = useCallback(async () => {
-    await liberar();
+    liberar();
     tocar();
     try {
       if (typeof Notification !== "undefined" && Notification.permission === "default") {
@@ -575,6 +685,11 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
                 Toque em qualquer lugar da tela para liberar o som.
               </span>
             )}
+            {somLiberado && !rodando && (
+              <span style={{ display: "block", color: COR.vermelho, marginTop: 3 }}>
+                O navegador ainda está segurando o som — toque na tela mais uma vez.
+              </span>
+            )}
           </span>
         </div>
       )}
@@ -664,7 +779,7 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
       </div>
 
       <p style={{ fontSize: 11, color: COR.fraco, lineHeight: 1.5, margin: 0, textAlign: "center" }}>
-        Deixe o celular ao lado durante a live. No iPhone não há vibração — o Safari não permite. <span style={{ opacity: .55 }}>v9</span>
+        Deixe o celular ao lado durante a live. No iPhone não há vibração — o Safari não permite. <span style={{ opacity: .55 }}>v10</span>
       </p>
     </div>
   );
