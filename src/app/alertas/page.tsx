@@ -88,6 +88,10 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
   const [permissao, setPermissao] = useState<string>("default");
   const [piscar, setPiscar] = useState(false);
   const [instalavel, setInstalavel] = useState<Event | null>(null);
+  // No iPhone o aviso na tela so existe para app adicionado a Tela de Inicio.
+  // Dentro do Safari comum a Apple nao libera, entao o cliente precisa saber
+  // disso - senao ele acha que o alerta esta quebrado.
+  const [precisaInstalarNoIphone, setPrecisaInstalarNoIphone] = useState(false);
   const vistos = useRef<Set<string>>(new Set());
   const { liberar, tocar } = useSino();
   const wakeRef = useRef<{ release: () => Promise<void> } | null>(null);
@@ -190,6 +194,13 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
       });
     }
     if (typeof Notification !== "undefined") setPermissao(Notification.permission);
+
+    const ehIphone = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    const naTelaDeInicio =
+      window.matchMedia("(display-mode: standalone)").matches ||
+      (navigator as unknown as { standalone?: boolean }).standalone === true;
+    setPrecisaInstalarNoIphone(ehIphone && !naTelaDeInicio);
+
     return () => window.removeEventListener("beforeinstallprompt", aoPoderInstalar);
   }, []);
 
@@ -289,6 +300,31 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
             Toque uma vez para liberar som, vibração e aviso na tela
           </span>
         </button>
+      )}
+
+      {precisaInstalarNoIphone && (
+        <div
+          style={{
+            background: "rgba(56,189,248,.08)",
+            border: `1px solid rgba(56,189,248,.3)`,
+            borderRadius: 14,
+            padding: "14px 15px",
+            fontSize: 13,
+            lineHeight: 1.55,
+            color: COR.texto,
+          }}
+        >
+          <b style={{ color: COR.ciano }}>Instale para receber os avisos</b>
+          <div style={{ color: COR.fraco, marginTop: 5 }}>
+            No iPhone, o aviso na tela só chega com o app na Tela de Início. Toque no botão de
+            compartilhar do Safari <b style={{ color: COR.texto }}>↑</b>, escolha{" "}
+            <b style={{ color: COR.texto }}>Adicionar à Tela de Início</b> e abra por lá.
+          </div>
+          <div style={{ color: COR.fraco, marginTop: 6, fontSize: 12 }}>
+            Sem instalar, a tela e o som continuam funcionando — só o aviso por cima de outros
+            aplicativos não aparece.
+          </div>
+        </div>
       )}
 
       {ligado && permissao === "denied" && (
@@ -391,7 +427,7 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
       </div>
 
       <p style={{ fontSize: 11, color: COR.fraco, lineHeight: 1.5, margin: 0, textAlign: "center" }}>
-        Os avisos chegam com esta tela aberta. Instale na tela de início e deixe o celular ao lado durante a live.
+        Os avisos chegam com esta tela aberta. Deixe o celular ao lado durante a live. No iPhone não há vibração — o Safari não permite.
       </p>
     </div>
   );

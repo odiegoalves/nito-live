@@ -2,6 +2,11 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 const ROTAS_PUBLICAS = [
+  // O aparelho pede estes dois ANTES de qualquer login, para conseguir
+  // instalar o app de alertas na tela de inicio. Nenhum dos dois contem dado
+  // de cliente - a pagina /alertas continua protegida normalmente.
+  "/alertas/sw.js",
+  "/alertas/manifest.webmanifest",
   "/login",
   "/cadastro",
   "/criar-conta",
