@@ -69,39 +69,54 @@ function hojeInicio() {
   return d.getTime();
 }
 
-/** Toca um sino curto sem depender de arquivo de audio. */
+/**
+ * Toca o som de caixa registradora.
+ *
+ * O arquivo e reproduzido pelo Web Audio, e nao por um elemento <audio>. Isso
+ * nao e capricho: no iPhone, com a chavinha de silencioso ligada, o elemento
+ * <audio> fica mudo e o Web Audio continua tocando. Como o app existe para
+ * avisar de venda durante a live, ficar mudo por causa de uma chavinha seria
+ * falhar justamente na hora que importa.
+ *
+ * O iPhone tambem so libera audio depois de um toque da pessoa - por isso
+ * "liberar" roda dentro do botao Ativar alertas.
+ */
 function useSino() {
   const ctxRef = useRef<AudioContext | null>(null);
+  const bufferRef = useRef<AudioBuffer | null>(null);
 
-  const liberar = useCallback(() => {
+  const liberar = useCallback(async () => {
     try {
       if (!ctxRef.current) {
-        const C = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+        const C =
+          window.AudioContext ||
+          (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
         ctxRef.current = new C();
       }
-      if (ctxRef.current.state === "suspended") ctxRef.current.resume();
+      if (ctxRef.current.state === "suspended") await ctxRef.current.resume();
+
+      if (!bufferRef.current) {
+        const resposta = await fetch("/alertas/venda.mp3");
+        const cru = await resposta.arrayBuffer();
+        bufferRef.current = await ctxRef.current.decodeAudioData(cru);
+      }
     } catch {
-      /* aparelho sem audio disponivel: o resto do app continua funcionando */
+      /* sem audio disponivel: o aviso visual e a notificacao continuam */
     }
   }, []);
 
   const tocar = useCallback(() => {
     const ctx = ctxRef.current;
-    if (!ctx) return;
+    const buffer = bufferRef.current;
+    if (!ctx || !buffer) return;
     try {
-      const agora = ctx.currentTime;
-      [880, 1320].forEach((hz, i) => {
-        const osc = ctx.createOscillator();
-        const vol = ctx.createGain();
-        osc.type = "sine";
-        osc.frequency.value = hz;
-        vol.gain.setValueAtTime(0.0001, agora + i * 0.14);
-        vol.gain.exponentialRampToValueAtTime(0.35, agora + i * 0.14 + 0.02);
-        vol.gain.exponentialRampToValueAtTime(0.0001, agora + i * 0.14 + 0.32);
-        osc.connect(vol).connect(ctx.destination);
-        osc.start(agora + i * 0.14);
-        osc.stop(agora + i * 0.14 + 0.34);
-      });
+      if (ctx.state === "suspended") ctx.resume();
+      const fonte = ctx.createBufferSource();
+      const vol = ctx.createGain();
+      vol.gain.value = 1;
+      fonte.buffer = buffer;
+      fonte.connect(vol).connect(ctx.destination);
+      fonte.start(0);
     } catch {
       /* som e um extra, nunca pode derrubar o alerta visual */
     }
@@ -309,7 +324,7 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
   }, []);
 
   const ativar = useCallback(async () => {
-    liberar();
+    await liberar();
     tocar();
     try {
       if (typeof Notification !== "undefined" && Notification.permission === "default") {
@@ -350,7 +365,8 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
         color: COR.texto,
         fontFamily: "system-ui, -apple-system, sans-serif",
         transition: "background .5s ease",
-        padding: "18px 16px calc(28px + env(safe-area-inset-bottom))",
+        padding:
+          "calc(16px + env(safe-area-inset-top)) calc(16px + env(safe-area-inset-right)) calc(28px + env(safe-area-inset-bottom)) calc(16px + env(safe-area-inset-left))",
         display: "flex",
         flexDirection: "column",
         gap: 16,
@@ -562,7 +578,7 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
       </div>
 
       <p style={{ fontSize: 11, color: COR.fraco, lineHeight: 1.5, margin: 0, textAlign: "center" }}>
-        Os avisos chegam com esta tela aberta. Deixe o celular ao lado durante a live. No iPhone não há vibração — o Safari não permite.
+        Deixe o celular ao lado durante a live. No iPhone não há vibração — o Safari não permite. <span style={{ opacity: .55 }}>v5</span>
       </p>
     </div>
   );
