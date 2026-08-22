@@ -1362,15 +1362,14 @@ export const Notificacoes = {
    * nao existe), os outros continuam aparecendo em vez de a tela inteira ficar
    * vazia sem explicacao.
    */
-  async listar(limite = 20): Promise<Notificacao[]> {
+  async listar(limite = 20, desde?: string): Promise<Notificacao[]> {
     const {
       data: { user },
     } = await sb.auth.getUser();
     if (!user) return [];
 
     const marca =
-      (await this.vistasEm()) ??
-      new Date(Date.now() - JANELA_INICIAL_DIAS * 86400000).toISOString();
+      desde ?? new Date(Date.now() - JANELA_INICIAL_DIAS * 86400000).toISOString();
 
     // Os posts da propria pessoa, para saber onde comentaram e curtiram.
     let meusPosts: { id: string; conteudo?: string }[] = [];
@@ -1500,6 +1499,21 @@ export const Notificacoes = {
     return tudo
       .sort((a, b) => new Date(b.criado_em).getTime() - new Date(a.criado_em).getTime())
       .slice(0, limite);
+  },
+
+  /**
+   * O que o sininho mostra.
+   *
+   * Devolve a lista dos ultimos dias E a marca de ate quando a pessoa ja viu.
+   * Sao coisas diferentes de proposito: a LISTA continua ali depois de abrir,
+   * como em qualquer aplicativo; o que zera e so o numerinho. Antes eu usava a
+   * marca para montar a lista, e por isso abrir o sininho apagava tudo.
+   */
+  async painel(limite = 20): Promise<{ marca: string | null; itens: Notificacao[] }> {
+    const marca = await this.vistasEm();
+    const janela = new Date(Date.now() - JANELA_INICIAL_DIAS * 86400000).toISOString();
+    const itens = await this.listar(limite, janela);
+    return { marca, itens };
   },
 };
 

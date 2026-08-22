@@ -22,15 +22,17 @@ const INTERVALO_MS = 60000;
 export function SinoNotificacoes() {
   const [aberto, setAberto] = useState(false);
   const [lista, setLista] = useState<Notificacao[]>([]);
+  const [marca, setMarca] = useState<string | null>(null);
   const [naoVistas, setNaoVistas] = useState(0);
   const [buscando, setBuscando] = useState(false);
   const caixaRef = useRef<HTMLDivElement>(null);
 
   const buscar = useCallback(async () => {
     try {
-      const nova = await Notificacoes.listar();
-      setLista(nova);
-      setNaoVistas(nova.length);
+      const { marca: ate, itens } = await Notificacoes.painel();
+      setLista(itens);
+      setMarca(ate);
+      setNaoVistas(itens.filter((n) => !ate || n.criado_em > ate).length);
     } catch {
       /* nao chegou agora: a proxima rodada tenta de novo, sem alarde */
     }
@@ -63,10 +65,11 @@ export function SinoNotificacoes() {
     if (!vaiAbrir) return;
     setBuscando(true);
     try {
-      const nova = await Notificacoes.listar();
-      setLista(nova);
+      const { itens } = await Notificacoes.painel();
+      setLista(itens);
       // A lista continua na tela; o que zera e o numerinho.
       await Notificacoes.marcarVistas();
+      setMarca(new Date().toISOString());
       setNaoVistas(0);
     } catch {
       /* mantem o que ja estava na tela */
@@ -168,11 +171,13 @@ export function SinoNotificacoes() {
 
           {!buscando && lista.length === 0 && (
             <div className="muted tiny" style={{ padding: "12px", lineHeight: 1.5 }}>
-              Nada novo por aqui. Quando alguém publicar, comentar ou curtir, aparece nesta lista.
+              Nada nos últimos 7 dias. Quando alguém publicar, comentar ou curtir, aparece aqui.
             </div>
           )}
 
-          {lista.map((n) => (
+          {lista.map((n) => {
+            const novo = !marca || n.criado_em > marca;
+            return (
             <Link
               key={n.id}
               href={n.href}
@@ -185,6 +190,7 @@ export function SinoNotificacoes() {
                 textDecoration: "none",
                 color: "inherit",
                 alignItems: "flex-start",
+                background: novo ? "rgba(255,15,61,.07)" : "transparent",
               }}
             >
               <span style={{ fontSize: 15, lineHeight: 1.35, flex: "none" }}>{n.icone}</span>
@@ -210,10 +216,12 @@ export function SinoNotificacoes() {
                   style={{ display: "block", fontSize: ".62rem", color: "var(--mut2)", marginTop: 3, letterSpacing: ".06em" }}
                 >
                   {Fmt.quando(n.criado_em).toUpperCase()}
+                  {novo && " · NOVO"}
                 </span>
               </span>
             </Link>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
