@@ -24,7 +24,7 @@ export type AbaAtiva =
   | "comunidade"
   | "aulas"
   | "vendas"
-  | "indicacoes"
+  | "ranking"
   | "extensao"
   | "alertas"
   | "suporte"
@@ -35,7 +35,7 @@ const ABAS: { chave: AbaAtiva; rotulo: string; icone: string; href: string }[] =
   { chave: "comunidade", rotulo: "Comunidade", icone: "users", href: "/comunidade" },
   { chave: "aulas", rotulo: "Aulas", icone: "book", href: "/aulas" },
   { chave: "vendas", rotulo: "Minhas Vendas", icone: "chart", href: "/vendas" },
-  { chave: "indicacoes", rotulo: "Indicações", icone: "trofeu", href: "/indicacoes" },
+  { chave: "ranking", rotulo: "Ranking", icone: "trofeu", href: "/ranking" },
   { chave: "extensao", rotulo: "Extensão", icone: "plug", href: "/extensao" },
   { chave: "alertas", rotulo: "Alertas no Celular", icone: "bell", href: "/alertas-celular" },
   { chave: "suporte", rotulo: "Suporte", icone: "help", href: "/suporte" },

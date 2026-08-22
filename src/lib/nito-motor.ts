@@ -1588,10 +1588,19 @@ export const Indicacoes = {
    * proprias vendas — sem ela, ninguem conseguiria ver a lista dos outros.
    * Quem e da equipe fica de fora: fundador e moderador nao disputam.
    */
-  async ranking(limite = 10): Promise<RankingAfiliado[]> {
-    const { data, error } = await sb.rpc("fn_ranking_afiliados", { p_limite: limite });
+  async ranking(limite = 10, desde?: string | null): Promise<RankingAfiliado[]> {
+    const { data, error } = await sb.rpc("fn_ranking_afiliados", {
+      p_limite: limite,
+      p_desde: desde ?? null,
+    });
     if (error) throw error;
     return (data as unknown as RankingAfiliado[]) || [];
+  },
+
+  /** Primeiro instante do mes corrente, para o recorte mensal do ranking. */
+  inicioDoMes(): string {
+    const d = new Date();
+    return new Date(d.getFullYear(), d.getMonth(), 1, 0, 0, 0, 0).toISOString();
   },
 };
 
