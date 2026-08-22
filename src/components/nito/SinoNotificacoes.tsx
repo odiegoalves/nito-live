@@ -15,9 +15,26 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Notificacoes, Notificacao, Fmt } from "@/lib/nito-motor";
-import { Icone } from "./NitoIcones";
+
 
 const INTERVALO_MS = 60000;
+
+/**
+ * Sino preenchido, desenhado aqui e nao no conjunto de icones da casca.
+ *
+ * O motivo e nitidez: os icones do menu sao feitos de traco fino, e traco
+ * fino de 1,9 unidade reduzido para 21 pixels cai no meio do pixel e sai
+ * esfumacado - principalmente em tela do Windows ampliada em 125%. Forma
+ * preenchida nao tem esse problema em tamanho nenhum.
+ */
+function SinoCheio({ tam = 22 }: { tam?: number }) {
+  return (
+    <svg width={tam} height={tam} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M12 2.4c.86 0 1.55.7 1.55 1.55v.62a6.35 6.35 0 0 1 4.8 6.15v2.94l1.44 2.2a1 1 0 0 1-.84 1.55H5.05a1 1 0 0 1-.84-1.55l1.44-2.2v-2.94a6.35 6.35 0 0 1 4.8-6.15v-.62c0-.85.69-1.55 1.55-1.55z" />
+      <path d="M9.5 19.05h5a2.5 2.5 0 0 1-5 0z" />
+    </svg>
+  );
+}
 
 export function SinoNotificacoes() {
   const [aberto, setAberto] = useState(false);
@@ -99,7 +116,7 @@ export function SinoNotificacoes() {
           flex: "none",
         }}
       >
-        <Icone nome="bell" tam={21} />
+        <SinoCheio tam={22} />
         {naoVistas > 0 && (
           <span
             style={{
@@ -115,13 +132,15 @@ export function SinoNotificacoes() {
               // e nao pequeno.
               background: "#d90032",
               color: "#fff",
-              // Fonte de titulo, que e pesada, no lugar da fonte de texto. E o
-              // que da contorno firme num numero deste tamanho.
-              fontFamily: "var(--disp)",
-              fontSize: 12,
-              fontWeight: 900,
+              // Mesma fonte da etiqueta "ASSINATURA - 61 DIAS", que fica
+              // nitida ao lado: fonte de largura fixa, com ajuste de desenho
+              // para a grade de pixels. Fonte de titulo, no tamanho de um
+              // numerinho, nao tem esse ajuste e sai mole.
+              fontFamily: "var(--mono)",
+              fontSize: 11.5,
+              fontWeight: 800,
               lineHeight: 1,
-              letterSpacing: "-.01em",
+              letterSpacing: 0,
               fontVariantNumeric: "tabular-nums",
               textRendering: "geometricPrecision",
               display: "flex",

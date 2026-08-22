@@ -72,13 +72,7 @@
 .nito .sair:hover{background:rgba(255,15,61,.16)}
 .nito .main{position:relative;z-index:1;min-width:0;display:flex;flex-direction:column}
 .nito .topbar{position:sticky;top:0;z-index:4;display:flex;align-items:center;gap:14px;padding:13px 26px;
-  /* Fundo solido de proposito. O desfoque de fundo obriga o navegador a
-     desenhar a barra inteira numa camada separada, e no Windows com tela
-     ampliada essa camada sai em resolucao menor e depois e esticada - foi
-     isso que deixou o sino, o circulo e o numero com cara de baixa qualidade.
-     A cor abaixo e a mesma que o desfoque produzia; o que sai e so o efeito
-     de vidro atras da barra ao rolar a pagina. */
-  background:#06060c;border-bottom:1px solid var(--line)}
+  background:rgba(6,6,12,.82);backdrop-filter:blur(14px);border-bottom:1px solid var(--line)}
 .nito .hello{font:800 .92rem/1.2 var(--disp);text-transform:uppercase;letter-spacing:.01em}
 .nito .hello span{color:var(--mut);font-family:var(--body);font-weight:500;text-transform:none;font-size:.78rem;display:block;letter-spacing:0}
 .nito .stat-min{display:flex;align-items:center;gap:7px;padding:7px 11px;border-radius:10px;background:rgba(255,255,255,.035);border:1px solid var(--line);
