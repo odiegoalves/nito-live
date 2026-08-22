@@ -110,56 +110,23 @@ function hojeInicio() {
  */
 function useSino() {
   const ctxRef = useRef<AudioContext | null>(null);
+  const bytesRef = useRef<Uint8Array | null>(null);
   const bufferRef = useRef<AudioBuffer | null>(null);
   const baixandoRef = useRef<Promise<void> | null>(null);
-  // "rodando" e a verdade do navegador, nao a nossa suposicao. Se ele continuar
-  // segurando o som, a tela avisa em vez de ficar muda sem explicacao.
+  // "rodando" e a verdade do navegador, nao a nossa suposicao.
   const [rodando, setRodando] = useState(false);
 
-  // O contexto pode nascer fora de toque: ele so vem "suspenso". Decodificar o
-  // mp3 tambem funciona suspenso. Assim, quando a pessoa encostar na tela,
-  // sobra apenas destravar - nada de rede, nada de espera.
-  const contexto = useCallback((): AudioContext | null => {
-    if (ctxRef.current) return ctxRef.current;
-    try {
-      const C =
-        window.AudioContext ||
-        (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-      if (C) {
-        const ctx = new C();
-        ctx.onstatechange = () => setRodando(ctx.state === "running");
-        setRodando(ctx.state === "running");
-        ctxRef.current = ctx;
-      }
-    } catch {
-      /* aparelho sem Web Audio: o alerta visual continua */
-    }
-    return ctxRef.current;
-  }, []);
-
-  const preparar = useCallback((): Promise<void> => {
-    if (bufferRef.current) return Promise.resolve();
+  // ── 1. o arquivo, antes de existir contexto ───────────────────────────────
+  // Baixar o mp3 nao precisa de toque nenhum, entao ele ja fica na memoria
+  // assim que a tela abre. Quando a pessoa encostar, so falta decodificar -
+  // e decodificar leva milissegundos, sem rede no caminho.
+  const baixar = useCallback((): Promise<void> => {
+    if (bytesRef.current) return Promise.resolve();
     if (baixandoRef.current) return baixandoRef.current;
-    const ctx = contexto();
-    if (!ctx) return Promise.resolve();
     baixandoRef.current = (async () => {
       try {
         const resposta = await fetch("/alertas/venda.mp3", { cache: "force-cache" });
-        const cru = await resposta.arrayBuffer();
-        // Safari antigo so entende decodeAudioData com retorno por funcao.
-        // Atender as duas formas evita ficar sem som em iPhone mais velho.
-        const buffer = await new Promise<AudioBuffer>((pronto, falhou) => {
-          let promessa: unknown;
-          try {
-            promessa = ctx.decodeAudioData(cru, pronto, falhou);
-          } catch (e) {
-            falhou(e);
-            return;
-          }
-          const p = promessa as Promise<AudioBuffer> | undefined;
-          if (p && typeof p.then === "function") p.then(pronto, falhou);
-        });
-        bufferRef.current = buffer;
+        bytesRef.current = new Uint8Array(await resposta.arrayBuffer());
       } catch {
         /* sem som: o aviso visual e a notificacao continuam de pe */
       } finally {
@@ -167,30 +134,61 @@ function useSino() {
       }
     })();
     return baixandoRef.current;
-  }, [contexto]);
+  }, []);
+
+  // ── 2. o contexto, sempre nascido DENTRO do toque ─────────────────────────
+  // Esta ordem nao e detalhe. No iPhone, um contexto de audio que nasce fora
+  // de um toque da pessoa pode nunca mais ser destravado. Por isso ele so e
+  // criado aqui, e "liberar" e a unica porta que cria contexto.
+  const decodificar = useCallback((ctx: AudioContext) => {
+    if (bufferRef.current || !bytesRef.current) return;
+    // decodeAudioData esvazia o bloco que recebe, entao vai sempre uma copia.
+    const copia = bytesRef.current.slice().buffer;
+    try {
+      const retorno = ctx.decodeAudioData(
+        copia,
+        (b: AudioBuffer) => { bufferRef.current = b; },
+        () => {}
+      ) as unknown as Promise<AudioBuffer> | undefined;
+      // Safari antigo devolve pela funcao acima; o resto devolve promessa.
+      if (retorno && typeof retorno.then === "function") {
+        retorno.then((b) => { bufferRef.current = b; }).catch(() => {});
+      }
+    } catch {
+      /* formato recusado: o alerta visual continua */
+    }
+  }, []);
 
   /**
    * Roda DENTRO do toque da pessoa e e sincrona de proposito.
    *
-   * Nada de "await" aqui. No iPhone a promessa de resume() as vezes simplesmente
-   * nao se resolve, e quem esperava por ela ficava parado para sempre - foi o
-   * que deixava o aviso "toque na tela" preso mesmo depois do toque.
+   * Nada de "await" aqui. No iPhone a promessa de resume() as vezes nao se
+   * resolve, e quem esperava por ela ficava parado para sempre - foi o que
+   * deixava o aviso "toque na tela" preso mesmo depois do toque.
    *
-   * O toque mudo (um quadro de som de 1 amostra) e o jeito que o WebKit aceita
-   * para considerar o audio destravado.
+   * O quadro mudo de 1 amostra e o jeito que o WebKit aceita para considerar
+   * o audio destravado.
    */
   const liberar = useCallback(() => {
-    const ctx = contexto();
-    if (!ctx) return;
-    if (ctx.state === "running") {
-      preparar();
-      return;
+    let ctx = ctxRef.current;
+    if (!ctx) {
+      try {
+        const C =
+          window.AudioContext ||
+          (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+        if (!C) return;
+        ctx = new C();
+        ctx.onstatechange = () => setRodando(ctxRef.current?.state === "running");
+        ctxRef.current = ctx;
+      } catch {
+        return;
+      }
     }
     try {
       const p = ctx.resume() as unknown as Promise<void> | undefined;
       if (p && typeof p.catch === "function") p.catch(() => {});
     } catch {
-      /* alguns navegadores nem tem resume: seguem tocando normalmente */
+      /* alguns navegadores nem tem resume */
     }
     try {
       const mudo = ctx.createBufferSource();
@@ -200,52 +198,68 @@ function useSino() {
     } catch {
       /* destravar e uma tentativa, nunca um bloqueio */
     }
-    preparar();
-  }, [contexto, preparar]);
+    setRodando(ctx.state === "running");
+    if (bytesRef.current) decodificar(ctx);
+    else baixar().then(() => { if (ctxRef.current) decodificar(ctxRef.current); });
+  }, [baixar, decodificar]);
 
   const tocar = useCallback(() => {
     const ctx = ctxRef.current;
     if (!ctx) return;
-    const buffer = bufferRef.current;
-    if (!buffer) {
-      // Chegou venda antes do arquivo terminar de carregar: carrega agora e
-      // toca em seguida, em vez de simplesmente ficar mudo.
-      preparar().then(() => {
-        const b = bufferRef.current;
-        if (!b || !ctxRef.current) return;
-        try {
-          const f = ctxRef.current.createBufferSource();
-          f.buffer = b;
-          f.connect(ctxRef.current.destination);
-          f.start(0);
-        } catch {
-          /* som e um extra, nunca pode derrubar o alerta visual */
-        }
-      });
+    if (!bufferRef.current) {
+      // Chegou venda antes de decodificar: decodifica agora e toca em seguida.
+      decodificar(ctx);
+      window.setTimeout(() => { if (bufferRef.current) disparar(ctx, bufferRef.current); }, 250);
       return;
     }
-    try {
-      if (ctx.state === "suspended") {
-        const p = ctx.resume() as unknown as Promise<void> | undefined;
-        if (p && typeof p.catch === "function") p.catch(() => {});
-      }
-      const fonte = ctx.createBufferSource();
-      const vol = ctx.createGain();
-      vol.gain.value = 1;
-      fonte.buffer = buffer;
-      fonte.connect(vol).connect(ctx.destination);
-      fonte.start(0);
-    } catch {
-      /* som e um extra, nunca pode derrubar o alerta visual */
-    }
-  }, [preparar]);
+    disparar(ctx, bufferRef.current);
+  }, [decodificar]);
 
-  // Deixa o arquivo pronto assim que a tela abre.
+  // ── 3. voltar do segundo plano ────────────────────────────────────────────
+  // O iPhone interrompe o audio quando o app sai da frente. Ao voltar, o
+  // contexto precisa ser retomado, senao a proxima venda chega muda.
   useEffect(() => {
-    preparar();
-  }, [preparar]);
+    const aoVoltar = () => {
+      const ctx = ctxRef.current;
+      if (!ctx) return;
+      if (document.visibilityState === "visible" && ctx.state !== "running") {
+        try {
+          const p = ctx.resume() as unknown as Promise<void> | undefined;
+          if (p && typeof p.catch === "function") p.catch(() => {});
+        } catch {
+          /* so tenta */
+        }
+      }
+      setRodando(ctx.state === "running");
+    };
+    document.addEventListener("visibilitychange", aoVoltar);
+    return () => document.removeEventListener("visibilitychange", aoVoltar);
+  }, []);
 
-  return { liberar, tocar, preparar, rodando };
+  // Deixa o arquivo na memoria assim que a tela abre.
+  useEffect(() => {
+    baixar();
+  }, [baixar]);
+
+  return { liberar, tocar, rodando };
+}
+
+/** Toca o quadro ja decodificado. Som e extra: nunca derruba o alerta visual. */
+function disparar(ctx: AudioContext, buffer: AudioBuffer) {
+  try {
+    if (ctx.state === "suspended") {
+      const p = ctx.resume() as unknown as Promise<void> | undefined;
+      if (p && typeof p.catch === "function") p.catch(() => {});
+    }
+    const fonte = ctx.createBufferSource();
+    const vol = ctx.createGain();
+    vol.gain.value = 1;
+    fonte.buffer = buffer;
+    fonte.connect(vol).connect(ctx.destination);
+    fonte.start(0);
+  } catch {
+    /* som e um extra */
+  }
 }
 
 function Conteudo({ perfil }: { perfil: Perfil }) {
@@ -270,6 +284,22 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
   const ligadoRef = useRef(false);
   const inscritoRef = useRef(false);
   const { liberar, tocar, rodando } = useSino();
+
+  // O aviso de som so aparece se o navegador continuar segurando o audio por
+  // alguns segundos COM a tela na frente. Sem essa espera ele piscaria toda vez
+  // que o app volta do segundo plano - o iPhone interrompe o audio nessa hora
+  // e retoma sozinho, o que nao e defeito e nao e assunto do cliente.
+  const [avisarSom, setAvisarSom] = useState(false);
+  useEffect(() => {
+    if (!somLiberado || rodando) {
+      setAvisarSom(false);
+      return;
+    }
+    const t = window.setTimeout(() => {
+      if (document.visibilityState === "visible") setAvisarSom(true);
+    }, 2500);
+    return () => window.clearTimeout(t);
+  }, [somLiberado, rodando]);
   const wakeRef = useRef<{ release: () => Promise<void> } | null>(null);
 
   // Volta ligado sozinho quando a pessoa ja ativou antes neste aparelho.
@@ -685,9 +715,9 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
                 Toque em qualquer lugar da tela para liberar o som.
               </span>
             )}
-            {somLiberado && !rodando && (
-              <span style={{ display: "block", color: COR.vermelho, marginTop: 3 }}>
-                O navegador ainda está segurando o som — toque na tela mais uma vez.
+            {avisarSom && (
+              <span style={{ display: "block", color: COR.fraco, marginTop: 3 }}>
+                Toque na tela uma vez para liberar o som.
               </span>
             )}
           </span>
@@ -779,7 +809,7 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
       </div>
 
       <p style={{ fontSize: 11, color: COR.fraco, lineHeight: 1.5, margin: 0, textAlign: "center" }}>
-        Deixe o celular ao lado durante a live. No iPhone não há vibração — o Safari não permite. <span style={{ opacity: .55 }}>v10</span>
+        Deixe o celular ao lado durante a live. No iPhone não há vibração — o Safari não permite. <span style={{ opacity: .55 }}>v11</span>
       </p>
     </div>
   );
