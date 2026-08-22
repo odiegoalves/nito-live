@@ -20,9 +20,15 @@ const CORES_AVATAR = [
 ];
 
 // Sempre a mesma cor para a mesma pessoa.
-function corDe(id: string) {
+//
+// Aceita vazio de proposito. Antes esta funcao percorria o texto direto e, se
+// o identificador chegasse vazio, o percurso estourava e levava a aba inteira
+// junto - uma cor de avatar nunca pode derrubar a tela.
+function corDe(id?: string | null) {
+  const chave = String(id ?? "");
+  if (!chave) return CORES_AVATAR[0];
   let n = 0;
-  for (const c of id) n = (n + c.charCodeAt(0)) % CORES_AVATAR.length;
+  for (const c of chave) n = (n + c.charCodeAt(0)) % CORES_AVATAR.length;
   return CORES_AVATAR[n];
 }
 
@@ -105,7 +111,7 @@ export function PostNito({
       <div className="head">
         <div
           className="av"
-          style={{ background: oficial ? "var(--grad)" : corDe(post.autor_id) }}
+          style={{ background: oficial ? "var(--grad)" : corDe(post.autor_id ?? autor.id) }}
         >
           {oficial ? "N" : iniciais(autor.nome)}
         </div>

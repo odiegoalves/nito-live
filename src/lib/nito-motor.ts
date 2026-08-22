@@ -341,7 +341,7 @@ export const Auth = {
 // FEED DA COMUNIDADE — posts, curtidas, comentarios
 // ---------------------------------------------------------------------------
 const SELECT_POST = `
-  id, titulo, conteudo, imagem_url, tipo, fixado,
+  id, autor_id, titulo, conteudo, imagem_url, tipo, fixado,
   curtidas_count, comentarios_count, criado_em,
   autor:perfis!posts_autor_id_fkey ( id, nome, username, avatar_url, nivel, papel )
 `;
