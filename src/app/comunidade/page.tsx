@@ -16,7 +16,7 @@ import { AppShell, ehAdmin } from "@/components/nito/AppShell";
 import { PostNito } from "@/components/nito/PostNito";
 import { CompositorNito } from "@/components/nito/CompositorNito";
 import { ChatNito } from "@/components/nito/ChatNito";
-import { Feed, Enquetes, Post, Enquete, Perfil } from "@/lib/nito-motor";
+import { Feed, Enquetes, Abas, Post, Enquete, Perfil } from "@/lib/nito-motor";
 
 type Sub = "importante" | "chat" | "resultado" | "insight" | "melhoria";
 
@@ -57,6 +57,34 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
   const [curtidos, setCurtidos] = useState<Set<string>>(new Set());
   const [enquetes, setEnquetes] = useState<Record<string, Enquete>>({});
   const [carregando, setCarregando] = useState(true);
+
+  // Quantas coisas novas em cada aba desde a ultima vez que ESTA pessoa a viu.
+  const [novidades, setNovidades] = useState<Record<string, number>>({});
+
+  const contarNovidades = useCallback(() => {
+    Abas.novidades()
+      .then(setNovidades)
+      .catch(() => {
+        /* sem contagem agora: as abas aparecem sem numero, e nada quebra */
+      });
+  }, []);
+
+  useEffect(() => {
+    contarNovidades();
+    // Uma conferida a cada 2 minutos pega o que chegou com a pessoa parada na
+    // tela, sem transformar isso em consulta o tempo todo.
+    const t = window.setInterval(contarNovidades, 120000);
+    return () => window.clearInterval(t);
+  }, [contarNovidades]);
+
+  // Entrar numa aba zera o aviso dela. Marca no banco para valer em qualquer
+  // aparelho, e limpa o numero na hora para a tela nao ficar devendo resposta.
+  useEffect(() => {
+    setNovidades((atual) => ({ ...atual, [sub]: 0 }));
+    Abas.marcarVista(sub).catch(() => {
+      /* nao conseguiu marcar: o numero volta na proxima contagem */
+    });
+  }, [sub]);
 
   const admin = ehAdmin(perfil);
 
@@ -179,9 +207,35 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
               className={sub === a.chave ? "on" : ""}
               onClick={() => setSub(a.chave)}
               type="button"
+              style={{ position: "relative" }}
             >
               {a.rotulo}
               {a.chave === "chat" && <span className="dot-live" />}
+              {sub !== a.chave && (novidades[a.chave] ?? 0) > 0 && (
+                <span
+                  aria-label={`${novidades[a.chave]} novidades`}
+                  style={{
+                    marginLeft: 7,
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    minWidth: 18,
+                    height: 18,
+                    padding: "0 5px",
+                    borderRadius: 999,
+                    background: "#d90032",
+                    color: "#fff",
+                    fontFamily: "var(--mono)",
+                    fontSize: 10.5,
+                    fontWeight: 800,
+                    lineHeight: 1,
+                    fontVariantNumeric: "tabular-nums",
+                    verticalAlign: "middle",
+                  }}
+                >
+                  {(novidades[a.chave] ?? 0) > 9 ? "9+" : novidades[a.chave]}
+                </span>
+              )}
             </button>
           ))}
         </div>

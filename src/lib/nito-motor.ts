@@ -1716,6 +1716,32 @@ export const Premios = {
   },
 };
 
+// ---------------------------------------------------------------------------
+// AVISO DE NOVIDADE NAS ABAS DA COMUNIDADE
+//
+// Mesma ideia do sininho, so que por aba: o banco guarda "ate quando voce viu
+// esta aba" e conta o que apareceu depois. Publicacao da propria pessoa nao
+// conta como novidade para ela.
+// ---------------------------------------------------------------------------
+export type AbaComunidade = "importante" | "chat" | "resultado" | "insight" | "melhoria";
+
+export const Abas = {
+  async novidades(): Promise<Record<string, number>> {
+    const { data, error } = await sb.rpc("fn_novidades_abas");
+    if (error) throw error;
+    const mapa: Record<string, number> = {};
+    ((data as { aba: string; novidades: number }[]) ?? []).forEach((l) => {
+      mapa[l.aba] = Number(l.novidades) || 0;
+    });
+    return mapa;
+  },
+
+  async marcarVista(aba: AbaComunidade): Promise<void> {
+    const { error } = await sb.rpc("fn_marcar_aba_vista", { p_aba: aba });
+    if (error) throw error;
+  },
+};
+
 export const Nito = {
   sb,
   Auth,
