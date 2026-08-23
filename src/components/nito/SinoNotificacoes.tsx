@@ -20,18 +20,29 @@ import { Notificacoes, Notificacao, Fmt } from "@/lib/nito-motor";
 const INTERVALO_MS = 60000;
 
 /**
- * Sino preenchido, desenhado aqui e nao no conjunto de icones da casca.
+ * Sino de traco, no estilo do YouTube.
  *
- * O motivo e nitidez: os icones do menu sao feitos de traco fino, e traco
- * fino de 1,9 unidade reduzido para 21 pixels cai no meio do pixel e sai
- * esfumacado - principalmente em tela do Windows ampliada em 125%. Forma
- * preenchida nao tem esse problema em tamanho nenhum.
+ * Medidas escolhidas para nao borrar: o desenho tem 24 unidades e e mostrado
+ * em 24 pixels, entao cada unidade vale exatamente um pixel. O traco tem 2 de
+ * espessura — numero par, que cai no meio de dois pixels inteiros em vez de
+ * ficar na fronteira. Foi traco quebrado (1,9 unidade em 21 pixels) que deixou
+ * o sino esfumacado da primeira vez.
  */
-function SinoCheio({ tam = 22 }: { tam?: number }) {
+function SinoTraco({ tam = 24 }: { tam?: number }) {
   return (
-    <svg width={tam} height={tam} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-      <path d="M12 2.4c.86 0 1.55.7 1.55 1.55v.62a6.35 6.35 0 0 1 4.8 6.15v2.94l1.44 2.2a1 1 0 0 1-.84 1.55H5.05a1 1 0 0 1-.84-1.55l1.44-2.2v-2.94a6.35 6.35 0 0 1 4.8-6.15v-.62c0-.85.69-1.55 1.55-1.55z" />
-      <path d="M9.5 19.05h5a2.5 2.5 0 0 1-5 0z" />
+    <svg
+      width={tam}
+      height={tam}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M18 9a6 6 0 1 0-12 0c0 4-1.5 5-2 6h16c-.5-1-2-2-2-6z" />
+      <path d="M10 19a2 2 0 0 0 4 0" />
     </svg>
   );
 }
@@ -102,27 +113,33 @@ export function SinoNotificacoes() {
         onClick={alternar}
         aria-label={naoVistas ? `${naoVistas} notificações novas` : "Notificações"}
         title="Notificações"
+        // Sem caixa em volta, como no YouTube: so o desenho e a bolinha. O
+        // alvo de clique continua com 40 pixels para o dedo acertar no celular.
         style={{
           position: "relative",
-          width: 44,
-          height: 44,
-          borderRadius: 13,
+          width: 40,
+          height: 40,
+          borderRadius: "50%",
           display: "grid",
           placeItems: "center",
-          background: "var(--surf2)",
-          border: "1px solid var(--line)",
-          color: naoVistas ? "var(--red)" : "var(--txt)",
+          background: aberto ? "rgba(255,255,255,.08)" : "transparent",
+          border: 0,
+          color: "var(--txt)",
           cursor: "pointer",
           flex: "none",
+          transition: "background .15s",
         }}
+        onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(255,255,255,.08)"; }}
+        onMouseLeave={(e) => { e.currentTarget.style.background = aberto ? "rgba(255,255,255,.08)" : "transparent"; }}
       >
-        <SinoCheio tam={22} />
+        <SinoTraco tam={24} />
         {naoVistas > 0 && (
           <span
             style={{
               position: "absolute",
-              top: -7,
-              right: -7,
+              // Encosta no sino em vez de flutuar no canto, como no YouTube.
+              top: 2,
+              right: 1,
               minWidth: 22,
               height: 22,
               padding: "0 6px",
@@ -147,7 +164,7 @@ export function SinoNotificacoes() {
               alignItems: "center",
               justifyContent: "center",
               // Anel desenhado por sombra: fica nitido e nao aumenta a bolinha.
-              boxShadow: "0 0 0 2px #07070d",
+              boxShadow: "0 0 0 2px var(--bg, #07070d)",
             }}
           >
             {naoVistas > 9 ? "9+" : naoVistas}
@@ -159,7 +176,7 @@ export function SinoNotificacoes() {
         <div
           style={{
             position: "absolute",
-            top: 48,
+            top: 46,
             right: 0,
             width: 340,
             maxWidth: "min(340px, calc(100vw - 32px))",
