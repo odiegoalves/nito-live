@@ -290,7 +290,11 @@ export function ChatNito({ perfil }: { perfil: Perfil }) {
                     style={{ width: "100%", borderRadius: 9, margin: "7px 0", display: "block" }}
                   />
                 )}
-                {m.conteudo && <p>{comMencoes(m.conteudo)}</p>}
+                {m.conteudo && (
+                  <p style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+                    {comMencoes(m.conteudo)}
+                  </p>
+                )}
                 <time>{hora(m.criado_em)}</time>
               </div>
             </div>

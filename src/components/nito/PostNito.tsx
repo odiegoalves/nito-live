@@ -251,11 +251,17 @@ export function PostNito({
       )}
 
       {post.titulo && (
-        <div className="corpo" style={{ fontWeight: 800, marginBottom: 6 }}>
+        <div className="corpo" style={{ fontWeight: 800, marginBottom: 6, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
           {post.titulo}
         </div>
       )}
-      <div className="corpo">{post.conteudo}</div>
+      {/* "pre-wrap" preserva as quebras de linha que a pessoa digitou. Sem ele o
+          navegador junta tudo num paragrafo so, e o texto perde o formato que
+          o autor deu. Nao interpreta marcacao nenhuma: o que foi escrito e o
+          que aparece, sem risco de alguem injetar HTML pelo campo de texto. */}
+      <div className="corpo" style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+        {post.conteudo}
+      </div>
 
       {enquete && (
         <div className="enquete">
@@ -380,7 +386,7 @@ export function PostNito({
                       {Fmt.quando(c.criado_em).toUpperCase()}
                     </span>
                   </div>
-                  <div style={{ fontSize: ".87rem", color: "#dfe2ea", marginTop: 2, wordBreak: "break-word" }}>
+                  <div style={{ fontSize: ".87rem", color: "#dfe2ea", marginTop: 2, wordBreak: "break-word", whiteSpace: "pre-wrap" }}>
                     {c.conteudo}
                   </div>
                 </div>
