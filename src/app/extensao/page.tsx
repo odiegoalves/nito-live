@@ -230,19 +230,42 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
               </div>
             </div>
 
+            {/* O passo de extrair existe separado de proposito. A instrucao
+                antiga mandava arrastar o .zip para a pagina do Chrome, e o
+                Chrome ignora .zip calado - ele so aceita PASTA pelo botao
+                "Carregar sem compactacao". Quem seguia ao pe da letra travava
+                aqui sem entender por que, e sem mensagem de erro nenhuma. */}
             <div className="passo">
               <div className="n">2</div>
               <div className="c">
-                <b>Instalar no Chrome</b>
+                <b>Extrair o arquivo</b>
                 <p className="muted tiny">
-                  Abra <span className="num" style={{ color: "var(--cyan)" }}>chrome://extensions</span>, ligue o{" "}
-                  <b>Modo do desenvolvedor</b> no canto superior direito e arraste o arquivo .zip para a página.
+                  Clique com o botão direito no arquivo baixado e escolha{" "}
+                  <b>Extrair tudo</b>. Vai virar uma <b>pasta</b> com o mesmo nome.
+                </p>
+                <p className="muted tiny" style={{ marginTop: 6 }}>
+                  Esse passo é obrigatório: o Chrome instala a pasta, não o arquivo compactado.
                 </p>
               </div>
             </div>
 
             <div className="passo">
               <div className="n">3</div>
+              <div className="c">
+                <b>Instalar no Chrome</b>
+                <p className="muted tiny">
+                  Abra <span className="num" style={{ color: "var(--cyan)" }}>chrome://extensions</span> e ligue o{" "}
+                  <b>Modo do desenvolvedor</b> no canto superior direito.
+                </p>
+                <p className="muted tiny" style={{ marginTop: 6 }}>
+                  Clique em <b>Carregar sem compactação</b> e escolha a <b>pasta</b> que você extraiu
+                  no passo anterior.
+                </p>
+              </div>
+            </div>
+
+            <div className="passo">
+              <div className="n">4</div>
               <div className="c">
                 <b>Ativar com sua chave</b>
                 <p className="muted tiny">
