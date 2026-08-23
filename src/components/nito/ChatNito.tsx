@@ -10,6 +10,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Chat, MensagemChat, Perfil, comoErro } from "@/lib/nito-motor";
 import { iniciais, ehVerificado } from "@/lib/nito-gamificacao";
 import { Icone, SeloVerificado } from "./NitoIcones";
+import { Avatar } from "./Avatar";
 
 const CORES = [
   "linear-gradient(100deg,#a855f7,#6d28d9)",
@@ -126,7 +127,7 @@ export function ChatNito({ perfil }: { perfil: Perfil }) {
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [online, setOnline] = useState(0);
-  const [membros, setMembros] = useState<{ id?: string; nome?: string }[]>([]);
+  const [membros, setMembros] = useState<{ id?: string; nome?: string; avatar_url?: string }[]>([]);
   const fimRef = useRef<HTMLDivElement>(null);
   const inputArquivo = useRef<HTMLInputElement>(null);
   const vistosRef = useRef<Set<string>>(new Set());
@@ -174,7 +175,7 @@ export function ChatNito({ perfil }: { perfil: Perfil }) {
           if (nova.autor_id !== perfil.id && !mudoRef.current) tocar();
           setMensagens((antes) => [...antes, nova]);
         },
-        onOnline: (qtd: number, lista: { id?: string; nome?: string }[]) => {
+        onOnline: (qtd: number, lista: { id?: string; nome?: string; avatar_url?: string }[]) => {
           setOnline(qtd);
           setMembros(Array.isArray(lista) ? lista : []);
         },
@@ -267,9 +268,12 @@ export function ChatNito({ perfil }: { perfil: Perfil }) {
           const nome = meu ? "Você" : m.autor?.nome ?? "Membro";
           return (
             <div className={`msg${meu ? " eu" : ""}`} key={m.id}>
-              <div className="av" style={{ background: meu ? "var(--grad)" : corDe(m.autor_id) }}>
-                {iniciais(nome === "Você" ? perfil.nome : nome)}
-              </div>
+              <Avatar
+                className="av"
+                nome={nome === "Você" ? perfil.nome : nome}
+                url={meu ? perfil.avatar_url : m.autor?.avatar_url}
+                style={{ background: meu ? "var(--grad)" : corDe(m.autor_id) }}
+              />
               <div className="bal">
                 <b>
                   {nome}
@@ -381,9 +385,12 @@ export function ChatNito({ perfil }: { perfil: Perfil }) {
           const nome = souEu ? "Você" : m.nome ?? "Membro";
           return (
             <div className="online-row" key={m.id ?? i}>
-              <div className="av" style={{ background: souEu ? "var(--grad)" : corDe(m.id) }}>
-                {iniciais(souEu ? perfil.nome : nome)}
-              </div>
+              <Avatar
+                className="av"
+                nome={souEu ? perfil.nome : nome}
+                url={souEu ? perfil.avatar_url : m.avatar_url}
+                style={{ background: souEu ? "var(--grad)" : corDe(m.id) }}
+              />
               <div>
                 <div className="nm">{nome}</div>
                 <div className="st">ONLINE</div>

@@ -248,6 +248,7 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
               <CompositorNito
                 tipo={tipoPost}
                 nomeAutor={perfil.nome}
+                avatarAutor={perfil.avatar_url}
                 exigeFoto={sub === "resultado"}
                 permiteEnquete={sub === "melhoria"}
                 permiteFixar={admin}

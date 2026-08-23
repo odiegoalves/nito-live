@@ -9,11 +9,13 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import { Feed, Enquetes, TipoPost, Post, comoErro } from "@/lib/nito-motor";
-import { iniciais } from "@/lib/nito-gamificacao";
+import { Avatar } from "./Avatar";
 
 interface Props {
   tipo: TipoPost;
   nomeAutor: string;
+  /** foto de quem esta escrevendo; sem ela mostra as iniciais */
+  avatarAutor?: string | null;
   exigeFoto?: boolean;
   permiteEnquete?: boolean;
   permiteFixar?: boolean;
@@ -25,6 +27,7 @@ interface Props {
 export function CompositorNito({
   tipo,
   nomeAutor,
+  avatarAutor,
   exigeFoto = false,
   permiteEnquete = false,
   permiteFixar = false,
@@ -114,8 +117,10 @@ export function CompositorNito({
   return (
     <div className="panel pad compositor">
       <div className="row" style={{ alignItems: "flex-start", gap: 12 }}>
-        <div
+        <Avatar
           className="av"
+          nome={nomeAutor}
+          url={avatarAutor}
           style={{
             width: 40,
             height: 40,
@@ -126,9 +131,7 @@ export function CompositorNito({
             font: "900 .9rem/1 var(--disp)",
             flex: "none",
           }}
-        >
-          {iniciais(nomeAutor)}
-        </div>
+        />
 
         <div style={{ flex: 1, minWidth: 0 }}>
           {(exigeFoto || previa) &&

@@ -10,6 +10,7 @@ import React, { useEffect, useState } from "react";
 import { Feed, Enquetes, Post, Enquete, OpcaoEnquete, Comentario, Fmt, comoErro } from "@/lib/nito-motor";
 import { patenteDoNivel, iniciais, ehVerificado } from "@/lib/nito-gamificacao";
 import { SeloVerificado } from "./NitoIcones";
+import { Avatar } from "./Avatar";
 
 const CORES_AVATAR = [
   "linear-gradient(100deg,#a855f7,#6d28d9)",
@@ -226,12 +227,15 @@ export function PostNito({
       }}
     >
       <div className="head">
-        <div
+        <Avatar
           className="av"
+          nome={autor.nome}
+          // Comunicado oficial mantem o selo da marca, nao a foto de quem
+          // publicou: quem fala ali e a NITO LIVE.
+          url={oficial ? null : autor.avatar_url}
+          texto={oficial ? "N" : undefined}
           style={{ background: oficial ? "var(--grad)" : corDe(post.autor_id ?? autor.id) }}
-        >
-          {oficial ? "N" : iniciais(autor.nome)}
-        </div>
+        />
         <div className="who">
           <b>
             {oficial ? "NITO LIVE" : autor.nome ?? "Membro"}
@@ -500,7 +504,9 @@ export function PostNito({
           {!buscando &&
             comentarios?.map((c) => (
               <div key={c.id} style={{ display: "flex", gap: 10, padding: "9px 0" }}>
-                <div
+                <Avatar
+                  nome={c.autor?.nome}
+                  url={c.autor?.avatar_url}
                   style={{
                     width: 30,
                     height: 30,
@@ -512,9 +518,7 @@ export function PostNito({
                     color: "#fff",
                     background: corDe(c.autor_id ?? c.autor?.id),
                   }}
-                >
-                  {iniciais(c.autor?.nome)}
-                </div>
+                />
                 <div style={{ minWidth: 0, flex: 1 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
                     <b style={{ fontSize: ".82rem", fontWeight: 700 }}>{c.autor?.nome ?? "Membro"}</b>

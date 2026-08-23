@@ -8,8 +8,9 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import { Aulas, AulasAdmin, Aula, AulaMaterial, AulaComentario, Fmt, comoErro } from "@/lib/nito-motor";
-import { iniciais, ehVerificado } from "@/lib/nito-gamificacao";
+import { ehVerificado } from "@/lib/nito-gamificacao";
 import { Icone, SeloVerificado } from "./NitoIcones";
+import { Avatar } from "./Avatar";
 
 // Descobre como tocar o endereco que o administrador colou.
 // Aceita YouTube, Vimeo, os players de curso (Panda, Bunny, Cakto), qualquer
@@ -191,7 +192,12 @@ export function AulaDetalhe({
           <div style={{ marginTop: 18 }}>
             {comentarios.map((c) => (
               <div className="msg" key={c.id} style={{ marginBottom: 10 }}>
-                <div className="av" style={{ background: "var(--surf3)" }}>{iniciais(c.autor?.nome)}</div>
+                <Avatar
+                  className="av"
+                  nome={c.autor?.nome}
+                  url={c.autor?.avatar_url}
+                  style={{ background: "var(--surf3)" }}
+                />
                 <div className="bal">
                   <b style={{ color: "var(--txt)" }}>
                     {c.autor?.nome ?? "Membro"}

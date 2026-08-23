@@ -25,7 +25,8 @@ import React, { useCallback, useEffect, useState } from "react";
 import { AuthGuard } from "@/components/AuthGuard";
 import { AppShell, ehAdmin } from "@/components/nito/AppShell";
 import { Indicacoes, Premios, VendaAfiliado, RankingAfiliado, PremioRanking, Perfil, Fmt, comoErro } from "@/lib/nito-motor";
-import { patenteDoNivel, progressoNoNivel, proximaPatente, iniciais } from "@/lib/nito-gamificacao";
+import { patenteDoNivel, progressoNoNivel, proximaPatente } from "@/lib/nito-gamificacao";
+import { Avatar } from "@/components/nito/Avatar";
 
 const LINKS = [
   { nome: "NITO LIVE", url: "https://app.cakto.com.br/affiliate/invite/e5505d59-fb55-492b-b877-4d675df3e3a5" },
@@ -417,7 +418,9 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
                     >
                       {i + 1}
                     </span>
-                    <div
+                    <Avatar
+                      nome={r.nome}
+                      url={r.avatar_url}
                       style={{
                         width: 32,
                         height: 32,
@@ -429,9 +432,7 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
                         font: "800 .76rem/1 var(--disp)",
                         flex: "none",
                       }}
-                    >
-                      {iniciais(r.nome)}
-                    </div>
+                    />
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <b style={{ fontSize: ".85rem", fontWeight: 700, display: "block" }}>
                         {r.nome || "Membro"}

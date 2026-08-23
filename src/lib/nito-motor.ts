@@ -1618,6 +1618,7 @@ export interface RankingAfiliado {
   user_id: string;
   nome: string;
   username?: string | null;
+  avatar_url?: string | null;
   nivel: number;
   xp: number;
   vendas: number;
