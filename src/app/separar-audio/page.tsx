@@ -44,9 +44,21 @@ function semExtensao(nome: string) {
   return i > 0 ? nome.slice(0, i) : nome;
 }
 
+// Declaracao minima do gravador de arquivo do navegador. Escrita a mao porque
+// nem todo navegador tem, e porque assim ela aceita exatamente o que este
+// arquivo entrega: blocos de bytes.
+// Uint8Array puro, sem parametro de tipo: escrito assim para compilar tanto no
+// TypeScript novo quanto no antigo, que nao conhece o parametro.
+type BlocoDeBytes = Uint8Array;
+
+interface GravadorDeArquivo {
+  write: (dados: BlocoDeBytes) => Promise<void>;
+  close: () => Promise<void>;
+}
+
 interface JanelaComDisco {
   showSaveFilePicker?: (opcoes: unknown) => Promise<{
-    createWritable: () => Promise<{ write: (d: BufferSource) => Promise<void>; close: () => Promise<void> }>;
+    createWritable: () => Promise<GravadorDeArquivo>;
   }>;
 }
 
@@ -123,8 +135,8 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
       const plano = montarSaida(t, planta.ftyp);
       const blocos = agruparCopias(plano.copias);
 
-      let escritor: { write: (d: BufferSource) => Promise<void>; close: () => Promise<void> } | null = null;
-      const partes: BlobPart[] = [];
+      let escritor: GravadorDeArquivo | null = null;
+      const partes: BlocoDeBytes[] = [];
 
       if (disco) {
         const abrir = (window as unknown as JanelaComDisco).showSaveFilePicker!;
@@ -154,7 +166,7 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
         await escritor.close();
         setPronto(`${nomeSaida} salvo onde você escolheu.`);
       } else {
-        const url = URL.createObjectURL(new Blob(partes, { type: mime }));
+        const url = URL.createObjectURL(new Blob(partes as unknown as BlobPart[], { type: mime }));
         const a = document.createElement("a");
         a.href = url;
         a.download = nomeSaida;
