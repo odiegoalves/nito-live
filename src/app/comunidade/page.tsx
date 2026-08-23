@@ -16,7 +16,7 @@ import { AppShell, ehAdmin } from "@/components/nito/AppShell";
 import { PostNito } from "@/components/nito/PostNito";
 import { CompositorNito } from "@/components/nito/CompositorNito";
 import { ChatNito } from "@/components/nito/ChatNito";
-import { Feed, Enquetes, Abas, Post, Enquete, Perfil } from "@/lib/nito-motor";
+import { Feed, Enquetes, Post, Enquete, Perfil } from "@/lib/nito-motor";
 
 type Sub = "importante" | "chat" | "resultado" | "insight" | "melhoria";
 
@@ -51,6 +51,15 @@ const TEXTOS: Record<Exclude<Sub, "chat">, { placeholder: string; botao: string;
   },
 };
 
+const CHAVES_ABA: Sub[] = ["importante", "chat", "resultado", "insight", "melhoria"];
+
+/** le a aba pedida no endereco: /comunidade#chat */
+function abaDoEndereco(): Sub | null {
+  if (typeof window === "undefined") return null;
+  const pedida = window.location.hash.replace("#", "") as Sub;
+  return CHAVES_ABA.indexOf(pedida) >= 0 ? pedida : null;
+}
+
 function Conteudo({ perfil }: { perfil: Perfil }) {
   const [sub, setSub] = useState<Sub>("importante");
   const [posts, setPosts] = useState<Post[]>([]);
@@ -58,33 +67,18 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
   const [enquetes, setEnquetes] = useState<Record<string, Enquete>>({});
   const [carregando, setCarregando] = useState(true);
 
-  // Quantas coisas novas em cada aba desde a ultima vez que ESTA pessoa a viu.
-  const [novidades, setNovidades] = useState<Record<string, number>>({});
-
-  const contarNovidades = useCallback(() => {
-    Abas.novidades()
-      .then(setNovidades)
-      .catch(() => {
-        /* sem contagem agora: as abas aparecem sem numero, e nada quebra */
-      });
+  // O aviso de "fulano ficou online" manda para ca com #chat no endereco.
+  // Precisa dos dois: ao ABRIR a pagina, e enquanto ela ja esta aberta - senao
+  // clicar no aviso estando na Comunidade nao trocaria de aba.
+  useEffect(() => {
+    const aplicar = () => {
+      const pedida = abaDoEndereco();
+      if (pedida) setSub(pedida);
+    };
+    aplicar();
+    window.addEventListener("hashchange", aplicar);
+    return () => window.removeEventListener("hashchange", aplicar);
   }, []);
-
-  useEffect(() => {
-    contarNovidades();
-    // Uma conferida a cada 2 minutos pega o que chegou com a pessoa parada na
-    // tela, sem transformar isso em consulta o tempo todo.
-    const t = window.setInterval(contarNovidades, 120000);
-    return () => window.clearInterval(t);
-  }, [contarNovidades]);
-
-  // Entrar numa aba zera o aviso dela. Marca no banco para valer em qualquer
-  // aparelho, e limpa o numero na hora para a tela nao ficar devendo resposta.
-  useEffect(() => {
-    setNovidades((atual) => ({ ...atual, [sub]: 0 }));
-    Abas.marcarVista(sub).catch(() => {
-      /* nao conseguiu marcar: o numero volta na proxima contagem */
-    });
-  }, [sub]);
 
   const admin = ehAdmin(perfil);
 
@@ -205,37 +199,23 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
             <button
               key={a.chave}
               className={sub === a.chave ? "on" : ""}
-              onClick={() => setSub(a.chave)}
+              onClick={() => {
+                setSub(a.chave);
+                // Tira o "#chat" do endereco ao trocar de aba na mao. Sem
+                // isto, o proximo clique num aviso de "fulano entrou" nao
+                // mudaria nada: o endereco ja estaria em #chat.
+                if (window.location.hash) {
+                  try {
+                    window.history.replaceState(null, "", window.location.pathname);
+                  } catch {
+                    /* endereco continua com o hash, nada quebra */
+                  }
+                }
+              }}
               type="button"
-              style={{ position: "relative" }}
             >
               {a.rotulo}
               {a.chave === "chat" && <span className="dot-live" />}
-              {sub !== a.chave && (novidades[a.chave] ?? 0) > 0 && (
-                <span
-                  aria-label={`${novidades[a.chave]} novidades`}
-                  style={{
-                    marginLeft: 7,
-                    display: "inline-flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    minWidth: 18,
-                    height: 18,
-                    padding: "0 5px",
-                    borderRadius: 999,
-                    background: "#d90032",
-                    color: "#fff",
-                    fontFamily: "var(--mono)",
-                    fontSize: 10.5,
-                    fontWeight: 800,
-                    lineHeight: 1,
-                    fontVariantNumeric: "tabular-nums",
-                    verticalAlign: "middle",
-                  }}
-                >
-                  {(novidades[a.chave] ?? 0) > 9 ? "9+" : novidades[a.chave]}
-                </span>
-              )}
             </button>
           ))}
         </div>
@@ -248,7 +228,6 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
               <CompositorNito
                 tipo={tipoPost}
                 nomeAutor={perfil.nome}
-                avatarAutor={perfil.avatar_url}
                 exigeFoto={sub === "resultado"}
                 permiteEnquete={sub === "melhoria"}
                 permiteFixar={admin}

@@ -11,6 +11,7 @@ import Link from "next/link";
 import { Auth, Perfil } from "@/lib/nito-motor";
 import { SpriteIcones, Icone } from "./NitoIcones";
 import { SinoNotificacoes } from "./SinoNotificacoes";
+import { AvisosOnline } from "./AvisosOnline";
 import {
   patenteDoNivel,
   progressoNoNivel,
@@ -132,6 +133,11 @@ export function AppShell({ perfil, ativa, children, recado }: Props) {
           {children}
         </div>
       </div>
+
+      {/* Avisa quem acabou de entrar. Fica aqui na casca de proposito: assim
+          vale em qualquer aba, e a pessoa nao precisa estar na Comunidade
+          para saber que chegou gente. */}
+      <AvisosOnline perfil={perfil} />
     </div>
   );
 }

@@ -301,6 +301,9 @@ export const Auth = {
 
   async sair() {
     await sb.auth.signOut();
+    // Apaga o cracha da visita: quem sai e volta tem que ser anunciado de novo
+    // como quem acabou de chegar.
+    Presenca.esquecerVisita();
     if (typeof window !== "undefined") {
       window.location.href = "/login";
     }
@@ -1743,11 +1746,184 @@ export const Abas = {
   },
 };
 
+// ---------------------------------------------------------------------------
+// PRESENCA - quem acabou de entrar na comunidade
+//
+// O problema aqui nao e saber quem esta online: o Supabase ja entrega isso.
+// O problema e saber quem ACABOU DE CHEGAR, que e coisa diferente. Para o
+// Supabase, recarregar a pagina (F5) e trocar de aba do menu sao a mesma coisa
+// que entrar: a conexao antiga cai e nasce outra. Se avisasse a cada conexao
+// nova, um membro que clica em cinco abas apareceria cinco vezes na tela dos
+// outros como se tivesse entrado cinco vezes.
+//
+// A solucao e dar um cracha para a VISITA, nao para a conexao. O cracha fica
+// no sessionStorage, e o sessionStorage tem exatamente o tempo de vida que a
+// gente precisa:
+//
+//   F5 na pagina .................. o cracha continua o mesmo  -> nao avisa
+//   trocar de aba do menu ......... o cracha continua o mesmo  -> nao avisa
+//   sair para outro site e voltar . o cracha continua o mesmo  -> nao avisa
+//   FECHAR a pagina e abrir dnv ... cracha novo                -> AVISA
+//   deslogar e logar de novo ...... cracha apagado no Auth.sair -> AVISA
+//
+// Quem recebe guarda os crachas que ja viu nesta visita. Cracha repetido e
+// silencio; cracha novo e aviso.
+// ---------------------------------------------------------------------------
+
+const CHAVE_SESSAO = "nito_visita";
+
+/** dois avisos da mesma pessoa dentro desta janela viram um so */
+const ANTI_REPETICAO_MS = 60_000;
+
+/** silencio nos primeiros instantes: aqui chega quem JA estava online */
+const ESPERA_INICIAL_MS = 2_000;
+
+export interface QuemEntrou {
+  id: string;
+  nome: string | null;
+  username: string | null;
+  avatar_url: string | null;
+  visita: string;
+}
+
+export const Presenca = {
+  /**
+   * O cracha desta visita. Nasce na primeira vez que a pessoa abre o site e
+   * morre quando ela fecha a pagina - nao quando ela recarrega.
+   */
+  minhaVisita(): string {
+    if (typeof window === "undefined") return "servidor";
+    try {
+      let v = window.sessionStorage.getItem(CHAVE_SESSAO);
+      if (!v) {
+        v =
+          typeof crypto !== "undefined" && crypto.randomUUID
+            ? crypto.randomUUID()
+            : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+        window.sessionStorage.setItem(CHAVE_SESSAO, v);
+      }
+      return v;
+    } catch {
+      // navegador com armazenamento bloqueado: cada carregamento vira uma
+      // visita nova. Avisa demais, nunca de menos.
+      return `sem-memoria-${Math.random().toString(36).slice(2)}`;
+    }
+  },
+
+  /** Chamado no logout: a proxima entrada tem que ser anunciada de novo. */
+  esquecerVisita(): void {
+    if (typeof window === "undefined") return;
+    try {
+      window.sessionStorage.removeItem(CHAVE_SESSAO);
+    } catch {
+      /* nada a fazer */
+    }
+  },
+
+  /**
+   * Liga esta pessoa no canal geral e avisa quando ALGUEM chega.
+   * Devolve a funcao de desligar.
+   */
+  assinar(
+    perfil: Perfil | null,
+    handlers: {
+      onEntrou?: (quem: QuemEntrou) => void;
+      onOnline?: (quantos: number) => void;
+    } = {}
+  ): () => void {
+    if (!perfil) return () => {};
+
+    const visita = this.minhaVisita();
+
+    // A chave da presenca e a VISITA, nao a pessoa. Se fosse a pessoa, duas
+    // abas abertas brigariam pela mesma entrada e uma apagaria a outra.
+    const canal = sb.channel("presenca-nito", {
+      config: { presence: { key: visita } },
+    });
+
+    const vistas = new Set<string>();
+    const ultimoAviso = new Map<string, number>();
+    // Comeca contando ja: se algum evento chegar antes da confirmacao do
+    // canal, ele cai na janela de silencio em vez de virar aviso falso.
+    let ligadoEm = Date.now();
+
+    function anotar(metas: unknown[]): QuemEntrou[] {
+      const novos: QuemEntrou[] = [];
+      for (const m of metas) {
+        const p = m as Partial<QuemEntrou> | null;
+        if (!p || !p.visita || !p.id) continue;
+        if (vistas.has(p.visita)) continue;
+        vistas.add(p.visita);
+        novos.push({
+          id: p.id,
+          nome: p.nome ?? null,
+          username: p.username ?? null,
+          avatar_url: p.avatar_url ?? null,
+          visita: p.visita,
+        });
+      }
+      return novos;
+    }
+
+    canal
+      .on("presence", { event: "sync" }, () => {
+        const estado = canal.presenceState() as Record<string, unknown[]>;
+        const todos = Object.values(estado).flat();
+        // Marca todo mundo que ja esta na sala como conhecido. Isto nao gera
+        // aviso: e so para o "sync" nunca virar uma enxurrada de pop-ups.
+        anotar(todos);
+        handlers.onOnline?.(todos.length);
+      })
+      .on("presence", { event: "join" }, ({ newPresences }) => {
+        const novos = anotar((newPresences ?? []) as unknown[]);
+
+        // Os primeiros segundos sao de quem JA estava online quando eu
+        // cheguei. O Supabase manda essas pessoas como se fossem entradas,
+        // porque para ele sao novidade - mas nao sao novidade para o mundo.
+        if (Date.now() - ligadoEm < ESPERA_INICIAL_MS) return;
+
+        const agora = Date.now();
+        for (const quem of novos) {
+          if (quem.id === perfil.id) continue; // ninguem se anuncia
+          const antes = ultimoAviso.get(quem.id);
+          if (antes && agora - antes < ANTI_REPETICAO_MS) continue;
+          ultimoAviso.set(quem.id, agora);
+          handlers.onEntrou?.(quem);
+        }
+      })
+      .subscribe(async (status) => {
+        if (status !== "SUBSCRIBED") return;
+        ligadoEm = Date.now();
+        try {
+          await canal.track({
+            id: perfil.id,
+            nome: perfil.nome ?? null,
+            username: perfil.username ?? null,
+            avatar_url: perfil.avatar_url ?? null,
+            visita,
+          });
+        } catch {
+          /* sem presenca a pessoa continua usando o site normalmente */
+        }
+      });
+
+    return () => {
+      try {
+        canal.untrack();
+      } catch {
+        /* canal ja pode estar fechado */
+      }
+      sb.removeChannel(canal);
+    };
+  },
+};
+
 export const Nito = {
   sb,
   Auth,
   Feed,
   Chat,
+  Presenca,
   Vendas,
   Aulas,
   Storage,
