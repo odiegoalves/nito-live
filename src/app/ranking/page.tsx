@@ -7,8 +7,12 @@
 // NITO LIVE feitas por indicacao: alguem usa o link de afiliado da Cakto,
 // compra, e a comissao recebida vira XP.
 //
-// Regra: R$ 1,00 de comissao = 10 XP. Reembolso e chargeback descontam, para
-// o ranking nunca mostrar venda que voltou atras.
+// Regra: R$ 1,00 de comissao = 10 XP, e SO na primeira compra de cada cliente.
+// Renovacao de mensalidade paga comissao mas nao pontua - senao quem vendeu uma
+// vez ha um ano continuaria subindo no ranking sem trazer ninguem novo.
+//
+// Reembolso e chargeback descontam, para o ranking nunca mostrar venda que
+// voltou atras. Estorno de venda que nunca pontuou e ignorado no banco.
 //
 // Fundador e moderador ficam de fora da disputa - a equipe nao concorre com o
 // cliente, embora a patente deles suba normalmente.
@@ -140,8 +144,9 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
           </h1>
           <p className="sub">
             Quem mais traz gente nova para o NITO LIVE. Cada R$ 1,00 de comissão vale 10 XP, e é o
-            XP que sobe a patente. Venda de produto na sua live não conta aqui — ela fica em
-            Minhas Vendas.
+            XP que sobe a patente. <b>Só a primeira compra de cada cliente pontua</b> — renovação
+            de mensalidade continua rendendo comissão para você, mas não soma ponto no ranking.
+            Venda de produto na sua live também não conta aqui: ela fica em Minhas Vendas.
           </p>
         </div>
 
@@ -198,12 +203,12 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
           <div className="panel kpi money">
             <div className="lab">💰 Comissão acumulada</div>
             <div className="val">{carregando ? "—" : Fmt.brl(total.comissao)}</div>
-            <div className="dt">já descontando reembolso e chargeback</div>
+            <div className="dt">inclui recorrência; já sem reembolso e chargeback</div>
           </div>
           <div className="panel kpi">
             <div className="lab">🤝 Vendas por indicação</div>
             <div className="val">{carregando ? "—" : total.vendas.toLocaleString("pt-BR")}</div>
-            <div className="dt">pagas e confirmadas pela Cakto</div>
+            <div className="dt">só a primeira compra de cada cliente</div>
           </div>
           <div className="panel kpi cyan">
             <div className="lab">⚡ XP gerado por elas</div>
