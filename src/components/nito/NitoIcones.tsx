@@ -31,6 +31,7 @@ export function SpriteIcones() {
         <symbol id="ic-play" viewBox="0 0 24 24" fill="#fff"><path d="M8 5.5v13l11-6.5z" /></symbol>
         <symbol id="ic-bell" viewBox="0 0 24 24" {...TRACO}><path d="M6 9.5a6 6 0 0 1 12 0c0 4 1.5 5.5 1.5 5.5h-15S6 13.5 6 9.5z" /><path d="M10 18.5a2 2 0 0 0 4 0" /></symbol>
         <symbol id="ic-trofeu" viewBox="0 0 24 24" {...TRACO}><path d="M7 4h10v5a5 5 0 0 1-10 0z" /><path d="M7 5.5H4.5A2.5 2.5 0 0 0 7 10.5" /><path d="M17 5.5h2.5A2.5 2.5 0 0 1 17 10.5" /><path d="M12 14v3.5" /><path d="M8.5 20.5h7" /><path d="M9.5 20.5c0-1.7 1.1-3 2.5-3s2.5 1.3 2.5 3" /></symbol>
+        <symbol id="ic-onda" viewBox="0 0 24 24" {...TRACO}><path d="M3 12h2.5l2-6 3 15 3-11 2.2 6H21" /></symbol>
         <symbol id="ic-lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><rect x="5" y="10.5" width="14" height="10" rx="2.5" /><path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5" /></symbol>
       </defs>
     </svg>
