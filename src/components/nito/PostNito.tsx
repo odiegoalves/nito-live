@@ -9,7 +9,7 @@
 import React, { useEffect, useState } from "react";
 import { Feed, Enquetes, Post, Enquete, OpcaoEnquete, Comentario, Fmt, comoErro } from "@/lib/nito-motor";
 import { patenteDoNivel, iniciais, ehVerificado } from "@/lib/nito-gamificacao";
-import { Icone, SeloVerificado } from "./NitoIcones";
+import { SeloVerificado } from "./NitoIcones";
 
 const CORES_AVATAR = [
   "linear-gradient(100deg,#a855f7,#6d28d9)",
@@ -24,6 +24,32 @@ const CORES_AVATAR = [
 // Aceita vazio de proposito. Antes esta funcao percorria o texto direto e, se
 // o identificador chegasse vazio, o percurso estourava e levava a aba inteira
 // junto - uma cor de avatar nunca pode derrubar a tela.
+/**
+ * Coracao e balao preenchidos, desenhados aqui e nao no conjunto de icones.
+ *
+ * Os icones do menu sao de traco fino. Traco de 1,9 unidade reduzido para 16
+ * pixels vira 1,27 pixel de espessura, cai no meio do pixel e sai esfumacado —
+ * era por isso que o coracao parecia de qualidade pior que o numero do lado.
+ * Forma cheia nao tem esse problema em tamanho nenhum.
+ */
+function Coracao({ tam = 17, cheio = false }: { tam?: number; cheio?: boolean }) {
+  return (
+    <svg width={tam} height={tam} viewBox="0 0 24 24" aria-hidden="true"
+         fill={cheio ? "currentColor" : "none"} stroke="currentColor" strokeWidth={cheio ? 0 : 2}
+         strokeLinejoin="round">
+      <path d="M12 20.6c-.3 0-.6-.1-.8-.3C7.4 17 4 14 4 10.4A4.9 4.9 0 0 1 12 7a4.9 4.9 0 0 1 8 3.4c0 3.6-3.4 6.6-7.2 9.9-.2.2-.5.3-.8.3z" />
+    </svg>
+  );
+}
+
+function Balao({ tam = 17 }: { tam?: number }) {
+  return (
+    <svg width={tam} height={tam} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M12 3.6c-5.1 0-9.2 3.4-9.2 7.6 0 2.3 1.3 4.4 3.3 5.8l-.9 3.9c-.1.4.3.7.7.5l4.2-2.3c.6.1 1.3.1 1.9.1 5.1 0 9.2-3.4 9.2-7.6S17.1 3.6 12 3.6z" />
+    </svg>
+  );
+}
+
 function corDe(id?: string | null) {
   const chave = String(id ?? "");
   if (!chave) return CORES_AVATAR[0];
@@ -421,16 +447,22 @@ export function PostNito({
 
       <div className="acoes">
         <button className={curtiu ? "liked" : ""} onClick={curtir} disabled={ocupado} type="button">
-          <Icone nome="heart" tam={16} />
-          {post.curtidas_count ?? 0}
+          <Coracao tam={17} cheio={curtiu} />
+          {/* O numero vai na fonte de largura fixa, a mesma da etiqueta de
+              assinatura: ela tem ajuste para a grade de pixels e fica nitida
+              em tamanho pequeno, coisa que a fonte de texto nao tem. */}
+          <span className="num" style={{ fontSize: ".78rem", fontWeight: 800 }}>
+            {post.curtidas_count ?? 0}
+          </span>
         </button>
         <button
           onClick={alternarComentarios}
           type="button"
           style={abertos ? { color: "var(--txt)", background: "rgba(255,255,255,.05)" } : undefined}
         >
-          <Icone nome="msg" tam={16} />
-          {total} {total === 1 ? "comentário" : "comentários"}
+          <Balao tam={17} />
+          <span className="num" style={{ fontSize: ".78rem", fontWeight: 800 }}>{total}</span>
+          <span>{total === 1 ? "comentário" : "comentários"}</span>
         </button>
         {admin && (
           <button
