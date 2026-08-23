@@ -15,6 +15,10 @@ const ROTAS_PUBLICAS = [
   "/landing",
   "/afiliados",
   "/api/webhook",
+  // A extensao instalada pergunta por aqui qual e a versao publicada. Nao ha
+  // login envolvido: quem pergunta e um programa, e a resposta e so o numero
+  // da versao e a nota do que mudou.
+  "/api/versao",
   "/download",
   "/downloads",
   "/ativar-liveinfinity",
