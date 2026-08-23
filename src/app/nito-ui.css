@@ -13,7 +13,7 @@
   --gradgold:linear-gradient(100deg,#ffc23a,#ff8a00);
   --gradgreen:linear-gradient(100deg,#25e08a,#12b6a0);
   --disp:var(--font-archivo),"Archivo","Arial Black",system-ui,sans-serif;
-  --body:"Inter","Segoe UI",system-ui,sans-serif;
+  --body:var(--font-roboto),"Roboto","Segoe UI",system-ui,sans-serif;
   --mono:var(--font-jetbrains),"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
   --rail:248px; --right:330px;}
 .nito, .nito *{box-sizing:border-box;margin:0;padding:0}

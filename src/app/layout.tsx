@@ -1,18 +1,28 @@
 import type { Metadata } from "next";
 export const dynamic = "force-dynamic";
-import { Inter, TikTok_Sans, Archivo, JetBrains_Mono } from "next/font/google";
+import { Roboto, TikTok_Sans, Archivo, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import "./nito-ui.css";
 import { ThemeProvider } from "@/context/ThemeContext";
 
-const inter = Inter({ subsets: ["latin"] });
+// Texto do site inteiro. E a mesma familia que o YouTube usa na interface.
+//
+// Vai como VARIAVEL, nao so como classe: o CSS do ecossistema pedia a fonte
+// pelo nome literal, e o Next entrega a fonte com um nome interno gerado. O
+// navegador nao achava "Inter" e caia no Segoe UI — ou seja, a fonte que o
+// site carregava nao era a que ele mostrava.
+const roboto = Roboto({
+  subsets: ["latin"],
+  weight: ["400", "500", "700", "900"],
+  variable: "--font-roboto",
+});
 
 const tiktokSans = TikTok_Sans({
   subsets: ["latin"],
   variable: "--font-tiktok-sans",
 });
 
-// Titulos do ecossistema de membros: mais encorpado que o Inter.
+// Titulos do ecossistema de membros: mais encorpado que a fonte de texto.
 const archivo = Archivo({
   subsets: ["latin"],
   weight: ["600", "700", "800", "900"],
@@ -45,7 +55,7 @@ export default function RootLayout({
   return (
     <html lang="pt-BR">
       <body
-        className={`${inter.className} ${tiktokSans.variable} ${archivo.variable} ${jetbrains.variable}`}
+        className={`${roboto.className} ${roboto.variable} ${tiktokSans.variable} ${archivo.variable} ${jetbrains.variable}`}
       >
         <ThemeProvider>{children}</ThemeProvider>
       </body>
