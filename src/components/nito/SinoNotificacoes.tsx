@@ -137,24 +137,18 @@ export function SinoNotificacoes() {
           <span
             style={{
               position: "absolute",
-              // Encosta no sino em vez de flutuar no canto, como no YouTube.
-              top: 2,
-              right: 1,
-              minWidth: 22,
-              height: 22,
-              padding: "0 6px",
+              // Pequena e encostando no canto de cima do sino, nao em cima
+              // dele: com 22 pixels num desenho de 24 ela cobria o desenho.
+              top: 3,
+              right: 3,
+              minWidth: 16,
+              height: 16,
+              padding: "0 4px",
               borderRadius: 999,
-              // Vermelho um tom mais fechado que o da marca. O #ff0f3d e claro
-              // demais para segurar texto branco: o numero parecia esfumacado,
-              // e nao pequeno.
               background: "#d90032",
               color: "#fff",
-              // Mesma fonte da etiqueta "ASSINATURA - 61 DIAS", que fica
-              // nitida ao lado: fonte de largura fixa, com ajuste de desenho
-              // para a grade de pixels. Fonte de titulo, no tamanho de um
-              // numerinho, nao tem esse ajuste e sai mole.
               fontFamily: "var(--mono)",
-              fontSize: 11.5,
+              fontSize: 10,
               fontWeight: 800,
               lineHeight: 1,
               letterSpacing: 0,
@@ -163,8 +157,8 @@ export function SinoNotificacoes() {
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              // Anel desenhado por sombra: fica nitido e nao aumenta a bolinha.
-              boxShadow: "0 0 0 2px var(--bg, #07070d)",
+              // Anel na cor do fundo, para separar a bolinha do desenho.
+              boxShadow: "0 0 0 2px #06060c",
             }}
           >
             {naoVistas > 9 ? "9+" : naoVistas}
