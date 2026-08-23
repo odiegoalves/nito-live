@@ -19,8 +19,8 @@
 
 import React, { useCallback, useEffect, useState } from "react";
 import { AuthGuard } from "@/components/AuthGuard";
-import { AppShell } from "@/components/nito/AppShell";
-import { Indicacoes, VendaAfiliado, RankingAfiliado, Perfil, Fmt } from "@/lib/nito-motor";
+import { AppShell, ehAdmin } from "@/components/nito/AppShell";
+import { Indicacoes, Premios, VendaAfiliado, RankingAfiliado, PremioRanking, Perfil, Fmt, comoErro } from "@/lib/nito-motor";
 import { patenteDoNivel, progressoNoNivel, proximaPatente, iniciais } from "@/lib/nito-gamificacao";
 
 const LINKS = [
@@ -29,16 +29,13 @@ const LINKS = [
   { nome: "Lives Automáticas", url: "https://app.cakto.com.br/affiliate/invite/6bbdc0c1-5f68-4fba-810f-4f768f12f9fc" },
 ];
 
-// ---------------------------------------------------------------------------
-// PREMIACOES DO MES
-//
-// Enquanto esta lista estiver vazia, a secao inteira nao aparece na tela - de
-// proposito. Caixa vazia escrita "em breve" tira credibilidade do ranking.
-//
-// Para ligar, e so preencher aqui. Exemplo do formato:
-//   { posicao: "1º lugar", premio: "R$ 500 em dinheiro", detalhe: "pago junto com a comissao" },
-// ---------------------------------------------------------------------------
-const PREMIACOES: { posicao: string; premio: string; detalhe?: string }[] = [];
+// Quantas posicoes o ranking sempre desenha. Vaga ainda nao ocupada aparece
+// como aberta: lista vazia nao convida ninguem, lista com dez lugares sim.
+const POSICOES = 10;
+
+function ordinal(n: number) {
+  return n + "\u00ba";
+}
 
 function quando(iso: string) {
   return new Date(iso).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" });
@@ -54,6 +51,13 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
   const [periodo, setPeriodo] = useState<"mes" | "geral">("mes");
   const [carregando, setCarregando] = useState(true);
   const [buscandoRanking, setBuscandoRanking] = useState(false);
+
+  const admin = ehAdmin(perfil);
+  const [premios, setPremios] = useState<PremioRanking[]>([]);
+  const [editando, setEditando] = useState(false);
+  const [rascunho, setRascunho] = useState<PremioRanking>({ posicao: 1, titulo: "", detalhe: "" });
+  const [salvandoPremio, setSalvandoPremio] = useState(false);
+  const [erroPremio, setErroPremio] = useState<string | null>(null);
 
   const buscarRanking = useCallback(async (qual: "mes" | "geral") => {
     setBuscandoRanking(true);
@@ -83,6 +87,44 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
   useEffect(() => {
     buscarRanking(periodo);
   }, [periodo, buscarRanking]);
+
+  const buscarPremios = useCallback(() => {
+    Premios.listar()
+      .then(setPremios)
+      .catch(() => {
+        /* sem premio cadastrado a secao simplesmente nao aparece */
+      });
+  }, []);
+
+  useEffect(() => {
+    buscarPremios();
+  }, [buscarPremios]);
+
+  async function salvarPremio() {
+    if (!rascunho.titulo.trim() || salvandoPremio) return;
+    setSalvandoPremio(true);
+    setErroPremio(null);
+    try {
+      await Premios.salvar(rascunho);
+      setRascunho({ posicao: 1, titulo: "", detalhe: "" });
+      setEditando(false);
+      buscarPremios();
+    } catch (e) {
+      setErroPremio(comoErro(e, "Nao consegui salvar o premio.").message);
+    } finally {
+      setSalvandoPremio(false);
+    }
+  }
+
+  async function removerPremio(id?: number) {
+    if (!id) return;
+    try {
+      await Premios.remover(id);
+      buscarPremios();
+    } catch (e) {
+      setErroPremio(comoErro(e, "Nao consegui remover o premio.").message);
+    }
+  }
 
   const total = Indicacoes.resumir(vendas);
   const patente = patenteDoNivel(perfil.nivel ?? 1);
@@ -171,31 +213,115 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
         </div>
 
         {/* ---- premiação do mês ------------------------------------------- */}
-        {PREMIACOES.length > 0 && (
+        {(premios.length > 0 || admin) && (
           <div className="panel pad" style={{ marginTop: 16 }}>
-            <div className="spread" style={{ marginBottom: 14 }}>
+            <div className="spread" style={{ marginBottom: 14, gap: 12, flexWrap: "wrap" }}>
               <h2 className="h-sec">Premiação de {nomeDoMes()}</h2>
-              <span className="eyebrow">FECHA NO ÚLTIMO DIA DO MÊS</span>
+              <div className="row" style={{ gap: 10 }}>
+                <span className="eyebrow">FECHA NO ÚLTIMO DIA DO MÊS</span>
+                {admin && (
+                  <button
+                    className="btn g"
+                    type="button"
+                    style={{ padding: "6px 12px", fontSize: ".62rem" }}
+                    onClick={() => setEditando((v) => !v)}
+                  >
+                    {editando ? "Fechar" : "+ Prêmio"}
+                  </button>
+                )}
+              </div>
             </div>
-            <div className="grid3">
-              {PREMIACOES.map((p) => (
-                <div
-                  key={p.posicao}
-                  style={{
-                    background: "rgba(255,194,58,.07)",
-                    border: "1px solid rgba(255,194,58,.28)",
-                    borderRadius: 13,
-                    padding: "14px 16px",
-                  }}
-                >
-                  <div className="eyebrow" style={{ color: "var(--gold)" }}>{p.posicao}</div>
-                  <div style={{ font: "900 1.05rem/1.15 var(--disp)", marginTop: 7 }}>{p.premio}</div>
-                  {p.detalhe && (
-                    <div className="muted tiny" style={{ marginTop: 5 }}>{p.detalhe}</div>
-                  )}
+
+            {admin && editando && (
+              <div className="grid3" style={{ marginBottom: 14 }}>
+                <div className="campo">
+                  <label>Posição</label>
+                  <input
+                    type="number"
+                    min={1}
+                    value={rascunho.posicao}
+                    onChange={(e) => setRascunho({ ...rascunho, posicao: Number(e.target.value) })}
+                  />
                 </div>
-              ))}
-            </div>
+                <div className="campo">
+                  <label>Prêmio</label>
+                  <input
+                    value={rascunho.titulo}
+                    onChange={(e) => setRascunho({ ...rascunho, titulo: e.target.value })}
+                    placeholder="R$ 500 em dinheiro"
+                  />
+                </div>
+                <div className="campo">
+                  <label>Detalhe</label>
+                  <input
+                    value={rascunho.detalhe ?? ""}
+                    onChange={(e) => setRascunho({ ...rascunho, detalhe: e.target.value })}
+                    placeholder="pago junto com a comissão"
+                  />
+                </div>
+                <div className="row" style={{ gap: 10, alignItems: "center" }}>
+                  <button
+                    className="btn gold"
+                    type="button"
+                    onClick={salvarPremio}
+                    disabled={!rascunho.titulo.trim() || salvandoPremio}
+                  >
+                    {salvandoPremio ? "Salvando…" : "Salvar prêmio"}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {erroPremio && (
+              <div style={{ color: "var(--red)", fontSize: ".8rem", marginBottom: 10 }}>{erroPremio}</div>
+            )}
+
+            {premios.length === 0 && admin && (
+              <p className="muted tiny" style={{ lineHeight: 1.55 }}>
+                Nenhum prêmio cadastrado. Enquanto estiver assim, esta seção fica invisível para os
+                membros — ninguém vê promessa vazia.
+              </p>
+            )}
+
+            {premios.length > 0 && (
+              <div className="grid3">
+                {premios.map((p) => (
+                  <div
+                    key={p.id ?? p.posicao}
+                    style={{
+                      position: "relative",
+                      background: "rgba(255,194,58,.07)",
+                      border: "1px solid rgba(255,194,58,.28)",
+                      borderRadius: 13,
+                      padding: "14px 16px",
+                    }}
+                  >
+                    <div className="eyebrow" style={{ color: "var(--gold)" }}>{ordinal(p.posicao)} lugar</div>
+                    <div style={{ font: "900 1.05rem/1.15 var(--disp)", marginTop: 7 }}>{p.titulo}</div>
+                    {p.detalhe && <div className="muted tiny" style={{ marginTop: 5 }}>{p.detalhe}</div>}
+                    {admin && (
+                      <button
+                        type="button"
+                        onClick={() => removerPremio(p.id)}
+                        title="Remover"
+                        style={{
+                          position: "absolute",
+                          top: 8,
+                          right: 8,
+                          background: "transparent",
+                          border: 0,
+                          color: "var(--mut2)",
+                          cursor: "pointer",
+                          fontSize: ".8rem",
+                        }}
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
@@ -230,16 +356,35 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
 
             {buscandoRanking && <div className="muted tiny">Carregando…</div>}
 
-            {!buscandoRanking && ranking.length === 0 && (
-              <p className="muted tiny" style={{ lineHeight: 1.55 }}>
-                {periodo === "mes"
-                  ? "Nenhuma indicação neste mês ainda. A primeira já abre a lista."
-                  : "Ninguém no ranking ainda. A primeira venda por indicação abre a lista."}
-              </p>
-            )}
-
             {!buscandoRanking &&
-              ranking.map((r, i) => {
+              Array.from({ length: POSICOES }).map((_, i) => {
+                const r = ranking[i];
+
+                // Vaga ainda nao ocupada. Ela e desenhada de proposito: a lista
+                // precisa mostrar que existem dez lugares, senao quem chega
+                // depois acha que nao tem espaco para ele.
+                if (!r) {
+                  return (
+                    <div
+                      key={"vaga-" + i}
+                      className="row"
+                      style={{ gap: 11, padding: "10px 0", borderBottom: "1px solid var(--line)", alignItems: "center", opacity: .45 }}
+                    >
+                      <span className="num" style={{ width: 22, textAlign: "center", fontWeight: 800, fontSize: ".8rem", color: "var(--mut2)", flex: "none" }}>
+                        {i + 1}
+                      </span>
+                      <div style={{ width: 32, height: 32, borderRadius: 10, border: "1px dashed var(--line-2, var(--line))", flex: "none" }} />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <b style={{ fontSize: ".85rem", fontWeight: 700, display: "block", color: "var(--mut2)" }}>
+                          Vaga aberta
+                        </b>
+                        <span className="muted tiny">esperando a primeira indicação</span>
+                      </div>
+                      <span className="num" style={{ fontWeight: 800, fontSize: ".82rem", color: "var(--mut2)", flex: "none" }}>0</span>
+                    </div>
+                  );
+                }
+
                 const p = patenteDoNivel(r.nivel ?? 1);
                 const eu = r.user_id === perfil.id;
                 return (
@@ -285,7 +430,7 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <b style={{ fontSize: ".85rem", fontWeight: 700, display: "block" }}>
                         {r.nome || "Membro"}
-                        {eu && " · você"}
+                        {eu && " \u00b7 você"}
                       </b>
                       <span className="muted tiny">
                         {p.nome} · {r.vendas} {r.vendas === 1 ? "venda" : "vendas"} ·{" "}
@@ -300,7 +445,7 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
               })}
 
             <p className="muted tiny" style={{ marginTop: 12, lineHeight: 1.5 }}>
-              A equipe NITO LIVE não entra no ranking.
+              Pontuação é o XP do período escolhido. A equipe NITO LIVE não entra no ranking.
             </p>
           </div>
 

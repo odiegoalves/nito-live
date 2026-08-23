@@ -1604,6 +1604,54 @@ export const Indicacoes = {
   },
 };
 
+// ---------------------------------------------------------------------------
+// PREMIOS DO RANKING
+// A administracao edita pela propria tela. A permissao do banco e quem garante
+// que so fundador e moderador conseguem gravar - a tela apenas esconde os
+// botoes, o que nao seria protecao nenhuma sozinho.
+// ---------------------------------------------------------------------------
+export interface PremioRanking {
+  id?: number;
+  posicao: number;
+  titulo: string;
+  detalhe?: string | null;
+  ativo?: boolean;
+}
+
+export const Premios = {
+  async listar(): Promise<PremioRanking[]> {
+    const { data, error } = await sb
+      .from("ranking_premios")
+      .select("id, posicao, titulo, detalhe, ativo")
+      .eq("ativo", true)
+      .order("posicao", { ascending: true });
+    if (error) throw error;
+    return (data as unknown as PremioRanking[]) || [];
+  },
+
+  async salvar(p: PremioRanking): Promise<PremioRanking> {
+    const linha = {
+      id: p.id,
+      posicao: Number(p.posicao) || 1,
+      titulo: p.titulo.trim(),
+      detalhe: (p.detalhe || "").trim() || null,
+      ativo: p.ativo !== false,
+    };
+    const { data, error } = await sb
+      .from("ranking_premios")
+      .upsert(linha, { onConflict: "id" })
+      .select("id, posicao, titulo, detalhe, ativo")
+      .single();
+    if (error) throw error;
+    return data as unknown as PremioRanking;
+  },
+
+  async remover(id: number): Promise<void> {
+    const { error } = await sb.from("ranking_premios").delete().eq("id", id);
+    if (error) throw error;
+  },
+};
+
 export const Nito = {
   sb,
   Auth,
