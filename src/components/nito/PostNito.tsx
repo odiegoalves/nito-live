@@ -6,8 +6,8 @@
 // Melhorias). O que muda entre elas e o cabecalho e a enquete.
 // =============================================================================
 
-import React, { useState } from "react";
-import { Feed, Enquetes, Post, Enquete, Comentario, Fmt, comoErro } from "@/lib/nito-motor";
+import React, { useEffect, useState } from "react";
+import { Feed, Enquetes, Post, Enquete, OpcaoEnquete, Comentario, Fmt, comoErro } from "@/lib/nito-motor";
 import { patenteDoNivel, iniciais, ehVerificado } from "@/lib/nito-gamificacao";
 import { Icone, SeloVerificado } from "./NitoIcones";
 
@@ -72,6 +72,47 @@ export function PostNito({
   const autor = post.autor ?? {};
   const oficial = post.tipo === "importante";
   const patente = patenteDoNivel(autor.nivel ?? 1);
+
+  // Enquete de caixas. O estado fica aqui porque o clique precisa mudar a barra
+  // na hora, sem esperar a tela inteira recarregar.
+  const [opcoes, setOpcoes] = useState<OpcaoEnquete[]>(enquete?.opcoes ?? []);
+  const [minhaOpcao, setMinhaOpcao] = useState<string | null>(enquete?.minha_opcao ?? null);
+  useEffect(() => {
+    setOpcoes(enquete?.opcoes ?? []);
+    setMinhaOpcao(enquete?.minha_opcao ?? null);
+  }, [enquete]);
+
+  const temOpcoes = opcoes.length >= 2;
+  const totalOpcoes = opcoes.reduce((soma, o) => soma + (o.votos ?? 0), 0);
+
+  async function votarNaOpcao(opcaoId: string) {
+    if (!enquete || ocupado || opcaoId === minhaOpcao) return;
+    setOcupado(true);
+    const anterior = minhaOpcao;
+    // Move a barra antes da resposta do servidor: se falhar, volta atras.
+    setMinhaOpcao(opcaoId);
+    setOpcoes((atual) =>
+      atual.map((o) => {
+        if (o.id === opcaoId) return { ...o, votos: (o.votos ?? 0) + 1 };
+        if (o.id === anterior) return { ...o, votos: Math.max(0, (o.votos ?? 0) - 1) };
+        return o;
+      })
+    );
+    try {
+      await Enquetes.votarOpcao(enquete.id, opcaoId);
+    } catch {
+      setMinhaOpcao(anterior);
+      setOpcoes((atual) =>
+        atual.map((o) => {
+          if (o.id === opcaoId) return { ...o, votos: Math.max(0, (o.votos ?? 0) - 1) };
+          if (o.id === anterior) return { ...o, votos: (o.votos ?? 0) + 1 };
+          return o;
+        })
+      );
+    } finally {
+      setOcupado(false);
+    }
+  }
 
   const totalVotos = (enquete?.votos_sim ?? 0) + (enquete?.votos_nao ?? 0);
   const pctSim = totalVotos ? Math.round(((enquete?.votos_sim ?? 0) / totalVotos) * 100) : 0;
@@ -263,7 +304,71 @@ export function PostNito({
         {post.conteudo}
       </div>
 
-      {enquete && (
+      {enquete && temOpcoes && (
+        <div className="enquete">
+          <div className="eq-lab">{enquete.pergunta}</div>
+
+          <div className="stack" style={{ gap: 7 }}>
+            {opcoes.map((o) => {
+              const pct = totalOpcoes ? Math.round(((o.votos ?? 0) / totalOpcoes) * 100) : 0;
+              const minha = o.id === minhaOpcao;
+              return (
+                <button
+                  key={o.id}
+                  type="button"
+                  onClick={() => votarNaOpcao(o.id)}
+                  disabled={ocupado}
+                  style={{
+                    position: "relative",
+                    width: "100%",
+                    textAlign: "left",
+                    padding: "11px 13px",
+                    borderRadius: 11,
+                    overflow: "hidden",
+                    cursor: ocupado ? "default" : "pointer",
+                    background: "rgba(0,0,0,.35)",
+                    border: `1px solid ${minha ? "var(--red)" : "var(--line)"}`,
+                    color: "var(--txt)",
+                    font: "inherit",
+                  }}
+                >
+                  {/* A barra fica atras do texto, nao no lugar dele. */}
+                  <span
+                    aria-hidden="true"
+                    style={{
+                      position: "absolute",
+                      left: 0,
+                      top: 0,
+                      bottom: 0,
+                      width: `${pct}%`,
+                      background: minha ? "rgba(255,15,61,.28)" : "rgba(255,255,255,.07)",
+                      transition: "width .35s ease",
+                    }}
+                  />
+                  <span style={{ position: "relative", display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ flex: 1, minWidth: 0, fontSize: ".88rem", fontWeight: minha ? 700 : 500 }}>
+                      {minha && "✓ "}
+                      {o.texto}
+                    </span>
+                    <span className="num" style={{ flex: "none", fontSize: ".76rem", fontWeight: 800 }}>
+                      {pct}%
+                    </span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="eq-foot" style={{ marginTop: 10 }}>
+            <span>
+              {totalOpcoes} {totalOpcoes === 1 ? "voto" : "votos"}
+              {minhaOpcao ? " · toque em outra opção para trocar seu voto" : " · você ainda não votou"}
+            </span>
+          </div>
+        </div>
+      )}
+
+      {enquete && !temOpcoes && (
         <div className="enquete">
           <div className="eq-lab">{enquete.pergunta}</div>
           <div className="eq-op sim">

@@ -73,6 +73,14 @@ export type TipoPost =
   | "print_ganho"
   | "depoimento";
 
+export interface OpcaoEnquete {
+  id: string;
+  enquete_id: string;
+  texto: string;
+  ordem: number;
+  votos: number;
+}
+
 export interface Enquete {
   id: string;
   post_id: string;
@@ -80,6 +88,10 @@ export interface Enquete {
   votos_sim: number;
   votos_nao: number;
   meu_voto?: boolean | null;
+  // Quando a enquete tem opcoes, a tela mostra os boxes e ignora o Sim/Nao.
+  // Enquete antiga vem com a lista vazia e continua funcionando como antes.
+  opcoes?: OpcaoEnquete[];
+  minha_opcao?: string | null;
 }
 
 export interface Post {
@@ -526,14 +538,30 @@ export const Feed = {
 // ---------------------------------------------------------------------------
 export const Enquetes = {
   // Abre a enquete de uma sugestao recem publicada.
-  async abrir(postId: string, pergunta = "A comunidade quer isso?"): Promise<Enquete> {
+  async abrir(
+    postId: string,
+    pergunta = "A comunidade quer isso?",
+    opcoes: string[] = []
+  ): Promise<Enquete> {
     const { data, error } = await sb
       .from("enquetes")
       .insert({ post_id: postId, pergunta })
       .select("*")
       .single();
     if (error) throw error;
-    return data as unknown as Enquete;
+    const enquete = data as unknown as Enquete;
+
+    // Sem opcoes, a enquete nasce Sim/Nao — exatamente como antes.
+    const limpas = opcoes.map((t) => t.trim()).filter(Boolean).slice(0, 10);
+    if (limpas.length >= 2) {
+      const { data: criadas, error: e2 } = await sb
+        .from("enquete_opcoes")
+        .insert(limpas.map((texto, i) => ({ enquete_id: enquete.id, texto, ordem: i + 1 })))
+        .select("*");
+      if (e2) throw e2;
+      enquete.opcoes = (criadas as unknown as OpcaoEnquete[]) ?? [];
+    }
+    return enquete;
   },
 
   // Enquetes de varios posts de uma vez, ja com o voto do usuario atual.
@@ -558,11 +586,47 @@ export const Enquetes = {
           .in("enquete_id", ids);
         (meus ?? []).forEach((v: any) => {
           const alvo = Object.values(mapa).find((e) => e.id === v.enquete_id);
-          if (alvo) alvo.meu_voto = v.voto;
+          if (alvo) {
+            alvo.meu_voto = v.voto;
+            alvo.minha_opcao = v.opcao_id ?? null;
+          }
+        });
+      }
+
+      // As opcoes vem numa consulta so, para nao virar uma por enquete.
+      if (ids.length) {
+        const { data: ops } = await sb
+          .from("enquete_opcoes")
+          .select("id, enquete_id, texto, ordem, votos")
+          .in("enquete_id", ids)
+          .order("ordem", { ascending: true });
+        (ops ?? []).forEach((o: any) => {
+          const alvo = Object.values(mapa).find((e) => e.id === o.enquete_id);
+          if (!alvo) return;
+          if (!alvo.opcoes) alvo.opcoes = [];
+          alvo.opcoes.push(o as OpcaoEnquete);
         });
       }
     }
     return mapa;
+  },
+
+  /**
+   * Voto numa opcao. Uma pessoa, um voto por enquete: clicar em outra opcao
+   * troca o voto em vez de somar. Quem cuida da contagem e o proprio banco.
+   */
+  async votarOpcao(enqueteId: string, opcaoId: string) {
+    const {
+      data: { user },
+    } = await sb.auth.getUser();
+    if (!user) throw new Error("Precisa estar logado.");
+    const { error } = await sb
+      .from("enquete_votos")
+      .upsert(
+        { enquete_id: enqueteId, user_id: user.id, opcao_id: opcaoId, voto: null },
+        { onConflict: "enquete_id,user_id" }
+      );
+    if (error) throw error;
   },
 
   // Votar de novo no mesmo lugar troca o voto; nao duplica.

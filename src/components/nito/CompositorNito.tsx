@@ -36,6 +36,9 @@ export function CompositorNito({
   const [arquivo, setArquivo] = useState<File | null>(null);
   const [previa, setPrevia] = useState<string | null>(null);
   const [comEnquete, setComEnquete] = useState(true);
+  // Opcoes da enquete. Vazio = enquete Sim/Nao, como sempre foi. Com duas ou
+  // mais preenchidas, vira votacao em caixas.
+  const [opcoes, setOpcoes] = useState<string[]>(["", ""]);
   const [fixar, setFixar] = useState(false);
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
@@ -90,7 +93,7 @@ export function CompositorNito({
       });
       if (permiteEnquete && comEnquete) {
         try {
-          await Enquetes.abrir(post.id);
+          await Enquetes.abrir(post.id, undefined, opcoes);
         } catch {
           /* a sugestao vale mesmo sem a enquete */
         }
@@ -99,6 +102,7 @@ export function CompositorNito({
       setArquivo(null);
       setPrevia(null);
       setFixar(false);
+      setOpcoes(["", ""]);
       onPublicado(post);
     } catch (e) {
       setErro(comoErro(e, "Não consegui publicar. Tente de novo.").message);
@@ -207,6 +211,91 @@ export function CompositorNito({
             </div>
           )}
 
+          {/* ---- opções da enquete ---------------------------------------- */}
+          {permiteEnquete && comEnquete && (
+            <div
+              style={{
+                marginTop: 12,
+                padding: "13px 14px",
+                borderRadius: 12,
+                background: "rgba(0,0,0,.3)",
+                border: "1px solid var(--line)",
+              }}
+            >
+              <div className="spread" style={{ marginBottom: 9, gap: 10, flexWrap: "wrap" }}>
+                <span className="eyebrow">Opções da enquete</span>
+                <span className="muted tiny">
+                  {opcoes.filter((o) => o.trim()).length >= 2
+                    ? "vira votação em caixas"
+                    : "deixe vazio para virar Sim / Não"}
+                </span>
+              </div>
+
+              <div className="stack" style={{ gap: 7 }}>
+                {opcoes.map((o, i) => (
+                  <div key={i} className="row" style={{ gap: 7 }}>
+                    <input
+                      value={o}
+                      placeholder={i === 0 ? "Segunda-feira" : i === 1 ? "Quarta-feira" : "mais uma opção"}
+                      onChange={(e) => {
+                        const novas = opcoes.slice();
+                        novas[i] = e.target.value;
+                        setOpcoes(novas);
+                      }}
+                      style={{
+                        flex: 1,
+                        minWidth: 0,
+                        padding: "9px 12px",
+                        borderRadius: 10,
+                        background: "rgba(0,0,0,.42)",
+                        border: "1px solid var(--line)",
+                        color: "var(--txt)",
+                        font: "inherit",
+                        fontSize: ".85rem",
+                      }}
+                    />
+                    {opcoes.length > 2 && (
+                      <button
+                        type="button"
+                        title="Remover esta opção"
+                        onClick={() => setOpcoes(opcoes.filter((_, j) => j !== i))}
+                        style={{
+                          flex: "none",
+                          background: "transparent",
+                          border: "1px solid var(--line)",
+                          borderRadius: 10,
+                          color: "var(--mut2)",
+                          cursor: "pointer",
+                          padding: "0 11px",
+                        }}
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              {opcoes.length < 10 && (
+                <button
+                  className="btn g"
+                  type="button"
+                  onClick={() => setOpcoes(opcoes.concat(""))}
+                  style={{ marginTop: 9, padding: "7px 13px", fontSize: ".66rem" }}
+                >
+                  + Adicionar opção
+                </button>
+              )}
+
+              {opcoes.filter((o) => o.trim()).length === 1 && (
+                <p className="muted tiny" style={{ marginTop: 9, color: "var(--gold)" }}>
+                  Com uma opção só não há o que votar. Preencha pelo menos duas, ou apague
+                  todas para virar Sim / Não.
+                </p>
+              )}
+            </div>
+          )}
+
           <div className="spread" style={{ marginTop: 11, flexWrap: "wrap", gap: 10 }}>
             <div className="row" style={{ gap: 16, flexWrap: "wrap" }}>
               {exigeFoto && (
@@ -220,7 +309,7 @@ export function CompositorNito({
                     checked={comEnquete}
                     onChange={(e) => setComEnquete(e.target.checked)}
                   />
-                  Abrir enquete Sim / Não
+                  Abrir enquete
                 </label>
               )}
 
