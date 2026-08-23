@@ -7,7 +7,7 @@
 // a pessoa perceber a regra antes de tentar.
 // =============================================================================
 
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Feed, Enquetes, TipoPost, Post, comoErro } from "@/lib/nito-motor";
 import { iniciais } from "@/lib/nito-gamificacao";
 
@@ -40,6 +40,25 @@ export function CompositorNito({
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const textoRef = useRef<HTMLTextAreaElement>(null);
+
+  // A caixa cresce conforme a pessoa escreve, ate um teto. Sem isto ela fica
+  // com duas linhas fixas e quem escreve um comunicado longo enxerga o texto
+  // por uma fresta.
+  //
+  // O jeito de medir e sempre o mesmo: zera a altura, le quanto o conteudo
+  // realmente ocupa, e aplica. Sem zerar antes, a caixa so cresce e nunca
+  // encolhe quando a pessoa apaga.
+  const MIN_ALTURA = 52;
+  const MAX_ALTURA = 340;
+  useEffect(() => {
+    const el = textoRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    const desejada = Math.min(Math.max(el.scrollHeight, MIN_ALTURA), MAX_ALTURA);
+    el.style.height = desejada + "px";
+    el.style.overflowY = el.scrollHeight > MAX_ALTURA ? "auto" : "hidden";
+  }, [texto]);
 
   function escolher(f: File | null) {
     if (!f) return;
@@ -173,10 +192,12 @@ export function CompositorNito({
           )}
 
           <textarea
+            ref={textoRef}
             rows={2}
             placeholder={placeholder}
             value={texto}
             onChange={(e) => setTexto(e.target.value)}
+            style={{ minHeight: MIN_ALTURA, resize: "none", overflowY: "hidden" }}
           />
 
           {erro && (
