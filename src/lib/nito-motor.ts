@@ -1230,6 +1230,8 @@ export interface VersaoExtensao {
   notas?: string | null;
   atual: boolean;
   publicado_em: string;
+  helper_url?: string | null;
+  helper_bytes?: number | null;
 }
 
 export const Extensao = {
@@ -1242,17 +1244,47 @@ export const Extensao = {
       .limit(1)
       .maybeSingle();
     if (error) throw error;
-    return (data as VersaoExtensao) ?? null;
+    const atual = (data as VersaoExtensao) ?? null;
+    if (!atual) return atual;
+
+    // Se essa versao nao trouxe Helper novo, ela herda o ultimo que foi
+    // publicado - assim o cliente sempre acha um Helper pra baixar.
+    if (!atual.helper_url) {
+      const { data: ultimo } = await sb
+        .from("extensao_versoes")
+        .select("helper_url, helper_bytes")
+        .not("helper_url", "is", null)
+        .order("publicado_em", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (ultimo) {
+        atual.helper_url = (ultimo as { helper_url?: string | null }).helper_url ?? null;
+        atual.helper_bytes = (ultimo as { helper_bytes?: number | null }).helper_bytes ?? null;
+      }
+    }
+    return atual;
   },
 
   // So a administracao consegue: a politica do banco recusa o resto.
-  async publicarVersao(versao: string, arquivo: File, notas?: string): Promise<VersaoExtensao> {
+  async publicarVersao(
+    versao: string,
+    arquivo: File,
+    notas?: string,
+    helper?: File | null
+  ): Promise<VersaoExtensao> {
     const {
       data: { user },
     } = await sb.auth.getUser();
     if (!user) throw new Error("Precisa estar logado.");
 
     const url = await Storage.enviar("extensao", arquivo);
+    let helper_url: string | null = null;
+    let helper_bytes: number | null = null;
+    if (helper) {
+      helper_url = await Storage.enviar("extensao", helper);
+      helper_bytes = helper.size;
+    }
+
     const { data, error } = await sb
       .from("extensao_versoes")
       .insert({
@@ -1262,6 +1294,8 @@ export const Extensao = {
         notas: notas ?? null,
         atual: true,
         publicado_por: user.id,
+        helper_url,
+        helper_bytes,
       })
       .select("*")
       .single();
