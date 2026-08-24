@@ -6,7 +6,7 @@
 // entao qualquer mudanca de navegacao acontece num lugar so.
 // =============================================================================
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { Auth, Perfil } from "@/lib/nito-motor";
 import { SpriteIcones, Icone } from "./NitoIcones";
@@ -63,15 +63,29 @@ export function AppShell({ perfil, ativa, children, recado }: Props) {
   const dias = diasRestantes(perfil.assinatura_expira_em);
   const admin = ehAdmin(perfil);
   const [menuAberto, setMenuAberto] = useState(false);
+  const [recolhida, setRecolhida] = useState(false);
+
+  useEffect(() => {
+    const salva = window.localStorage.getItem("nito_rail_recolhida");
+    if (salva === "1") setRecolhida(true);
+  }, []);
+
+  function alternarRecolhida() {
+    setRecolhida((v) => {
+      const novo = !v;
+      window.localStorage.setItem("nito_rail_recolhida", novo ? "1" : "0");
+      return novo;
+    });
+  }
 
   return (
     <div className="nito">
       <SpriteIcones />
-      <div className={`app ${menuAberto ? "menu-aberto" : ""}`}>
+      <div className={`app ${menuAberto ? "menu-aberto" : ""} ${recolhida ? "rail-mini" : ""}`}>
         {menuAberto && (
           <div className="rail-fundo" onClick={() => setMenuAberto(false)} />
         )}
-        <aside className={`rail ${menuAberto ? "aberto" : ""}`}>
+        <aside className={`rail ${menuAberto ? "aberto" : ""} ${recolhida ? "mini" : ""}`}>
           <div className="logo">
             <b>
               NITO <i>LIVE</i>
@@ -87,6 +101,16 @@ export function AppShell({ perfil, ativa, children, recado }: Props) {
             </button>
           </div>
 
+          <button
+            type="button"
+            className="rail-colapsar"
+            aria-label={recolhida ? "Expandir menu" : "Encolher menu"}
+            title={recolhida ? "Expandir menu" : "Encolher menu"}
+            onClick={alternarRecolhida}
+          >
+            <Icone nome="seta-dupla" tam={14} />
+          </button>
+
           <nav className="nav">
             {ABAS.map((a) => (
               <Link
@@ -95,9 +119,10 @@ export function AppShell({ perfil, ativa, children, recado }: Props) {
                 className={ativa === a.chave ? "on" : ""}
                 aria-current={ativa === a.chave ? "page" : undefined}
                 onClick={() => setMenuAberto(false)}
+                title={recolhida ? a.rotulo : undefined}
               >
                 <Icone nome={a.icone} />
-                {a.rotulo}
+                <span className="lbl">{a.rotulo}</span>
               </Link>
             ))}
           </nav>
@@ -105,15 +130,15 @@ export function AppShell({ perfil, ativa, children, recado }: Props) {
           <div className="player">
             <div className="pat">
               <div className="medal">{patente.romano}</div>
-              <div>
+              <div className="lbl">
                 <div className="pnome">{patente.nome}</div>
                 <div className="pnv">NÍVEL {perfil.nivel ?? 1}</div>
               </div>
             </div>
-            <div className="bar">
+            <div className="bar lbl">
               <i style={{ width: `${prog.percentual}%` }} />
             </div>
-            <div className="xp">
+            <div className="xp lbl">
               <span>{prox ? "PRÓX. PATENTE" : "PATENTE MÁXIMA"}</span>
               <span>
                 <b>{prog.atual.toLocaleString("pt-BR")}</b> / {prog.meta.toLocaleString("pt-BR")} XP
@@ -121,9 +146,9 @@ export function AppShell({ perfil, ativa, children, recado }: Props) {
             </div>
           </div>
 
-          <button className="sair" type="button" onClick={() => Auth.sair()}>
+          <button className="sair" type="button" onClick={() => Auth.sair()} title={recolhida ? "Sair" : undefined}>
             <Icone nome="out" tam={15} />
-            Sair
+            <span className="lbl">Sair</span>
           </button>
         </aside>
 

@@ -73,6 +73,23 @@
 .nito .rail-fechar{display:none;margin-left:auto;background:transparent;border:0;color:var(--mut);padding:4px;cursor:pointer;border-radius:8px}
 .nito .rail-abrir{display:none;background:transparent;border:1px solid var(--line);color:var(--txt);padding:8px;border-radius:10px;cursor:pointer;flex:none}
 .nito .rail-fundo{display:none}
+.nito .rail-colapsar{display:flex;align-items:center;justify-content:center;position:absolute;top:18px;right:-11px;width:22px;height:22px;
+  border-radius:50%;background:var(--surf3);border:1px solid var(--line2);color:var(--mut);cursor:pointer;z-index:5;transition:.16s}
+.nito .rail-colapsar:hover{color:var(--txt);border-color:rgba(255,255,255,.3)}
+.nito .rail.mini .rail-colapsar svg{transform:rotate(180deg)}
+@media(min-width:761px){
+.nito .app.rail-mini{grid-template-columns:76px 1fr}
+.nito .rail.mini .lbl{display:none}
+.nito .rail.mini .logo{justify-content:center;padding-left:0;padding-right:0}
+.nito .rail.mini .logo b{display:none}
+.nito .rail.mini .tagchip{display:none}
+.nito .rail.mini .nav a, .nito .rail.mini .nav button{justify-content:center;padding:11px}
+.nito .rail.mini .nav .badge{display:none}
+.nito .rail.mini .player{padding:9px 6px;display:flex;justify-content:center}
+.nito .rail.mini .player .pat{margin-bottom:0}
+.nito .rail.mini .player .bar, .nito .rail.mini .player .xp{display:none}
+.nito .rail.mini .sair{padding:11px 0}
+}
 .nito .main{position:relative;z-index:1;min-width:0;display:flex;flex-direction:column}
 .nito .topbar{position:sticky;top:0;z-index:4;display:flex;align-items:center;gap:14px;padding:13px 26px;
   background:rgba(6,6,12,.82);backdrop-filter:blur(14px);border-bottom:1px solid var(--line)}
@@ -383,6 +400,7 @@
 .nito .rail-fechar{display:flex;align-items:center;justify-content:center}
 .nito .rail-abrir{display:flex;align-items:center;justify-content:center}
 .nito .rail-fundo{display:block;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:19;backdrop-filter:blur(2px)}
+.nito .rail-colapsar{display:none}
 .nito{--rail:178px}
 .nito .rail{padding:14px 9px;gap:11px}
 .nito .logo b{font-size:1rem}
