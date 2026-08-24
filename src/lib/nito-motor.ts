@@ -1201,6 +1201,9 @@ export interface VersaoExtensao {
   notas?: string | null;
   atual: boolean;
   publicado_em: string;
+  /** o NITO Helper que acompanha esta versao; opcional */
+  helper_url?: string | null;
+  helper_bytes?: number | null;
 }
 
 export const Extensao = {
@@ -1213,17 +1216,46 @@ export const Extensao = {
       .limit(1)
       .maybeSingle();
     if (error) throw error;
-    return (data as VersaoExtensao) ?? null;
+    const atual = (data as VersaoExtensao) ?? null;
+    if (!atual) return null;
+
+    // O Helper muda muito menos que a extensao. Se ao publicar uma versao nova
+    // o administrador nao anexar o Helper de novo, o download dele sumiria da
+    // tela do cliente sem ninguem perceber. Entao, faltando, herda o ultimo
+    // que foi publicado.
+    if (!atual.helper_url) {
+      const { data: ultimo } = await sb
+        .from("extensao_versoes")
+        .select("helper_url, helper_bytes")
+        .not("helper_url", "is", null)
+        .order("publicado_em", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (ultimo) {
+        atual.helper_url = (ultimo as { helper_url?: string | null }).helper_url ?? null;
+        atual.helper_bytes = (ultimo as { helper_bytes?: number | null }).helper_bytes ?? null;
+      }
+    }
+    return atual;
   },
 
   // So a administracao consegue: a politica do banco recusa o resto.
-  async publicarVersao(versao: string, arquivo: File, notas?: string): Promise<VersaoExtensao> {
+  async publicarVersao(
+    versao: string,
+    arquivo: File,
+    notas?: string,
+    helper?: File | null
+  ): Promise<VersaoExtensao> {
     const {
       data: { user },
     } = await sb.auth.getUser();
     if (!user) throw new Error("Precisa estar logado.");
 
     const url = await Storage.enviar("extensao", arquivo);
+    // O Helper vai primeiro para o armazenamento tambem; so depois grava a
+    // linha. Se o envio dele falhar, nada e publicado pela metade.
+    const urlHelper = helper ? await Storage.enviar("extensao", helper) : null;
+
     const { data, error } = await sb
       .from("extensao_versoes")
       .insert({
@@ -1231,6 +1263,8 @@ export const Extensao = {
         arquivo_url: url,
         tamanho_bytes: arquivo.size,
         notas: notas ?? null,
+        helper_url: urlHelper,
+        helper_bytes: helper ? helper.size : null,
         atual: true,
         publicado_por: user.id,
       })
