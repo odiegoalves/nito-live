@@ -6,12 +6,11 @@
 // entao qualquer mudanca de navegacao acontece num lugar so.
 // =============================================================================
 
-import React from "react";
+import React, { useState } from "react";
 import Link from "next/link";
 import { Auth, Perfil } from "@/lib/nito-motor";
 import { SpriteIcones, Icone } from "./NitoIcones";
 import { SinoNotificacoes } from "./SinoNotificacoes";
-import { AvisosOnline } from "./AvisosOnline";
 import {
   patenteDoNivel,
   progressoNoNivel,
@@ -63,17 +62,29 @@ export function AppShell({ perfil, ativa, children, recado }: Props) {
   const prog = progressoNoNivel(perfil.nivel ?? 1, perfil.xp ?? 0);
   const dias = diasRestantes(perfil.assinatura_expira_em);
   const admin = ehAdmin(perfil);
+  const [menuAberto, setMenuAberto] = useState(false);
 
   return (
     <div className="nito">
       <SpriteIcones />
-      <div className="app">
-        <aside className="rail">
+      <div className={`app ${menuAberto ? "menu-aberto" : ""}`}>
+        {menuAberto && (
+          <div className="rail-fundo" onClick={() => setMenuAberto(false)} />
+        )}
+        <aside className={`rail ${menuAberto ? "aberto" : ""}`}>
           <div className="logo">
             <b>
               NITO <i>LIVE</i>
             </b>
             {admin && <span className="tagchip">ADMIN</span>}
+            <button
+              type="button"
+              className="rail-fechar"
+              aria-label="Fechar menu"
+              onClick={() => setMenuAberto(false)}
+            >
+              <Icone nome="x" tam={16} />
+            </button>
           </div>
 
           <nav className="nav">
@@ -83,6 +94,7 @@ export function AppShell({ perfil, ativa, children, recado }: Props) {
                 href={a.href}
                 className={ativa === a.chave ? "on" : ""}
                 aria-current={ativa === a.chave ? "page" : undefined}
+                onClick={() => setMenuAberto(false)}
               >
                 <Icone nome={a.icone} />
                 {a.rotulo}
@@ -117,6 +129,14 @@ export function AppShell({ perfil, ativa, children, recado }: Props) {
 
         <div className="main">
           <header className="topbar">
+            <button
+              type="button"
+              className="rail-abrir"
+              aria-label="Abrir menu"
+              onClick={() => setMenuAberto(true)}
+            >
+              <Icone nome="menu" tam={19} />
+            </button>
             <div className="hello">
               {saudacao()}, {(perfil.nome ?? "membro").split(" ")[0]}
               <span>{recado ?? "Seu NITO está pronto para a próxima live."}</span>
@@ -133,11 +153,6 @@ export function AppShell({ perfil, ativa, children, recado }: Props) {
           {children}
         </div>
       </div>
-
-      {/* Avisa quem acabou de entrar. Fica aqui na casca de proposito: assim
-          vale em qualquer aba, e a pessoa nao precisa estar na Comunidade
-          para saber que chegou gente. */}
-      <AvisosOnline perfil={perfil} />
     </div>
   );
 }
