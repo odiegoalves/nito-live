@@ -11,6 +11,7 @@ import Link from "next/link";
 import { Auth, Chamados, Perfil } from "@/lib/nito-motor";
 import { SpriteIcones, Icone } from "./NitoIcones";
 import { SinoNotificacoes } from "./SinoNotificacoes";
+import { AvisosOnline } from "./AvisosOnline";
 import {
   patenteDoNivel,
   progressoNoNivel,
@@ -197,6 +198,7 @@ export function AppShell({ perfil, ativa, children, recado }: Props) {
           {children}
         </div>
       </div>
+      <AvisosOnline perfil={perfil} />
     </div>
   );
 }

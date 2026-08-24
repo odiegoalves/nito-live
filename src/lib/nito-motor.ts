@@ -300,6 +300,7 @@ export const Auth = {
   },
 
   async sair() {
+    Presenca.esquecerVisita();
     await sb.auth.signOut();
     if (typeof window !== "undefined") {
       window.location.href = "/login";
@@ -1809,6 +1810,99 @@ export const Abas = {
   },
 };
 
+// ---------------------------------------------------------------------------
+// PRESENCA - "fulano ficou online".
+// Avisa quando alguem chega de verdade na comunidade (nao em F5, nao em troca
+// de aba). A UI (AvisosOnline.tsx) so cuida do cartaozinho; a regra de quando
+// avisar mora aqui.
+// ---------------------------------------------------------------------------
+export interface QuemEntrou {
+  /** identifica a aba/sessao de quem entrou, nao a pessoa */
+  visita: string;
+  user_id?: string;
+  nome?: string | null;
+  avatar_url?: string | null;
+}
+
+const CHAVE_VISITA = "nito_visita_id";
+// primeiros segundos do canal: gente que ja estava online tambem "entra" no
+// evento de presenca. Ignorar essa janela evita anunciar quem ja estava la.
+const ESPERA_INICIAL_MS = 2000;
+// a mesma pessoa nao dispara aviso de novo antes disso (reconexao, F5 rapido).
+const ANTI_REPETICAO_MS = 60_000;
+
+export const Presenca = {
+  // Sobrevive a F5 e troca de aba (sessionStorage). Morre quando a aba fecha
+  // ou a pessoa desloga - so ai conta como "saiu e entrou de novo".
+  minhaVisita(): string {
+    if (typeof window === "undefined") return "server";
+    try {
+      let v = window.sessionStorage.getItem(CHAVE_VISITA);
+      if (!v) {
+        v = `v${Date.now()}${Math.random().toString(36).slice(2, 8)}`;
+        window.sessionStorage.setItem(CHAVE_VISITA, v);
+      }
+      return v;
+    } catch {
+      return `v${Date.now()}${Math.random().toString(36).slice(2, 8)}`;
+    }
+  },
+
+  esquecerVisita() {
+    if (typeof window === "undefined") return;
+    try {
+      window.sessionStorage.removeItem(CHAVE_VISITA);
+    } catch {
+      /* sem storage, sem problema */
+    }
+  },
+
+  assinar(
+    perfil: Perfil,
+    handlers: { onEntrou: (q: QuemEntrou) => void; onOnline?: (n: number) => void }
+  ) {
+    const visita = Presenca.minhaVisita();
+    const montadoEm = Date.now();
+    const ultimoAviso = new Map<string, number>();
+
+    const canal = sb.channel("presenca-nito", {
+      config: { presence: { key: visita } },
+    });
+
+    canal
+      .on("presence", { event: "join" }, ({ key, newPresences }: { key: string; newPresences: unknown[] }) => {
+        if (key === visita) return;
+        if (Date.now() - montadoEm < ESPERA_INICIAL_MS) return;
+        for (const p of newPresences as unknown as QuemEntrou[]) {
+          const quemChave = p.user_id ?? key;
+          const visto = ultimoAviso.get(quemChave) ?? 0;
+          if (Date.now() - visto < ANTI_REPETICAO_MS) continue;
+          ultimoAviso.set(quemChave, Date.now());
+          handlers.onEntrou({ ...p, visita: key });
+        }
+      })
+      .on("presence", { event: "sync" }, () => {
+        if (handlers.onOnline) {
+          const estado = canal.presenceState();
+          handlers.onOnline(Object.keys(estado).length);
+        }
+      })
+      .subscribe(async (status: string) => {
+        if (status === "SUBSCRIBED") {
+          await canal.track({
+            user_id: perfil.id,
+            nome: perfil.nome,
+            avatar_url: perfil.avatar_url ?? null,
+          });
+        }
+      });
+
+    return () => {
+      sb.removeChannel(canal);
+    };
+  },
+};
+
 export const Nito = {
   sb,
   Auth,
@@ -1818,6 +1912,7 @@ export const Nito = {
   Aulas,
   Storage,
   Fmt,
+  Presenca,
   exigirLogin: (d?: string) => Auth.exigirLogin(d),
 };
 
