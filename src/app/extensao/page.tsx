@@ -14,6 +14,9 @@ import { diasRestantes } from "@/lib/nito-gamificacao";
 
 function mb(bytes?: number | null) {
   if (!bytes) return "";
+  // O Helper tem 33 KB. Em MB isso vira "0.0 MB", que o cliente le como
+  // arquivo vazio ou defeito. Abaixo de um mega, mostra em KB.
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 }
 
@@ -217,7 +220,8 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
         )}
 
         <div className="grid2" style={{ marginTop: 16 }}>
-          <div className="panel pad">
+          <div className="stack">
+            <div className="panel pad">
             <div className="passo">
               <div className="n">1</div>
               <div className="c">
@@ -282,7 +286,7 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
                 <b>Extrair o arquivo</b>
                 <p className="muted tiny">
                   Clique com o botão direito no arquivo baixado e escolha{" "}
-                  <b>Extrair tudo</b>. Vai virar uma <b>pasta</b> com o mesmo nome.
+                  <strong>Extrair tudo</strong>. Vai virar uma <strong>pasta</strong> com o mesmo nome.
                 </p>
                 <p className="muted tiny" style={{ marginTop: 6 }}>
                   Esse passo é obrigatório: o Chrome instala a pasta, não o arquivo compactado.
@@ -296,10 +300,10 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
                 <b>Instalar no Chrome</b>
                 <p className="muted tiny">
                   Abra <span className="num" style={{ color: "var(--cyan)" }}>chrome://extensions</span> e ligue o{" "}
-                  <b>Modo do desenvolvedor</b> no canto superior direito.
+                  <strong>Modo do desenvolvedor</strong> no canto superior direito.
                 </p>
                 <p className="muted tiny" style={{ marginTop: 6 }}>
-                  Clique em <b>Carregar sem compactação</b> e escolha a <b>pasta</b> que você extraiu
+                  Clique em <strong>Carregar sem compactação</strong> e escolha a <strong>pasta</strong> que você extraiu
                   no passo anterior.
                 </p>
               </div>
@@ -315,6 +319,105 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
                 </p>
               </div>
             </div>
+          </div>
+
+          {/* ── NITO Helper ──────────────────────────────────────────────────
+              Fica num painel proprio, DEPOIS da extensao, e nao como um passo
+              dela. E deliberado: a extensao funciona sem o Helper, e misturar os
+              dois faria o cliente achar que a instalacao falhou quando so o
+              Helper faltasse. Aqui ele aparece como o que e - um acessorio que
+              melhora, nao um pedaco que falta. */}
+          <div className="panel pad" style={{ marginTop: 18 }}>
+            <div className="spread" style={{ alignItems: "flex-start", gap: 14, flexWrap: "wrap" }}>
+              <div style={{ flex: 1, minWidth: 260 }}>
+                <div className="row" style={{ gap: 9, marginBottom: 6 }}>
+                  <h2 className="h-sec" style={{ margin: 0 }}>NITO Helper</h2>
+                  <span className="pill wait">opcional</span>
+                </div>
+                <p className="muted tiny" style={{ maxWidth: "60ch" }}>
+                  Um programinha que mede a força do seu computador — processador, memória e placa
+                  de vídeo — e conta para o NITO. Com essa informação, o <strong>NITO Flow</strong> escolhe
+                  sozinho a qualidade certa da sua transmissão: forte o bastante para ficar bonita,
+                  leve o bastante para não travar no meio da live.
+                </p>
+                <p className="muted tiny" style={{ maxWidth: "60ch", marginTop: 8 }}>
+                  <strong>Sem ele o NITO funciona igual</strong>, só que usando um ajuste médio, que às vezes
+                  é conservador demais para um PC bom e pesado demais para um PC simples.
+                </p>
+              </div>
+            </div>
+
+            {versao?.helper_url ? (
+              <a
+                className="material"
+                href={versao.helper_url}
+                download
+                style={{ marginTop: 14, textDecoration: "none", color: "inherit" }}
+              >
+                <div className="mi">🖥️</div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <b>NITO-Native-Helper.zip</b>
+                  <span>{versao.helper_bytes ? mb(versao.helper_bytes) : "instalador do Helper"}</span>
+                </div>
+                <span className="go">BAIXAR</span>
+              </a>
+            ) : (
+              <p className="muted tiny" style={{ marginTop: 14 }}>
+                {admin
+                  ? "Nenhum Helper publicado ainda — use o campo do painel acima para enviar."
+                  : "O Helper ainda não foi publicado. Volte em breve."}
+              </p>
+            )}
+
+            {versao?.helper_url && (
+              <div style={{ marginTop: 6 }}>
+                  <div className="passo">
+                    <div className="n">1</div>
+                    <div className="c">
+                      <b>Extrair o arquivo</b>
+                      <p className="muted tiny">
+                        Botão direito no arquivo baixado → <strong>Extrair tudo</strong>. Precisa extrair:
+                        rodar de dentro do compactado não funciona.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="passo">
+                    <div className="n">2</div>
+                    <div className="c">
+                      <b>Dois cliques em INSTALAR.bat</b>
+                      <p className="muted tiny">
+                        Se o Windows avisar que protegeu o computador, clique em{" "}
+                        <strong>Mais informações</strong> e depois em <strong>Executar assim mesmo</strong>. A tela mostra
+                        o que foi feito e espera você apertar uma tecla.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="passo">
+                    <div className="n">3</div>
+                    <div className="c">
+                      <b>Fechar e abrir o Chrome</b>
+                      <p className="muted tiny">
+                        Todas as janelas, não só a aba. O Chrome só enxerga o Helper quando inicia
+                        do zero — pular este passo é o motivo nº 1 de &quot;instalei e não funcionou&quot;.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="passo">
+                    <div className="n">4</div>
+                    <div className="c">
+                      <b>Conferir no NITO Flow</b>
+                      <p className="muted tiny">
+                        Abra o NITO Flow, aba <strong>Qualidade</strong>, e clique em{" "}
+                        <strong>Detectar meu PC de novo</strong>. Deve aparecer o seu processador, memória e
+                        placa de vídeo. Se aparecer, está pronto.
+                      </p>
+                    </div>
+                  </div>
+              </div>
+            )}
+          </div>
           </div>
 
           <div className="stack">
@@ -449,108 +552,6 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
           </div>
         </div>
 
-        {/* ── NITO Helper ──────────────────────────────────────────────────
-            Fica num painel proprio, DEPOIS da extensao, e nao como um passo
-            dela. E deliberado: a extensao funciona sem o Helper, e misturar os
-            dois faria o cliente achar que a instalacao falhou quando so o
-            Helper faltasse. Aqui ele aparece como o que e - um acessorio que
-            melhora, nao um pedaco que falta. */}
-        <div className="panel pad" style={{ marginTop: 18 }}>
-          <div className="spread" style={{ alignItems: "flex-start", gap: 14, flexWrap: "wrap" }}>
-            <div style={{ flex: 1, minWidth: 260 }}>
-              <div className="row" style={{ gap: 9, marginBottom: 6 }}>
-                <h2 className="h-sec" style={{ margin: 0 }}>NITO Helper</h2>
-                <span className="pill wait">opcional</span>
-              </div>
-              <p className="muted tiny" style={{ maxWidth: "60ch" }}>
-                Um programinha que mede a força do seu computador — processador, memória e placa
-                de vídeo — e conta para o NITO. Com essa informação, o <b>NITO Flow</b> escolhe
-                sozinho a qualidade certa da sua transmissão: forte o bastante para ficar bonita,
-                leve o bastante para não travar no meio da live.
-              </p>
-              <p className="muted tiny" style={{ maxWidth: "60ch", marginTop: 8 }}>
-                <b>Sem ele o NITO funciona igual</b>, só que usando um ajuste médio, que às vezes
-                é conservador demais para um PC bom e pesado demais para um PC simples.
-              </p>
-            </div>
-          </div>
-
-          {versao?.helper_url ? (
-            <a
-              className="material"
-              href={versao.helper_url}
-              download
-              style={{ marginTop: 14, textDecoration: "none", color: "inherit" }}
-            >
-              <div className="mi">🖥️</div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <b>NITO-Native-Helper.zip</b>
-                <span>{versao.helper_bytes ? mb(versao.helper_bytes) : "instalador do Helper"}</span>
-              </div>
-              <span className="go">BAIXAR</span>
-            </a>
-          ) : (
-            <p className="muted tiny" style={{ marginTop: 14 }}>
-              {admin
-                ? "Nenhum Helper publicado ainda — use o campo do painel acima para enviar."
-                : "O Helper ainda não foi publicado. Volte em breve."}
-            </p>
-          )}
-
-          {versao?.helper_url && (
-            <div className="grid2" style={{ marginTop: 16 }}>
-              <div>
-                <div className="passo">
-                  <div className="n">1</div>
-                  <div className="c">
-                    <b>Extrair o arquivo</b>
-                    <p className="muted tiny">
-                      Botão direito no arquivo baixado → <b>Extrair tudo</b>. Precisa extrair:
-                      rodar de dentro do compactado não funciona.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="passo">
-                  <div className="n">2</div>
-                  <div className="c">
-                    <b>Dois cliques em INSTALAR.bat</b>
-                    <p className="muted tiny">
-                      Se o Windows avisar que protegeu o computador, clique em{" "}
-                      <b>Mais informações</b> e depois em <b>Executar assim mesmo</b>. A tela mostra
-                      o que foi feito e espera você apertar uma tecla.
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div>
-                <div className="passo">
-                  <div className="n">3</div>
-                  <div className="c">
-                    <b>Fechar e abrir o Chrome</b>
-                    <p className="muted tiny">
-                      Todas as janelas, não só a aba. O Chrome só enxerga o Helper quando inicia
-                      do zero — pular este passo é o motivo nº 1 de &quot;instalei e não funcionou&quot;.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="passo">
-                  <div className="n">4</div>
-                  <div className="c">
-                    <b>Conferir no NITO Flow</b>
-                    <p className="muted tiny">
-                      Abra o NITO Flow, aba <b>Qualidade</b>, e clique em{" "}
-                      <b>Detectar meu PC de novo</b>. Deve aparecer o seu processador, memória e
-                      placa de vídeo. Se aparecer, está pronto.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
       </div>
     </AppShell>
   );
