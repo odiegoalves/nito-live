@@ -33,6 +33,9 @@ export function SpriteIcones() {
         <symbol id="ic-menu" viewBox="0 0 24 24" {...TRACO}><path d="M3.5 6.5h17M3.5 12h17M3.5 17.5h17" /></symbol>
         <symbol id="ic-x" viewBox="0 0 24 24" {...TRACO}><path d="M5 5l14 14M19 5 5 19" /></symbol>
         <symbol id="ic-seta-dupla" viewBox="0 0 24 24" {...TRACO}><path d="M15 5 8 12l7 7" /></symbol>
+        <symbol id="ic-trofeu" viewBox="0 0 24 24" {...TRACO}><path d="M7 4h10v5a5 5 0 0 1-10 0z" /><path d="M7 5H4v2a4 4 0 0 0 4 4M17 5h3v2a4 4 0 0 1-4 4" /><path d="M12 14v3M9 21h6M9 21c0-2 1-2.5 3-2.5s3 .5 3 2.5" /></symbol>
+        <symbol id="ic-onda" viewBox="0 0 24 24" {...TRACO}><path d="M2 12h2.5l2-6 3 12 2.5-9 2 6h3l2-6 2.5 3" /></symbol>
+        <symbol id="ic-bell" viewBox="0 0 24 24" {...TRACO}><path d="M6 10.5a6 6 0 0 1 12 0c0 4 1.4 5.5 2 6.5H4c.6-1 2-2.5 2-6.5z" /><path d="M9.7 20a2.3 2.3 0 0 0 4.6 0" /></symbol>
       </defs>
     </svg>
   );
