@@ -301,9 +301,6 @@ export const Auth = {
 
   async sair() {
     await sb.auth.signOut();
-    // Apaga o cracha da visita: quem sai e volta tem que ser anunciado de novo
-    // como quem acabou de chegar.
-    Presenca.esquecerVisita();
     if (typeof window !== "undefined") {
       window.location.href = "/login";
     }
@@ -1191,6 +1188,38 @@ export const Chamados = {
       sb.removeChannel(canal);
     };
   },
+
+  // Quantos chamados ainda aguardam resposta. So o admin usa isso, pra
+  // mostrar o numerinho vermelho ao lado de "Suporte" no menu.
+  async contarAguardando(): Promise<number> {
+    const { count, error } = await sb
+      .from("chamados")
+      .select("id", { count: "exact", head: true })
+      .neq("situacao", "resolvido");
+    if (error) throw error;
+    return count ?? 0;
+  },
+
+  // Avisa em tempo real quando um chamado e aberto ou muda de situacao,
+  // pra badge do admin atualizar sem precisar recarregar a pagina.
+  assinarContagem(onMudou: () => void) {
+    const canal = sb
+      .channel("chamados-contagem")
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "chamados" },
+        () => onMudou()
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "chamados" },
+        () => onMudou()
+      )
+      .subscribe();
+    return () => {
+      sb.removeChannel(canal);
+    };
+  },
 };
 
 export interface VersaoExtensao {
@@ -1201,9 +1230,6 @@ export interface VersaoExtensao {
   notas?: string | null;
   atual: boolean;
   publicado_em: string;
-  /** o NITO Helper que acompanha esta versao; opcional */
-  helper_url?: string | null;
-  helper_bytes?: number | null;
 }
 
 export const Extensao = {
@@ -1216,46 +1242,17 @@ export const Extensao = {
       .limit(1)
       .maybeSingle();
     if (error) throw error;
-    const atual = (data as VersaoExtensao) ?? null;
-    if (!atual) return null;
-
-    // O Helper muda muito menos que a extensao. Se ao publicar uma versao nova
-    // o administrador nao anexar o Helper de novo, o download dele sumiria da
-    // tela do cliente sem ninguem perceber. Entao, faltando, herda o ultimo
-    // que foi publicado.
-    if (!atual.helper_url) {
-      const { data: ultimo } = await sb
-        .from("extensao_versoes")
-        .select("helper_url, helper_bytes")
-        .not("helper_url", "is", null)
-        .order("publicado_em", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      if (ultimo) {
-        atual.helper_url = (ultimo as { helper_url?: string | null }).helper_url ?? null;
-        atual.helper_bytes = (ultimo as { helper_bytes?: number | null }).helper_bytes ?? null;
-      }
-    }
-    return atual;
+    return (data as VersaoExtensao) ?? null;
   },
 
   // So a administracao consegue: a politica do banco recusa o resto.
-  async publicarVersao(
-    versao: string,
-    arquivo: File,
-    notas?: string,
-    helper?: File | null
-  ): Promise<VersaoExtensao> {
+  async publicarVersao(versao: string, arquivo: File, notas?: string): Promise<VersaoExtensao> {
     const {
       data: { user },
     } = await sb.auth.getUser();
     if (!user) throw new Error("Precisa estar logado.");
 
     const url = await Storage.enviar("extensao", arquivo);
-    // O Helper vai primeiro para o armazenamento tambem; so depois grava a
-    // linha. Se o envio dele falhar, nada e publicado pela metade.
-    const urlHelper = helper ? await Storage.enviar("extensao", helper) : null;
-
     const { data, error } = await sb
       .from("extensao_versoes")
       .insert({
@@ -1263,8 +1260,6 @@ export const Extensao = {
         arquivo_url: url,
         tamanho_bytes: arquivo.size,
         notas: notas ?? null,
-        helper_url: urlHelper,
-        helper_bytes: helper ? helper.size : null,
         atual: true,
         publicado_por: user.id,
       })
@@ -1780,184 +1775,11 @@ export const Abas = {
   },
 };
 
-// ---------------------------------------------------------------------------
-// PRESENCA - quem acabou de entrar na comunidade
-//
-// O problema aqui nao e saber quem esta online: o Supabase ja entrega isso.
-// O problema e saber quem ACABOU DE CHEGAR, que e coisa diferente. Para o
-// Supabase, recarregar a pagina (F5) e trocar de aba do menu sao a mesma coisa
-// que entrar: a conexao antiga cai e nasce outra. Se avisasse a cada conexao
-// nova, um membro que clica em cinco abas apareceria cinco vezes na tela dos
-// outros como se tivesse entrado cinco vezes.
-//
-// A solucao e dar um cracha para a VISITA, nao para a conexao. O cracha fica
-// no sessionStorage, e o sessionStorage tem exatamente o tempo de vida que a
-// gente precisa:
-//
-//   F5 na pagina .................. o cracha continua o mesmo  -> nao avisa
-//   trocar de aba do menu ......... o cracha continua o mesmo  -> nao avisa
-//   sair para outro site e voltar . o cracha continua o mesmo  -> nao avisa
-//   FECHAR a pagina e abrir dnv ... cracha novo                -> AVISA
-//   deslogar e logar de novo ...... cracha apagado no Auth.sair -> AVISA
-//
-// Quem recebe guarda os crachas que ja viu nesta visita. Cracha repetido e
-// silencio; cracha novo e aviso.
-// ---------------------------------------------------------------------------
-
-const CHAVE_SESSAO = "nito_visita";
-
-/** dois avisos da mesma pessoa dentro desta janela viram um so */
-const ANTI_REPETICAO_MS = 60_000;
-
-/** silencio nos primeiros instantes: aqui chega quem JA estava online */
-const ESPERA_INICIAL_MS = 2_000;
-
-export interface QuemEntrou {
-  id: string;
-  nome: string | null;
-  username: string | null;
-  avatar_url: string | null;
-  visita: string;
-}
-
-export const Presenca = {
-  /**
-   * O cracha desta visita. Nasce na primeira vez que a pessoa abre o site e
-   * morre quando ela fecha a pagina - nao quando ela recarrega.
-   */
-  minhaVisita(): string {
-    if (typeof window === "undefined") return "servidor";
-    try {
-      let v = window.sessionStorage.getItem(CHAVE_SESSAO);
-      if (!v) {
-        v =
-          typeof crypto !== "undefined" && crypto.randomUUID
-            ? crypto.randomUUID()
-            : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-        window.sessionStorage.setItem(CHAVE_SESSAO, v);
-      }
-      return v;
-    } catch {
-      // navegador com armazenamento bloqueado: cada carregamento vira uma
-      // visita nova. Avisa demais, nunca de menos.
-      return `sem-memoria-${Math.random().toString(36).slice(2)}`;
-    }
-  },
-
-  /** Chamado no logout: a proxima entrada tem que ser anunciada de novo. */
-  esquecerVisita(): void {
-    if (typeof window === "undefined") return;
-    try {
-      window.sessionStorage.removeItem(CHAVE_SESSAO);
-    } catch {
-      /* nada a fazer */
-    }
-  },
-
-  /**
-   * Liga esta pessoa no canal geral e avisa quando ALGUEM chega.
-   * Devolve a funcao de desligar.
-   */
-  assinar(
-    perfil: Perfil | null,
-    handlers: {
-      onEntrou?: (quem: QuemEntrou) => void;
-      onOnline?: (quantos: number) => void;
-    } = {}
-  ): () => void {
-    if (!perfil) return () => {};
-
-    const visita = this.minhaVisita();
-
-    // A chave da presenca e a VISITA, nao a pessoa. Se fosse a pessoa, duas
-    // abas abertas brigariam pela mesma entrada e uma apagaria a outra.
-    const canal = sb.channel("presenca-nito", {
-      config: { presence: { key: visita } },
-    });
-
-    const vistas = new Set<string>();
-    const ultimoAviso = new Map<string, number>();
-    // Comeca contando ja: se algum evento chegar antes da confirmacao do
-    // canal, ele cai na janela de silencio em vez de virar aviso falso.
-    let ligadoEm = Date.now();
-
-    function anotar(metas: unknown[]): QuemEntrou[] {
-      const novos: QuemEntrou[] = [];
-      for (const m of metas) {
-        const p = m as Partial<QuemEntrou> | null;
-        if (!p || !p.visita || !p.id) continue;
-        if (vistas.has(p.visita)) continue;
-        vistas.add(p.visita);
-        novos.push({
-          id: p.id,
-          nome: p.nome ?? null,
-          username: p.username ?? null,
-          avatar_url: p.avatar_url ?? null,
-          visita: p.visita,
-        });
-      }
-      return novos;
-    }
-
-    canal
-      .on("presence", { event: "sync" }, () => {
-        const estado = canal.presenceState() as Record<string, unknown[]>;
-        const todos = Object.values(estado).flat();
-        // Marca todo mundo que ja esta na sala como conhecido. Isto nao gera
-        // aviso: e so para o "sync" nunca virar uma enxurrada de pop-ups.
-        anotar(todos);
-        handlers.onOnline?.(todos.length);
-      })
-      .on("presence", { event: "join" }, ({ newPresences }) => {
-        const novos = anotar((newPresences ?? []) as unknown[]);
-
-        // Os primeiros segundos sao de quem JA estava online quando eu
-        // cheguei. O Supabase manda essas pessoas como se fossem entradas,
-        // porque para ele sao novidade - mas nao sao novidade para o mundo.
-        if (Date.now() - ligadoEm < ESPERA_INICIAL_MS) return;
-
-        const agora = Date.now();
-        for (const quem of novos) {
-          if (quem.id === perfil.id) continue; // ninguem se anuncia
-          const antes = ultimoAviso.get(quem.id);
-          if (antes && agora - antes < ANTI_REPETICAO_MS) continue;
-          ultimoAviso.set(quem.id, agora);
-          handlers.onEntrou?.(quem);
-        }
-      })
-      .subscribe(async (status) => {
-        if (status !== "SUBSCRIBED") return;
-        ligadoEm = Date.now();
-        try {
-          await canal.track({
-            id: perfil.id,
-            nome: perfil.nome ?? null,
-            username: perfil.username ?? null,
-            avatar_url: perfil.avatar_url ?? null,
-            visita,
-          });
-        } catch {
-          /* sem presenca a pessoa continua usando o site normalmente */
-        }
-      });
-
-    return () => {
-      try {
-        canal.untrack();
-      } catch {
-        /* canal ja pode estar fechado */
-      }
-      sb.removeChannel(canal);
-    };
-  },
-};
-
 export const Nito = {
   sb,
   Auth,
   Feed,
   Chat,
-  Presenca,
   Vendas,
   Aulas,
   Storage,

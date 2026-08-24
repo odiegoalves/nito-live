@@ -8,7 +8,7 @@
 
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
-import { Auth, Perfil } from "@/lib/nito-motor";
+import { Auth, Chamados, Perfil } from "@/lib/nito-motor";
 import { SpriteIcones, Icone } from "./NitoIcones";
 import { SinoNotificacoes } from "./SinoNotificacoes";
 import {
@@ -64,11 +64,27 @@ export function AppShell({ perfil, ativa, children, recado }: Props) {
   const admin = ehAdmin(perfil);
   const [menuAberto, setMenuAberto] = useState(false);
   const [recolhida, setRecolhida] = useState(false);
+  const [chamadosPendentes, setChamadosPendentes] = useState(0);
 
   useEffect(() => {
     const salva = window.localStorage.getItem("nito_rail_recolhida");
     if (salva === "1") setRecolhida(true);
   }, []);
+
+  // So o admin ve o numerinho de chamados aguardando no menu, e atualiza
+  // sozinho quando alguem abre um chamado novo, sem precisar recarregar.
+  useEffect(() => {
+    if (!admin) return;
+    let vivo = true;
+    const atualizar = () => {
+      Chamados.contarAguardando()
+        .then((n) => { if (vivo) setChamadosPendentes(n); })
+        .catch(() => {});
+    };
+    atualizar();
+    const parar = Chamados.assinarContagem(atualizar);
+    return () => { vivo = false; parar(); };
+  }, [admin]);
 
   function alternarRecolhida() {
     setRecolhida((v) => {
@@ -123,6 +139,9 @@ export function AppShell({ perfil, ativa, children, recado }: Props) {
               >
                 <Icone nome={a.icone} />
                 <span className="lbl">{a.rotulo}</span>
+                {a.chave === "suporte" && admin && chamadosPendentes > 0 && (
+                  <span className="badge">{chamadosPendentes}</span>
+                )}
               </Link>
             ))}
           </nav>

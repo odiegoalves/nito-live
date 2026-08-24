@@ -83,8 +83,9 @@
 .nito .rail.mini .logo{justify-content:center;padding-left:0;padding-right:0}
 .nito .rail.mini .logo b{display:none}
 .nito .rail.mini .tagchip{display:none}
-.nito .rail.mini .nav a, .nito .rail.mini .nav button{justify-content:center;padding:11px}
-.nito .rail.mini .nav .badge{display:none}
+.nito .rail.mini .nav a, .nito .rail.mini .nav button{justify-content:center;padding:11px;position:relative}
+.nito .rail.mini .nav .badge{position:absolute;top:6px;right:10px;min-width:8px;height:8px;padding:0;
+  font-size:0;border-radius:50%;box-shadow:0 0 0 2px var(--bg2)}
 .nito .rail.mini .player{padding:9px 6px;display:flex;justify-content:center}
 .nito .rail.mini .player .pat{margin-bottom:0}
 .nito .rail.mini .player .bar, .nito .rail.mini .player .xp{display:none}
