@@ -286,7 +286,6 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
   // guardaria uma fotografia do estado de quando foi montada e decidiria com
   // base nela - foi o que fazia a pagina avisar junto com o servidor.
   const ligadoRef = useRef(false);
-  const inscritoRef = useRef(false);
   const { liberar, tocar, rodando, estaRodando } = useSino();
 
   // Aviso de som, em vermelho e em destaque.
@@ -328,7 +327,6 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
   }, []);
 
   useEffect(() => { ligadoRef.current = ligado; }, [ligado]);
-  useEffect(() => { inscritoRef.current = inscrito; }, [inscrito]);
 
   // ---- carga inicial: o que ja vendeu hoje --------------------------------
   useEffect(() => {
@@ -369,6 +367,43 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Mostrar aviso tem dois caminhos, e a ordem importa.
+  //
+  // No iPhone, "new Notification(...)" simplesmente NAO existe dentro de um
+  // app na tela de inicio - la o unico jeito e pedir ao trabalhador de servico
+  // que mostre. Como o iPhone e justamente o aparelho que a maioria usa em
+  // live, o caminho do trabalhador vem primeiro; o outro fica de reserva para
+  // navegador de computador que nao tenha registrado o servico.
+  const mostrarAviso = useCallback(async (titulo: string, corpo: string) => {
+    if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
+    const opcoes = {
+      body: corpo,
+      icon: "/alertas/icone-192.png",
+      badge: "/alertas/icone-192.png",
+      // A mesma etiqueta do servidor: aviso novo substitui o anterior em vez
+      // de empilhar. E "renotify" fica desligado aqui porque a pagina ja tocou
+      // o som e vibrou logo acima - nao precisa alertar duas vezes.
+      tag: "nito-venda",
+    };
+    try {
+      const reg =
+        typeof navigator !== "undefined" && navigator.serviceWorker
+          ? await navigator.serviceWorker.getRegistration()
+          : null;
+      if (reg) {
+        await reg.showNotification(titulo, opcoes);
+        return;
+      }
+    } catch {
+      /* cai para o caminho de reserva */
+    }
+    try {
+      new Notification(titulo, opcoes);
+    } catch {
+      /* navegador recusou: o som e o piscar da tela ainda avisam */
+    }
+  }, []);
+
   const avisar = useCallback(
     (venda: Venda) => {
       setPiscar(true);
@@ -381,25 +416,27 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
       } catch {
         /* aparelho sem vibracao */
       }
-      // Quando este aparelho esta inscrito no push, quem mostra o aviso e o
-      // servidor - se a pagina mostrasse tambem, a pessoa receberia dois avisos
-      // da mesma venda. Aqui a pagina so avisa quando o push nao existe
-      // (computador sem inscricao, navegador sem suporte).
-      try {
-        if (!inscritoRef.current && typeof Notification !== "undefined" && Notification.permission === "granted") {
-          const valor = venda.valor_centavos ? Fmt.brl(venda.valor_centavos) : "venda registrada";
-          new Notification("Venda na sua live", {
-            body: `${valor}${venda.produto ? " — " + venda.produto : ""}`,
-            icon: "/alertas/icone-192.png",
-            badge: "/alertas/icone-192.png",
-            tag: venda.id,
-          });
-        }
-      } catch {
-        /* notificacao bloqueada: som e tela ainda avisam */
-      }
+      // O AVISO NA TELA.
+      //
+      // Antes, a pagina so avisava quando o aparelho NAO estava inscrito no
+      // push: a ideia era que, estando inscrito, quem avisaria seria o
+      // servidor, e mostrar dos dois lados daria aviso dobrado.
+      //
+      // O problema dessa divisao e que ela aposta que o push nunca falha. No
+      // dia em que ele falha - servico fora do ar, inscricao vencida, aparelho
+      // sem rede - a pagina fica calada esperando um aviso que nao vem, e a
+      // venda passa em silencio. Foi exatamente o que aconteceu numa live.
+      //
+      // Agora a pagina SEMPRE avisa. O aviso dobrado, que era o medo original,
+      // se resolve pela etiqueta: usando a MESMA etiqueta do servidor
+      // ("nito-venda"), o navegador substitui o aviso em vez de empilhar - os
+      // dois lados podem falar que so aparece um. Trocar silencio por um
+      // eventual aviso repetido e um negocio bom.
+      const valor = venda.valor_centavos ? Fmt.brl(venda.valor_centavos) : "venda registrada";
+      const corpo = `${valor}${venda.produto ? " — " + venda.produto : ""}`;
+      mostrarAviso("Venda na sua live", corpo);
     },
-    [tocar, estaRodando]
+    [tocar, estaRodando, mostrarAviso]
   );
 
   // ---- inscrever o aparelho para receber com o app fechado ----------------
