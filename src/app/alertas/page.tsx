@@ -381,19 +381,45 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
       } catch {
         /* aparelho sem vibracao */
       }
-      // Quando este aparelho esta inscrito no push, quem mostra o aviso e o
-      // servidor - se a pagina mostrasse tambem, a pessoa receberia dois avisos
-      // da mesma venda. Aqui a pagina so avisa quando o push nao existe
-      // (computador sem inscricao, navegador sem suporte).
+      // O AVISO NA TELA.
+      //
+      // Antes a pagina so avisava quando o aparelho NAO estava inscrito no
+      // push: estando inscrito, quem avisaria seria o servidor, e mostrar dos
+      // dois lados daria aviso dobrado. A divisao so funciona enquanto o push
+      // funciona - no dia em que ele falhou, a pagina ficou calada esperando um
+      // aviso que nao veio e a venda passou em silencio, no meio de uma live.
+      //
+      // Agora a pagina sempre avisa, e o aviso dobrado se resolve pela
+      // etiqueta: com a MESMA etiqueta que o servidor usa ("nito-venda"), o
+      // navegador substitui o aviso em vez de empilhar. Os dois podem falar
+      // que so aparece um.
+      //
+      // E o aviso sai pelo trabalhador de servico, nao por "new Notification":
+      // dentro de um app na Tela de Inicio do iPhone o segundo simplesmente
+      // nao existe, entao o caminho antigo nunca funcionou no aparelho que
+      // mais importa aqui.
       try {
-        if (!inscritoRef.current && typeof Notification !== "undefined" && Notification.permission === "granted") {
+        if (typeof Notification !== "undefined" && Notification.permission === "granted") {
           const valor = venda.valor_centavos ? Fmt.brl(venda.valor_centavos) : "venda registrada";
-          new Notification("Venda na sua live", {
+          const opcoes = {
             body: `${valor}${venda.produto ? " — " + venda.produto : ""}`,
             icon: "/alertas/icone-192.png",
             badge: "/alertas/icone-192.png",
-            tag: venda.id,
-          });
+            tag: "nito-venda",
+          };
+          if (typeof navigator !== "undefined" && navigator.serviceWorker) {
+            navigator.serviceWorker
+              .getRegistration()
+              .then((reg) => {
+                if (reg) return reg.showNotification("Venda na sua live", opcoes);
+                new Notification("Venda na sua live", opcoes);
+              })
+              .catch(() => {
+                /* aviso e extra: som e piscar da tela ja avisaram */
+              });
+          } else {
+            new Notification("Venda na sua live", opcoes);
+          }
         }
       } catch {
         /* notificacao bloqueada: som e tela ainda avisam */
