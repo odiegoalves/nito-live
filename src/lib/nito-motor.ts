@@ -100,6 +100,7 @@ export interface Post {
   titulo?: string;
   conteudo: string;
   imagem_url?: string;
+  midia_tipo?: "imagem" | "audio" | null;
   tipo: TipoPost;
   situacao?: "aberta" | "em_analise" | "aceita" | "recusada";
   enquete?: Enquete | null;
@@ -167,7 +168,7 @@ export interface MensagemChat {
   autor_id?: string;
   conteudo: string | null;
   midia_url?: string | null;
-  midia_tipo?: "imagem" | "video" | null;
+  midia_tipo?: "imagem" | "video" | "audio" | null;
   midia_nome?: string | null;
   mencoes?: string[];
   criado_em: string;
@@ -354,7 +355,7 @@ export const Auth = {
 // FEED DA COMUNIDADE — posts, curtidas, comentarios
 // ---------------------------------------------------------------------------
 const SELECT_POST = `
-  id, autor_id, titulo, conteudo, imagem_url, tipo, fixado,
+  id, autor_id, titulo, conteudo, imagem_url, midia_tipo, tipo, fixado,
   curtidas_count, comentarios_count, criado_em,
   autor:perfis!posts_autor_id_fkey ( id, nome, username, avatar_url, nivel, papel )
 `;
@@ -378,12 +379,15 @@ export const Feed = {
     titulo = null,
     conteudo,
     imagemFile = null,
+    audioFile = null,
     tipo = "insight",
     fixado = false,
   }: {
     titulo?: string | null;
     conteudo: string;
     imagemFile?: File | null;
+    /** Áudio gravado ou anexado — hoje só liberado no comunicado (Importante). */
+    audioFile?: File | null;
     tipo?: TipoPost;
     fixado?: boolean;
   }): Promise<Post> {
@@ -393,13 +397,18 @@ export const Feed = {
     if (!user) throw new Error("Precisa estar logado.");
 
     let imagem_url: string | null = null;
+    let midia_tipo: "imagem" | "audio" | null = null;
     if (imagemFile) {
       imagem_url = await Storage.enviar("prints", imagemFile);
+      midia_tipo = "imagem";
+    } else if (audioFile) {
+      imagem_url = await Storage.enviar("midias", audioFile);
+      midia_tipo = "audio";
     }
 
     const { data, error } = await sb
       .from("posts")
-      .insert({ autor_id: user.id, titulo, conteudo, imagem_url, tipo, fixado })
+      .insert({ autor_id: user.id, titulo, conteudo, imagem_url, midia_tipo, tipo, fixado })
       .select(SELECT_POST)
       .single();
     if (error) throw error;
@@ -672,13 +681,13 @@ export const Chat = {
 
     const texto = (conteudo ?? "").trim();
     let midia_url: string | null = null;
-    let midia_tipo: "imagem" | "video" | null = null;
+    let midia_tipo: "imagem" | "video" | "audio" | null = null;
     let midia_nome: string | null = null;
 
     if (extras.midiaFile) {
       const f = extras.midiaFile;
       midia_url = await Storage.enviar("midias", f);
-      midia_tipo = f.type.startsWith("video") ? "video" : "imagem";
+      midia_tipo = f.type.startsWith("video") ? "video" : f.type.startsWith("audio") ? "audio" : "imagem";
       midia_nome = f.name;
     }
 

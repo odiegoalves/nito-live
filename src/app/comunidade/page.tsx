@@ -231,6 +231,7 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
                 exigeFoto={sub === "resultado"}
                 permiteEnquete={sub === "melhoria"}
                 permiteFixar={admin}
+                permiteAudio={sub === "importante"}
                 placeholder={t.placeholder}
                 rotuloBotao={t.botao}
                 onPublicado={aoPublicar}

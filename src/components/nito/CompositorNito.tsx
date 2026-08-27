@@ -10,6 +10,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Feed, Enquetes, TipoPost, Post, comoErro } from "@/lib/nito-motor";
 import { Avatar } from "./Avatar";
+import { Icone } from "./NitoIcones";
 
 interface Props {
   tipo: TipoPost;
@@ -19,6 +20,8 @@ interface Props {
   exigeFoto?: boolean;
   permiteEnquete?: boolean;
   permiteFixar?: boolean;
+  /** grava e anexa um áudio ao comunicado — hoje só liberado pra quem pode publicar em Importante */
+  permiteAudio?: boolean;
   placeholder: string;
   rotuloBotao: string;
   onPublicado: (post: Post) => void;
@@ -31,6 +34,7 @@ export function CompositorNito({
   exigeFoto = false,
   permiteEnquete = false,
   permiteFixar = false,
+  permiteAudio = false,
   placeholder,
   rotuloBotao,
   onPublicado,
@@ -38,6 +42,13 @@ export function CompositorNito({
   const [texto, setTexto] = useState("");
   const [arquivo, setArquivo] = useState<File | null>(null);
   const [previa, setPrevia] = useState<string | null>(null);
+  const [audio, setAudio] = useState<File | null>(null);
+  const [gravando, setGravando] = useState(false);
+  const [segundosGravando, setSegundosGravando] = useState(0);
+  const gravadorRef = useRef<MediaRecorder | null>(null);
+  const pedacosRef = useRef<Blob[]>([]);
+  const trilhaRef = useRef<MediaStream | null>(null);
+  const cronometroRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [comEnquete, setComEnquete] = useState(true);
   // Opcoes da enquete. Vazio = enquete Sim/Nao, como sempre foi. Com duas ou
   // mais preenchidas, vira votacao em caixas.
@@ -47,6 +58,54 @@ export function CompositorNito({
   const [erro, setErro] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const textoRef = useRef<HTMLTextAreaElement>(null);
+
+  async function iniciarGravacao() {
+    if (gravando) return;
+    setErro(null);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      trilhaRef.current = stream;
+      pedacosRef.current = [];
+
+      const mtipo = MediaRecorder.isTypeSupported("audio/webm") ? "audio/webm" : "";
+      const gravador = mtipo ? new MediaRecorder(stream, { mimeType: mtipo }) : new MediaRecorder(stream);
+      gravadorRef.current = gravador;
+
+      gravador.ondataavailable = (e) => {
+        if (e.data.size > 0) pedacosRef.current.push(e.data);
+      };
+      gravador.onstop = () => {
+        const blob = new Blob(pedacosRef.current, { type: gravador.mimeType || "audio/webm" });
+        const ext = (gravador.mimeType || "audio/webm").includes("mp4") ? "m4a" : "webm";
+        setAudio(new File([blob], `audio-${Date.now()}.${ext}`, { type: blob.type }));
+        trilhaRef.current?.getTracks().forEach((t) => t.stop());
+        trilhaRef.current = null;
+      };
+
+      gravador.start();
+      setGravando(true);
+      setSegundosGravando(0);
+      cronometroRef.current = setInterval(() => setSegundosGravando((s) => s + 1), 1000);
+    } catch {
+      setErro("Não consegui acessar o microfone. Verifique a permissão do navegador.");
+    }
+  }
+
+  function pararGravacao() {
+    gravadorRef.current?.stop();
+    setGravando(false);
+    if (cronometroRef.current) {
+      clearInterval(cronometroRef.current);
+      cronometroRef.current = null;
+    }
+  }
+
+  useEffect(() => {
+    return () => {
+      if (cronometroRef.current) clearInterval(cronometroRef.current);
+      trilhaRef.current?.getTracks().forEach((t) => t.stop());
+    };
+  }, []);
 
   // A caixa cresce conforme a pessoa escreve, ate um teto. Sem isto ela fica
   // com duas linhas fixas e quem escreve um comunicado longo enxerga o texto
@@ -91,6 +150,7 @@ export function CompositorNito({
       const post = await Feed.criar({
         conteudo: texto.trim(),
         imagemFile: arquivo,
+        audioFile: audio,
         tipo,
         fixado: permiteFixar && fixar,
       });
@@ -104,6 +164,7 @@ export function CompositorNito({
       setTexto("");
       setArquivo(null);
       setPrevia(null);
+      setAudio(null);
       setFixar(false);
       setOpcoes(["", ""]);
       onPublicado(post);
@@ -196,6 +257,47 @@ export function CompositorNito({
             >
               📷 Adicionar foto
             </button>
+          )}
+
+          {permiteAudio && !gravando && !audio && (
+            <button
+              className="btn g"
+              style={{ marginTop: 11, marginLeft: 8, padding: "9px 14px", fontSize: ".68rem" }}
+              onClick={iniciarGravacao}
+              type="button"
+            >
+              <Icone nome="mic" tam={13} /> Gravar áudio
+            </button>
+          )}
+
+          {permiteAudio && gravando && (
+            <div
+              className="row"
+              style={{ marginTop: 11, alignItems: "center", gap: 8, padding: "9px 14px", borderRadius: 10, background: "rgba(255,45,85,.12)", border: "1px solid rgba(255,45,85,.3)" }}
+            >
+              <span style={{ width: 9, height: 9, borderRadius: "50%", background: "#ff2d55", flexShrink: 0 }} />
+              <span className="muted tiny" style={{ flex: 1 }}>
+                Gravando… {String(Math.floor(segundosGravando / 60)).padStart(2, "0")}:
+                {String(segundosGravando % 60).padStart(2, "0")}
+              </span>
+              <button type="button" className="btn g" style={{ padding: "6px 12px", fontSize: ".64rem" }} onClick={pararGravacao}>
+                <Icone nome="stop" tam={12} /> Parar
+              </button>
+            </div>
+          )}
+
+          {permiteAudio && !gravando && audio && (
+            <div className="row" style={{ marginTop: 11, alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+              <audio controls src={URL.createObjectURL(audio)} style={{ height: 32, maxWidth: 260 }} />
+              <button
+                type="button"
+                className="btn g"
+                style={{ padding: "6px 12px", fontSize: ".64rem" }}
+                onClick={() => setAudio(null)}
+              >
+                Remover
+              </button>
+            </div>
           )}
 
           <textarea

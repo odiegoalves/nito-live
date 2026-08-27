@@ -253,7 +253,11 @@ export function PostNito({
         </div>
       </div>
 
-      {post.imagem_url && (
+      {post.imagem_url && post.midia_tipo === "audio" && (
+        <audio controls src={post.imagem_url} style={{ width: "100%", marginBottom: 13, display: "block" }} />
+      )}
+
+      {post.imagem_url && post.midia_tipo !== "audio" && (
         <div style={{ position: "relative", marginBottom: 13 }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
@@ -292,7 +296,7 @@ export function PostNito({
         </div>
       )}
 
-      {post.imagem_url && ampliada && (
+      {post.imagem_url && post.midia_tipo !== "audio" && ampliada && (
         <div
           onClick={() => setAmpliada(false)}
           style={{

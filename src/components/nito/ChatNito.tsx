@@ -132,6 +132,61 @@ export function ChatNito({ perfil }: { perfil: Perfil }) {
   const inputArquivo = useRef<HTMLInputElement>(null);
   const vistosRef = useRef<Set<string>>(new Set());
 
+  const [gravando, setGravando] = useState(false);
+  const [segundosGravando, setSegundosGravando] = useState(0);
+  const gravadorRef = useRef<MediaRecorder | null>(null);
+  const pedacosRef = useRef<Blob[]>([]);
+  const trilhaRef = useRef<MediaStream | null>(null);
+  const cronometroRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  async function iniciarGravacao() {
+    if (gravando) return;
+    setErro(null);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      trilhaRef.current = stream;
+      pedacosRef.current = [];
+
+      const mtipo = MediaRecorder.isTypeSupported("audio/webm") ? "audio/webm" : "";
+      const gravador = mtipo ? new MediaRecorder(stream, { mimeType: mtipo }) : new MediaRecorder(stream);
+      gravadorRef.current = gravador;
+
+      gravador.ondataavailable = (e) => {
+        if (e.data.size > 0) pedacosRef.current.push(e.data);
+      };
+      gravador.onstop = () => {
+        const blob = new Blob(pedacosRef.current, { type: gravador.mimeType || "audio/webm" });
+        const ext = (gravador.mimeType || "audio/webm").includes("mp4") ? "m4a" : "webm";
+        setArquivo(new File([blob], `audio-${Date.now()}.${ext}`, { type: blob.type }));
+        trilhaRef.current?.getTracks().forEach((t) => t.stop());
+        trilhaRef.current = null;
+      };
+
+      gravador.start();
+      setGravando(true);
+      setSegundosGravando(0);
+      cronometroRef.current = setInterval(() => setSegundosGravando((s) => s + 1), 1000);
+    } catch {
+      setErro("Não consegui acessar o microfone. Verifique a permissão do navegador.");
+    }
+  }
+
+  function pararGravacao() {
+    gravadorRef.current?.stop();
+    setGravando(false);
+    if (cronometroRef.current) {
+      clearInterval(cronometroRef.current);
+      cronometroRef.current = null;
+    }
+  }
+
+  useEffect(() => {
+    return () => {
+      if (cronometroRef.current) clearInterval(cronometroRef.current);
+      trilhaRef.current?.getTracks().forEach((t) => t.stop());
+    };
+  }, []);
+
   // Som: ligado por padrao, e a escolha fica guardada neste aparelho.
   const { tocar } = useSomChat();
   const [mudo, setMudo] = useState(false);
@@ -196,9 +251,9 @@ export function ChatNito({ perfil }: { perfil: Perfil }) {
 
   function escolher(f: File | null) {
     if (!f) return;
-    const ehMidia = f.type.startsWith("image/") || f.type.startsWith("video/");
+    const ehMidia = f.type.startsWith("image/") || f.type.startsWith("video/") || f.type.startsWith("audio/");
     if (!ehMidia) {
-      setErro("Aqui vai foto ou vídeo.");
+      setErro("Aqui vai foto, vídeo ou áudio.");
       return;
     }
     if (f.size > 25 * 1024 * 1024) {
@@ -294,6 +349,9 @@ export function ChatNito({ perfil }: { perfil: Perfil }) {
                     style={{ width: "100%", borderRadius: 9, margin: "7px 0", display: "block" }}
                   />
                 )}
+                {m.midia_url && m.midia_tipo === "audio" && (
+                  <audio src={m.midia_url} controls style={{ margin: "7px 0", display: "block", maxWidth: "100%" }} />
+                )}
                 {m.conteudo && (
                   <p style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
                     {comMencoes(m.conteudo)}
@@ -307,15 +365,33 @@ export function ChatNito({ perfil }: { perfil: Perfil }) {
         <div ref={fimRef} />
       </div>
 
-      {(arquivo || erro) && (
+      {gravando && (
+        <div className="pad" style={{ paddingTop: 10, paddingBottom: 0 }}>
+          <div className="row" style={{ alignItems: "center", gap: 8, padding: "9px 14px", borderRadius: 10, background: "rgba(255,45,85,.12)", border: "1px solid rgba(255,45,85,.3)" }}>
+            <span style={{ width: 9, height: 9, borderRadius: "50%", background: "#ff2d55", flexShrink: 0 }} />
+            <span className="muted tiny" style={{ flex: 1 }}>
+              Gravando áudio… {String(Math.floor(segundosGravando / 60)).padStart(2, "0")}:
+              {String(segundosGravando % 60).padStart(2, "0")}
+            </span>
+            <button type="button" className="btn g" style={{ padding: "6px 12px", fontSize: ".64rem" }} onClick={pararGravacao}>
+              <Icone nome="stop" tam={12} /> Parar
+            </button>
+          </div>
+        </div>
+      )}
+
+      {!gravando && (arquivo || erro) && (
         <div className="pad" style={{ paddingTop: 10, paddingBottom: 0 }}>
           {arquivo && (
             <div className="anexo" style={{ margin: 0 }}>
-              <div className="ph">{arquivo.type.startsWith("video") ? "▶" : "🖼"}</div>
+              <div className="ph">{arquivo.type.startsWith("video") ? "▶" : arquivo.type.startsWith("audio") ? "🎙" : "🖼"}</div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <b>{arquivo.name}</b>
                 <span>{Math.round(arquivo.size / 1024)} KB</span>
               </div>
+              {arquivo.type.startsWith("audio/") && (
+                <audio controls src={URL.createObjectURL(arquivo)} style={{ height: 32, maxWidth: 180 }} />
+              )}
               <button
                 className="btn g"
                 style={{ padding: "6px 10px", fontSize: ".62rem" }}
@@ -336,7 +412,7 @@ export function ChatNito({ perfil }: { perfil: Perfil }) {
         <input
           ref={inputArquivo}
           type="file"
-          accept="image/*,video/*"
+          accept="image/*,video/*,audio/*"
           hidden
           onChange={(e) => escolher(e.target.files?.[0] ?? null)}
         />
@@ -344,9 +420,19 @@ export function ChatNito({ perfil }: { perfil: Perfil }) {
           className="anx"
           title="Enviar foto ou vídeo"
           onClick={() => inputArquivo.current?.click()}
+          disabled={gravando}
           type="button"
         >
           📎
+        </button>
+        <button
+          className="anx"
+          title={gravando ? "Parar gravação" : "Gravar áudio"}
+          onClick={gravando ? pararGravacao : iniciarGravacao}
+          type="button"
+          style={gravando ? { background: "#ff2d55", color: "#fff" } : undefined}
+        >
+          <Icone nome={gravando ? "stop" : "mic"} tam={15} />
         </button>
         <input
           placeholder="Mensagem…  use @ para mencionar alguém"
@@ -359,7 +445,7 @@ export function ChatNito({ perfil }: { perfil: Perfil }) {
             }
           }}
         />
-        <button className="env" onClick={enviar} disabled={enviando} type="button" aria-label="Enviar">
+        <button className="env" onClick={enviar} disabled={enviando || gravando} type="button" aria-label="Enviar">
           <Icone nome="send" tam={16} />
         </button>
       </div>
