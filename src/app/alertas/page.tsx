@@ -90,12 +90,6 @@ function guardarAtivado() {
   }
 }
 
-function hojeInicio() {
-  const d = new Date();
-  d.setHours(0, 0, 0, 0);
-  return d.getTime();
-}
-
 /**
  * Toca o som de caixa registradora.
  *
@@ -266,7 +260,19 @@ function disparar(ctx: AudioContext, buffer: AudioBuffer) {
   }
 }
 
+// Mesmo filtro de período de /vendas e /início, pro operador conseguir olhar
+// "quanto vendi essa semana" sem sair do app de alertas.
+const PERIODOS = [
+  { chave: "dia", rotulo: "Dia", dias: 1 },
+  { chave: "semana", rotulo: "Semana", dias: 7 },
+  { chave: "mes", rotulo: "Mês", dias: 30 },
+  { chave: "ano", rotulo: "Ano", dias: 365 },
+] as const;
+
+type ChavePeriodo = (typeof PERIODOS)[number]["chave"];
+
 function Conteudo({ perfil }: { perfil: Perfil }) {
+  const [periodo, setPeriodo] = useState<ChavePeriodo>("dia");
   const [vendas, setVendas] = useState<Venda[]>([]);
   const [ligado, setLigado] = useState(false);
   const [conectado, setConectado] = useState(false);
@@ -282,6 +288,11 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
   const [avisoPush, setAvisoPush] = useState<string | null>(null);
   const [somLiberado, setSomLiberado] = useState(false);
   const vistos = useRef<Set<string>>(new Set());
+  // IDs de venda que já dispararam som/notificação. Separado de "vistos"
+  // porque "vistos" só controla o que já entrou na LISTA da tela — e uma
+  // venda pode entrar na lista via evento UPDATE (por exemplo, se o registro
+  // nasce "pendente" e é confirmado depois) sem nunca ter avisado ninguém.
+  const avisados = useRef<Set<string>>(new Set());
   // Espelhos do estado. A escuta de vendas e montada uma vez so; sem eles ela
   // guardaria uma fotografia do estado de quando foi montada e decidiria com
   // base nela - foi o que fazia a pagina avisar junto com o servidor.
@@ -330,10 +341,11 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
   useEffect(() => { ligadoRef.current = ligado; }, [ligado]);
   useEffect(() => { inscritoRef.current = inscrito; }, [inscrito]);
 
-  // ---- carga inicial: o que ja vendeu hoje --------------------------------
+  // ---- carga inicial: o que ja vendeu no periodo escolhido ----------------
+  const diasPeriodo = PERIODOS.find((p) => p.chave === periodo)!.dias;
   useEffect(() => {
     let vivo = true;
-    Vendas.listar({ dias: 1, limite: 100 })
+    Vendas.listar({ dias: diasPeriodo, limite: 200 })
       .then((lista) => {
         if (!vivo) return;
         lista.forEach((v) => vistos.current.add(v.id));
@@ -345,21 +357,32 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
     return () => {
       vivo = false;
     };
-  }, []);
+  }, [diasPeriodo]);
 
   // ---- tempo real ---------------------------------------------------------
   useEffect(() => {
-    const parar = Vendas.assinar((venda, tipo) => {
+    const parar = Vendas.assinar((venda) => {
       setConectado(true);
       if (!venda || !venda.id) return;
-      if (tipo !== "INSERT") {
+
+      // Atualiza a lista da tela sempre — venda nova entra, venda que já
+      // existia (troca de status, por exemplo) atualiza no lugar.
+      if (!vistos.current.has(venda.id)) {
+        vistos.current.add(venda.id);
+        setVendas((atual) => [venda, ...atual].slice(0, 100));
+      } else {
         setVendas((atual) => atual.map((v) => (v.id === venda.id ? venda : v)));
-        return;
       }
-      if (vistos.current.has(venda.id)) return;
-      vistos.current.add(venda.id);
-      setVendas((atual) => [venda, ...atual].slice(0, 100));
-      avisar(venda);
+
+      // O aviso (som + notificação) dispara na PRIMEIRA vez que esta venda
+      // aparece pra este aparelho — não importa se chegou como INSERT ou
+      // UPDATE. Antes só disparava em INSERT: se o registro da venda nasce
+      // "pendente" e é confirmado depois (UPDATE), o cliente via a venda na
+      // lista mas nunca ouvia o som nem via o popup. Venda cancelada não avisa.
+      if (!avisados.current.has(venda.id) && venda.status !== "cancelado") {
+        avisados.current.add(venda.id);
+        avisar(venda);
+      }
     });
     const t = setTimeout(() => setConectado(true), 2500);
     return () => {
@@ -617,9 +640,9 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
     }
   }, [instalavel]);
 
-  // ---- numeros do dia ------------------------------------------------------
-  const inicio = hojeInicio();
-  const doDia = vendas.filter((v) => new Date(v.ocorrido_em).getTime() >= inicio && v.status !== "cancelado");
+  // ---- numeros do periodo escolhido ----------------------------------------
+  // Antes era sempre "hoje"; agora segue o filtro de período (dia/semana/mês/ano).
+  const doDia = vendas.filter((v) => v.status !== "cancelado");
   const totalDia = doDia.reduce((s, v) => s + (v.valor_centavos || 0), 0);
   const primeiroNome = (perfil.nome || perfil.username || "").trim().split(/\s+/)[0];
 
@@ -748,9 +771,36 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
         </div>
       )}
 
+      <div style={{ display: "flex", gap: 4, padding: 4, borderRadius: 11, background: "rgba(0,0,0,.35)", border: `1px solid ${COR.linha}` }}>
+        {PERIODOS.map((p) => (
+          <button
+            key={p.chave}
+            type="button"
+            onClick={() => setPeriodo(p.chave)}
+            style={{
+              flex: 1,
+              padding: "8px 6px",
+              borderRadius: 8,
+              border: 0,
+              background: periodo === p.chave ? COR.verde : "transparent",
+              color: periodo === p.chave ? "#052e20" : COR.fraco,
+              fontSize: 11.5,
+              fontWeight: 800,
+              letterSpacing: ".02em",
+              textTransform: "uppercase",
+              cursor: "pointer",
+            }}
+          >
+            {p.rotulo}
+          </button>
+        ))}
+      </div>
+
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
         <div style={{ background: COR.cartao, border: `1px solid ${COR.linha}`, borderRadius: 14, padding: "14px 15px" }}>
-          <div style={{ fontSize: 10.5, letterSpacing: ".1em", textTransform: "uppercase", color: COR.fraco, fontWeight: 700 }}>Hoje</div>
+          <div style={{ fontSize: 10.5, letterSpacing: ".1em", textTransform: "uppercase", color: COR.fraco, fontWeight: 700 }}>
+            {PERIODOS.find((p) => p.chave === periodo)!.rotulo}
+          </div>
           <div style={{ fontSize: 27, fontWeight: 800, color: COR.verde, marginTop: 4, fontVariantNumeric: "tabular-nums" }}>
             {Fmt.brl(totalDia)}
           </div>

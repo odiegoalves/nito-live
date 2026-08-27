@@ -21,15 +21,30 @@ interface Resumo {
 
 const VAZIO: Resumo = { faturamento_centavos: 0, pedidos_aprovados: 0, ticket_medio_centavos: 0 };
 
+// Mesmo filtro de período usado em /vendas, para a pessoa não precisar
+// aprender dois jeitos diferentes de olhar o mesmo número.
+const PERIODOS = [
+  { chave: "dia", rotulo: "Dia", dias: 1 },
+  { chave: "semana", rotulo: "Semana", dias: 7 },
+  { chave: "mes", rotulo: "Mês", dias: 30 },
+  { chave: "ano", rotulo: "Ano", dias: 365 },
+] as const;
+
+type Chave = (typeof PERIODOS)[number]["chave"];
+
 function Conteudo({ perfil }: { perfil: Perfil }) {
+  const [periodo, setPeriodo] = useState<Chave>("mes");
   const [resumo, setResumo] = useState<Resumo>(VAZIO);
   const [carregando, setCarregando] = useState(true);
 
+  const dias = PERIODOS.find((p) => p.chave === periodo)!.dias;
+
   useEffect(() => {
     let vivo = true;
+    setCarregando(true);
 
     const buscar = () =>
-      Vendas.resumo(30)
+      Vendas.resumo(dias)
         .then((r) => {
           if (vivo) {
             setResumo(r);
@@ -44,7 +59,7 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
       vivo = false;
       parar();
     };
-  }, []);
+  }, [dias]);
 
   const dias = diasRestantes(perfil.assinatura_expira_em);
   const venceEm = perfil.assinatura_expira_em
@@ -71,9 +86,24 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
           <img className="robo-hero" src="/nito-robo.webp" alt="" />
         </div>
 
+        <div className="periodo" style={{ margin: "18px 0 4px" }}>
+          {PERIODOS.map((p) => (
+            <button
+              key={p.chave}
+              className={periodo === p.chave ? "on" : ""}
+              onClick={() => setPeriodo(p.chave)}
+              type="button"
+            >
+              {p.rotulo}
+            </button>
+          ))}
+        </div>
+
         <div className="cards">
           <div className="panel kpi money">
-            <div className="lab">💰 Faturamento · 30 dias</div>
+            <div className="lab">
+              💰 Faturamento · {PERIODOS.find((p) => p.chave === periodo)!.rotulo.toLowerCase()}
+            </div>
             <div className="val">
               {carregando ? "—" : Fmt.brl(resumo.faturamento_centavos)}
             </div>
