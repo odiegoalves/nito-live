@@ -82,6 +82,13 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
   const anexoRef = useRef<HTMLInputElement>(null);
   const [nomeDono, setNomeDono] = useState<string | null>(null);
 
+  const [gravando, setGravando] = useState(false);
+  const [segundosGravando, setSegundosGravando] = useState(0);
+  const gravadorRef = useRef<MediaRecorder | null>(null);
+  const pedacosRef = useRef<Blob[]>([]);
+  const trilhaRef = useRef<MediaStream | null>(null);
+  const cronometroRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
   const carregar = useCallback(async () => {
     setCarregando(true);
     try {
@@ -177,6 +184,58 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
     setErro(null);
     setAnexo(f);
   }
+
+  // Grava um áudio direto do microfone e deixa pronto pra enviar, do mesmo
+  // jeito que um arquivo anexado — sem precisar sair da tela pra gravar em
+  // outro app e depois anexar.
+  async function iniciarGravacao() {
+    if (gravando) return;
+    setErro(null);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      trilhaRef.current = stream;
+      pedacosRef.current = [];
+
+      const tipo = MediaRecorder.isTypeSupported("audio/webm") ? "audio/webm" : "";
+      const gravador = tipo ? new MediaRecorder(stream, { mimeType: tipo }) : new MediaRecorder(stream);
+      gravadorRef.current = gravador;
+
+      gravador.ondataavailable = (e) => {
+        if (e.data.size > 0) pedacosRef.current.push(e.data);
+      };
+      gravador.onstop = () => {
+        const blob = new Blob(pedacosRef.current, { type: gravador.mimeType || "audio/webm" });
+        const ext = (gravador.mimeType || "audio/webm").includes("mp4") ? "m4a" : "webm";
+        const arquivo = new File([blob], `audio-${Date.now()}.${ext}`, { type: blob.type });
+        setAnexo(arquivo);
+        trilhaRef.current?.getTracks().forEach((t) => t.stop());
+        trilhaRef.current = null;
+      };
+
+      gravador.start();
+      setGravando(true);
+      setSegundosGravando(0);
+      cronometroRef.current = setInterval(() => setSegundosGravando((s) => s + 1), 1000);
+    } catch {
+      setErro("Não consegui acessar o microfone. Verifique a permissão do navegador.");
+    }
+  }
+
+  function pararGravacao() {
+    gravadorRef.current?.stop();
+    setGravando(false);
+    if (cronometroRef.current) {
+      clearInterval(cronometroRef.current);
+      cronometroRef.current = null;
+    }
+  }
+
+  useEffect(() => {
+    return () => {
+      if (cronometroRef.current) clearInterval(cronometroRef.current);
+      trilhaRef.current?.getTracks().forEach((t) => t.stop());
+    };
+  }, []);
 
   async function encerrar() {
     if (!aberto || ocupado) return;
@@ -333,12 +392,29 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
 
               {aberto.situacao !== "resolvido" ? (
                 <>
-                  {anexo && (
+                  {gravando && (
                     <div className="pad" style={{ paddingTop: 10, paddingBottom: 10, borderTop: "1px solid var(--line)",
                                                   display: "flex", alignItems: "center", gap: 8 }}>
+                      <span style={{ width: 9, height: 9, borderRadius: "50%", background: "#ff2d55", flexShrink: 0 }} />
+                      <span className="muted tiny" style={{ flex: 1 }}>
+                        Gravando áudio… {String(Math.floor(segundosGravando / 60)).padStart(2, "0")}:
+                        {String(segundosGravando % 60).padStart(2, "0")}
+                      </span>
+                      <button type="button" className="btn wa" style={{ padding: "4px 10px", fontSize: ".65rem" }} onClick={pararGravacao}>
+                        Parar
+                      </button>
+                    </div>
+                  )}
+
+                  {!gravando && anexo && (
+                    <div className="pad" style={{ paddingTop: 10, paddingBottom: 10, borderTop: "1px solid var(--line)",
+                                                  display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                       <span className="muted tiny" style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                         📎 {anexo.name}
                       </span>
+                      {anexo.type.startsWith("audio/") && (
+                        <audio controls src={URL.createObjectURL(anexo)} style={{ height: 32, maxWidth: 220 }} />
+                      )}
                       <button
                         type="button"
                         className="btn wa"
@@ -363,12 +439,23 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
                     <button
                       className="env"
                       onClick={() => anexoRef.current?.click()}
-                      disabled={ocupado}
+                      disabled={ocupado || gravando}
                       type="button"
                       aria-label="Anexar imagem, vídeo ou áudio"
                       title="Anexar imagem, vídeo ou áudio"
                     >
                       <Icone nome="clip" tam={16} />
+                    </button>
+                    <button
+                      className="env"
+                      onClick={gravando ? pararGravacao : iniciarGravacao}
+                      disabled={ocupado}
+                      type="button"
+                      aria-label={gravando ? "Parar gravação" : "Gravar áudio"}
+                      title={gravando ? "Parar gravação" : "Gravar áudio"}
+                      style={gravando ? { background: "#ff2d55", color: "#fff" } : undefined}
+                    >
+                      <Icone nome={gravando ? "stop" : "mic"} tam={16} />
                     </button>
                     <input
                       placeholder={admin ? "Responder ao membro…" : "Responder ao suporte…"}
@@ -376,7 +463,7 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
                       onChange={(e) => setResposta(e.target.value)}
                       onKeyDown={(e) => e.key === "Enter" && responder()}
                     />
-                    <button className="env" onClick={responder} disabled={ocupado} type="button" aria-label="Enviar">
+                    <button className="env" onClick={responder} disabled={ocupado || gravando} type="button" aria-label="Enviar">
                       {enviandoAnexo ? "…" : <Icone nome="send" tam={16} />}
                     </button>
                   </div>

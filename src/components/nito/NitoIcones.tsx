@@ -37,6 +37,8 @@ export function SpriteIcones() {
         <symbol id="ic-onda" viewBox="0 0 24 24" {...TRACO}><path d="M2 12h2.5l2-6 3 12 2.5-9 2 6h3l2-6 2.5 3" /></symbol>
         <symbol id="ic-bell" viewBox="0 0 24 24" {...TRACO}><path d="M6 10.5a6 6 0 0 1 12 0c0 4 1.4 5.5 2 6.5H4c.6-1 2-2.5 2-6.5z" /><path d="M9.7 20a2.3 2.3 0 0 0 4.6 0" /></symbol>
         <symbol id="ic-clip" viewBox="0 0 24 24" {...TRACO}><path d="M8 12.5 15 5.5a3.4 3.4 0 0 1 4.8 4.8L11 19a5.2 5.2 0 0 1-7.4-7.4L12.5 3" /></symbol>
+        <symbol id="ic-mic" viewBox="0 0 24 24" {...TRACO}><rect x="9" y="2.5" width="6" height="11" rx="3" /><path d="M5.5 11a6.5 6.5 0 0 0 13 0" /><path d="M12 17.5V21M8.5 21h7" /></symbol>
+        <symbol id="ic-stop" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2.5" /></symbol>
       </defs>
     </svg>
   );
