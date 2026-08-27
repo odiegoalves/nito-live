@@ -10,7 +10,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { AuthGuard } from "@/components/AuthGuard";
 import { AppShell, ehAdmin } from "@/components/nito/AppShell";
 import { Icone } from "@/components/nito/NitoIcones";
-import { Chamados, Chamado, ChamadoMensagem, Perfil, Fmt, comoErro } from "@/lib/nito-motor";
+import { Chamados, Chamado, ChamadoMensagem, Perfil, Fmt, comoErro, nomesDe } from "@/lib/nito-motor";
 
 const ROTULO: Record<Chamado["situacao"], { pill: string; texto: string }> = {
   aguardando: { pill: "wait", texto: "Aguardando" },
@@ -80,6 +80,7 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
   const [erro, setErro] = useState<string | null>(null);
   const fimRef = useRef<HTMLDivElement>(null);
   const anexoRef = useRef<HTMLInputElement>(null);
+  const [nomeDono, setNomeDono] = useState<string | null>(null);
 
   const carregar = useCallback(async () => {
     setCarregando(true);
@@ -104,6 +105,23 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
     );
     return () => parar();
   }, [aberto]);
+
+  // Quem é dono do chamado — só interessa pra tela do suporte, que ve
+  // varios chamados de gente diferente e precisa mostrar o nome de cada um
+  // em vez do genérico "Membro".
+  useEffect(() => {
+    if (!aberto || !admin) {
+      setNomeDono(null);
+      return;
+    }
+    let vivo = true;
+    nomesDe([aberto.user_id]).then((mapa) => {
+      if (vivo) setNomeDono(mapa.get(aberto.user_id) ?? null);
+    });
+    return () => {
+      vivo = false;
+    };
+  }, [aberto, admin]);
 
   useEffect(() => {
     fimRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -297,10 +315,12 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
                   return (
                     <div className={`msg${meu ? " eu" : ""}`} key={m.id}>
                       <div className="av" style={{ background: m.do_suporte ? "linear-gradient(100deg,#22e6ff,#2b8bff)" : "var(--grad)" }}>
-                        {m.do_suporte ? "S" : (perfil.nome ?? "?")[0]?.toUpperCase()}
+                        {m.do_suporte ? "S" : ((meu ? perfil.nome : nomeDono) ?? "?")[0]?.toUpperCase()}
                       </div>
                       <div className="bal">
-                        <b style={{ color: "var(--txt)" }}>{m.do_suporte ? "Suporte NITO" : meu ? "Você" : "Membro"}</b>
+                        <b style={{ color: "var(--txt)" }}>
+                          {m.do_suporte ? "Suporte NITO" : meu ? "Você" : nomeDono ?? "Membro"}
+                        </b>
                         {m.conteudo && <p>{m.conteudo}</p>}
                         {m.anexo_url && <Anexo url={m.anexo_url} />}
                         <time>{hora(m.criado_em)}</time>

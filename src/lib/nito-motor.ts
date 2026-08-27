@@ -1649,7 +1649,7 @@ export const Notificacoes = {
 };
 
 /** Nomes das pessoas envolvidas, numa consulta so. */
-async function nomesDe(ids: string[]): Promise<Map<string, string>> {
+export async function nomesDe(ids: string[]): Promise<Map<string, string>> {
   const unicos = Array.from(new Set(ids.filter(Boolean)));
   if (!unicos.length) return new Map();
   try {
