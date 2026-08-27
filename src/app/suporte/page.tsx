@@ -84,6 +84,13 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
 
   const [gravando, setGravando] = useState(false);
   const [segundosGravando, setSegundosGravando] = useState(0);
+
+  const [outroOnline, setOutroOnline] = useState(false);
+  const [outroDigitando, setOutroDigitando] = useState(false);
+  const [outroGravando, setOutroGravando] = useState(false);
+  const canalRef = useRef<{ digitando: () => void; gravando: (ativo: boolean) => void; sair: () => Promise<void> } | null>(null);
+  const digitandoTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const meuDigitandoTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const gravadorRef = useRef<MediaRecorder | null>(null);
   const pedacosRef = useRef<Blob[]>([]);
   const trilhaRef = useRef<MediaStream | null>(null);
@@ -107,11 +114,37 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
   useEffect(() => {
     if (!aberto) return;
     Chamados.mensagens(aberto.id).then(setMensagens).catch(() => setMensagens([]));
-    const parar = Chamados.assinar(aberto.id, (m) =>
-      setMensagens((antes) => (antes.some((x) => x.id === m.id) ? antes : [...antes, m]))
+
+    setOutroOnline(false);
+    setOutroDigitando(false);
+    setOutroGravando(false);
+
+    const canal = Chamados.assinar(
+      aberto.id,
+      {
+        onMensagem: (m) =>
+          setMensagens((antes) => (antes.some((x) => x.id === m.id) ? antes : [...antes, m])),
+        onPresenca: (online) => setOutroOnline(online),
+        onDigitando: () => {
+          setOutroDigitando(true);
+          if (digitandoTimeoutRef.current) clearTimeout(digitandoTimeoutRef.current);
+          // "digitando" é um evento avulso, não um liga/desliga — some
+          // sozinho se não chegar outro aviso em alguns segundos (a pessoa
+          // parou de digitar ou trocou de tela).
+          digitandoTimeoutRef.current = setTimeout(() => setOutroDigitando(false), 3000);
+        },
+        onGravando: (ativo) => setOutroGravando(ativo),
+      },
+      perfil
     );
-    return () => parar();
-  }, [aberto]);
+    canalRef.current = canal;
+
+    return () => {
+      if (digitandoTimeoutRef.current) clearTimeout(digitandoTimeoutRef.current);
+      canal.sair();
+      canalRef.current = null;
+    };
+  }, [aberto, perfil]);
 
   // Quem é dono do chamado — só interessa pra tela do suporte, que ve
   // varios chamados de gente diferente e precisa mostrar o nome de cada um
@@ -170,6 +203,18 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
     }
   }
 
+  function aoDigitar(valor: string) {
+    setResposta(valor);
+    if (!aberto || meuDigitandoTimeoutRef.current) return;
+    // Manda no máximo 1 aviso a cada 2s — não precisa de um broadcast por
+    // tecla digitada, só o suficiente pra manter o "digitando…" vivo do
+    // outro lado (que já tem sua própria expiração de 3s).
+    canalRef.current?.digitando();
+    meuDigitandoTimeoutRef.current = setTimeout(() => {
+      meuDigitandoTimeoutRef.current = null;
+    }, 2000);
+  }
+
   function escolherAnexo(f: File | null) {
     if (!f) return;
     const ok = f.type.startsWith("image/") || f.type.startsWith("video/") || f.type.startsWith("audio/");
@@ -216,6 +261,7 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
       setGravando(true);
       setSegundosGravando(0);
       cronometroRef.current = setInterval(() => setSegundosGravando((s) => s + 1), 1000);
+      canalRef.current?.gravando(true);
     } catch {
       setErro("Não consegui acessar o microfone. Verifique a permissão do navegador.");
     }
@@ -228,6 +274,7 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
       clearInterval(cronometroRef.current);
       cronometroRef.current = null;
     }
+    canalRef.current?.gravando(false);
   }
 
   useEffect(() => {
@@ -365,7 +412,21 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
                   <h2 className="h-sec">Chamado #{aberto.id}</h2>
                   <span className={`pill ${ROTULO[aberto.situacao].pill}`}>{ROTULO[aberto.situacao].texto}</span>
                 </div>
-                <div className="eyebrow" style={{ marginTop: 7 }}>{aberto.assunto.toUpperCase()}</div>
+                <div className="spread" style={{ marginTop: 7, alignItems: "center" }}>
+                  <div className="eyebrow">{aberto.assunto.toUpperCase()}</div>
+                  <span className="muted tiny" style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
+                    <span
+                      style={{
+                        width: 7,
+                        height: 7,
+                        borderRadius: "50%",
+                        background: outroOnline ? "var(--green)" : "var(--mut2)",
+                        flexShrink: 0,
+                      }}
+                    />
+                    {outroOnline ? "Online agora" : "Offline"}
+                  </span>
+                </div>
               </div>
 
               <div className="chat-full">
@@ -389,6 +450,14 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
                 })}
                 <div ref={fimRef} />
               </div>
+
+              {(outroDigitando || outroGravando) && (
+                <div className="pad" style={{ paddingTop: 4, paddingBottom: 4 }}>
+                  <span className="muted tiny" style={{ fontStyle: "italic" }}>
+                    {outroGravando ? "🎙️ gravando áudio…" : "digitando…"}
+                  </span>
+                </div>
+              )}
 
               {aberto.situacao !== "resolvido" ? (
                 <>
@@ -460,7 +529,7 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
                     <input
                       placeholder={admin ? "Responder ao membro…" : "Responder ao suporte…"}
                       value={resposta}
-                      onChange={(e) => setResposta(e.target.value)}
+                      onChange={(e) => aoDigitar(e.target.value)}
                       onKeyDown={(e) => e.key === "Enter" && responder()}
                     />
                     <button className="env" onClick={responder} disabled={ocupado || gravando} type="button" aria-label="Enviar">

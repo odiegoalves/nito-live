@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import webpush from 'npm:web-push@3.6.7';
 
 // =============================================================================
 // NITO LIVE - ponte de vendas da extensao.
@@ -21,6 +22,65 @@ function json(body: unknown, status = 200) {
     status,
     headers: { ...CORS, 'Content-Type': 'application/json' },
   });
+}
+
+// ── AVISO PUSH ───────────────────────────────────────────────────────────
+// A extensao grava a venda direto aqui (sem passar pelo VPS), entao o
+// aviso push (som + notificacao mesmo com o celular bloqueado) tambem
+// precisa disparar daqui - senao a venda fica gravada, mas o dono da live
+// so fica sabendo se estiver com o app aberto olhando na hora.
+// Mesmo texto/formato que o servidor VPS ja usava (nitoEnviarPush em
+// server.js), pra nao mudar como a notificacao aparece pro operador.
+async function enviarPush(sb: ReturnType<typeof createClient>, email: string, venda: Record<string, unknown>) {
+  const chavePub = Deno.env.get('NITO_VAPID_PUBLICA');
+  const chavePriv = Deno.env.get('NITO_VAPID_PRIVADA');
+  if (!chavePub || !chavePriv) {
+    console.log('[PUSH] configuracao de push incompleta (faltam as chaves VAPID nos secrets da funcao)');
+    return;
+  }
+
+  const { data: inscricoes, error } = await sb
+    .from('push_inscricoes')
+    .select('id, endpoint, p256dh, auth')
+    .eq('email', email);
+
+  if (error) {
+    console.log('[PUSH] falha ao consultar aparelhos: ' + error.message);
+    return;
+  }
+  if (!inscricoes || inscricoes.length === 0) return;
+
+  webpush.setVapidDetails(
+    Deno.env.get('NITO_VAPID_CONTATO') || 'mailto:noreply@nitolive.com.br',
+    chavePub,
+    chavePriv
+  );
+
+  const centavos = Number(venda.valor_centavos || 0);
+  const valor = centavos > 0
+    ? (centavos / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+    : null;
+  const produto = venda.produto ? String(venda.produto).slice(0, 60) : '';
+  const corpo = valor ? (valor + (produto ? ' — ' + produto : '')) : (produto || 'venda registrada');
+  const carga = JSON.stringify({ titulo: 'Venda na sua live', corpo, url: '/alertas' });
+
+  for (const i of inscricoes as Array<{ id: string; endpoint: string; p256dh: string; auth: string }>) {
+    try {
+      await webpush.sendNotification(
+        { endpoint: i.endpoint, keys: { p256dh: i.p256dh, auth: i.auth } },
+        carga,
+        { TTL: 600, urgency: 'high' }
+      );
+    } catch (e) {
+      const cod = (e as { statusCode?: number })?.statusCode;
+      if (cod === 404 || cod === 410) {
+        await sb.from('push_inscricoes').delete().eq('id', i.id);
+        console.log('[PUSH] aparelho removido por nao existir mais');
+      } else {
+        console.log('[PUSH] falha ao entregar: ' + cod + ' ' + (e as Error)?.message);
+      }
+    }
+  }
 }
 
 Deno.serve(async (req) => {
@@ -92,6 +152,17 @@ Deno.serve(async (req) => {
     .from('vendas')
     .upsert([venda], { onConflict: 'user_id,id_pedido', ignoreDuplicates: false })
     .select('id, id_pedido');
+
+  // O aviso e so um espelho: se ele falhar, a venda ja gravada continua
+  // valendo normalmente - por isso fica num try/catch que nunca derruba a
+  // resposta principal.
+  if (!error && data && data.length > 0) {
+    try {
+      await enviarPush(sb, email, venda);
+    } catch (ePush) {
+      console.log('[PUSH] erro geral: ' + (ePush as Error)?.message);
+    }
+  }
 
   return json({ ok: !error, gravadas: data?.length ?? 0, erro: error?.message }, error ? 400 : 200);
 });

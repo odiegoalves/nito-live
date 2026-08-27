@@ -1179,10 +1179,28 @@ export const Chamados = {
     if (error) throw error;
   },
 
-  // Mensagem nova do outro lado aparece sem recarregar.
-  assinar(chamadoId: number, onMensagem: (m: ChamadoMensagem) => void) {
-    const canal = sb
-      .channel(`chamado-${chamadoId}`)
+  // Mensagem nova do outro lado aparece sem recarregar. Também cuida de
+  // presença ("a pessoa está online neste chamado agora") e dos avisos de
+  // "digitando…" / "gravando áudio…", no mesmo canal — assim os dois lados
+  // sabem se o outro está por perto sem precisar dar F5.
+  assinar(
+    chamadoId: number,
+    handlers: {
+      onMensagem?: (m: ChamadoMensagem) => void;
+      onPresenca?: (online: boolean) => void;
+      onDigitando?: () => void;
+      onGravando?: (ativo: boolean) => void;
+    } = {},
+    perfil: Perfil | null = null
+  ) {
+    const chavePresenca =
+      perfil?.id ?? (typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : String(Math.random()));
+
+    const canal = sb.channel(`chamado:${chamadoId}`, {
+      config: { presence: { key: chavePresenca } },
+    });
+
+    canal
       .on(
         "postgres_changes",
         {
@@ -1191,11 +1209,39 @@ export const Chamados = {
           table: "chamado_mensagens",
           filter: `chamado_id=eq.${chamadoId}`,
         },
-        ({ new: linha }) => onMensagem(linha as unknown as ChamadoMensagem)
+        ({ new: linha }) => handlers.onMensagem?.(linha as unknown as ChamadoMensagem)
       )
-      .subscribe();
-    return () => {
-      sb.removeChannel(canal);
+      .on("presence", { event: "sync" }, () => {
+        const estado = canal.presenceState() as Record<string, any[]>;
+        // "Online" aqui é sempre em relação ao OUTRO lado: se alguém além de
+        // mim mesmo está presente neste canal, é a outra ponta da conversa.
+        const outros = Object.keys(estado).filter((chave) => chave !== chavePresenca);
+        handlers.onPresenca?.(outros.length > 0);
+      })
+      .on("broadcast", { event: "digitando" }, ({ payload }) => {
+        if (payload?.id !== chavePresenca) handlers.onDigitando?.();
+      })
+      .on("broadcast", { event: "gravando" }, ({ payload }) => {
+        if (payload?.id !== chavePresenca) handlers.onGravando?.(!!payload?.ativo);
+      })
+      .subscribe(async (status) => {
+        if (status === "SUBSCRIBED") {
+          await canal.track({ id: chavePresenca, entrou_em: new Date().toISOString() });
+        }
+      });
+
+    return {
+      digitando: () => canal.send({ type: "broadcast", event: "digitando", payload: { id: chavePresenca } }),
+      gravando: (ativo: boolean) =>
+        canal.send({ type: "broadcast", event: "gravando", payload: { id: chavePresenca, ativo } }),
+      sair: async () => {
+        try {
+          await canal.untrack();
+        } catch {
+          // canal ja pode estar fechado - segue pra remocao
+        }
+        sb.removeChannel(canal);
+      },
     };
   },
 
