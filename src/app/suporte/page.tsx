@@ -22,6 +22,45 @@ function hora(iso: string) {
   return new Date(iso).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
 }
 
+const EXT_IMG = ["jpg", "jpeg", "png", "gif", "webp", "heic", "heif", "bmp"];
+const EXT_VIDEO = ["mp4", "mov", "webm", "m4v", "3gp", "avi", "mkv"];
+const EXT_AUDIO = ["mp3", "m4a", "wav", "ogg", "opus", "aac", "weba", "amr"];
+
+// Anexo do chamado (imagem, vídeo ou áudio) renderizado direto na conversa,
+// sem precisar abrir em outra aba. O tipo é inferido pela extensão do
+// arquivo salvo no Storage.
+function Anexo({ url }: { url: string }) {
+  const ext = (url.split("?")[0].split(".").pop() || "").toLowerCase();
+
+  if (EXT_IMG.includes(ext)) {
+    return (
+      <a href={url} target="_blank" rel="noopener noreferrer" style={{ display: "block", marginTop: 6 }}>
+        <img
+          src={url}
+          alt="Anexo enviado"
+          style={{ maxWidth: "100%", maxHeight: 240, borderRadius: 10, display: "block" }}
+        />
+      </a>
+    );
+  }
+
+  if (EXT_VIDEO.includes(ext)) {
+    return (
+      <video controls src={url} style={{ maxWidth: "100%", maxHeight: 240, borderRadius: 10, marginTop: 6, display: "block" }} />
+    );
+  }
+
+  if (EXT_AUDIO.includes(ext)) {
+    return <audio controls src={url} style={{ marginTop: 6, display: "block", maxWidth: "100%" }} />;
+  }
+
+  return (
+    <a className="go" href={url} target="_blank" rel="noopener noreferrer" style={{ display: "inline-block", marginTop: 6 }}>
+      ABRIR ANEXO
+    </a>
+  );
+}
+
 function Conteudo({ perfil }: { perfil: Perfil }) {
   const admin = ehAdmin(perfil);
 
@@ -35,9 +74,12 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
   const [mostrarNovo, setMostrarNovo] = useState(false);
 
   const [resposta, setResposta] = useState("");
+  const [anexo, setAnexo] = useState<File | null>(null);
+  const [enviandoAnexo, setEnviandoAnexo] = useState(false);
   const [ocupado, setOcupado] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const fimRef = useRef<HTMLDivElement>(null);
+  const anexoRef = useRef<HTMLInputElement>(null);
 
   const carregar = useCallback(async () => {
     setCarregando(true);
@@ -86,17 +128,36 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
   }
 
   async function responder() {
-    if (!aberto || !resposta.trim() || ocupado) return;
+    if (!aberto || (!resposta.trim() && !anexo) || ocupado) return;
     setOcupado(true);
+    if (anexo) setEnviandoAnexo(true);
     try {
-      await Chamados.responder(aberto.id, resposta, admin);
+      await Chamados.responder(aberto.id, resposta, admin, anexo);
       setResposta("");
+      setAnexo(null);
+      if (anexoRef.current) anexoRef.current.value = "";
       carregar();
     } catch (e) {
       setErro(comoErro(e, "Não consegui enviar.").message);
     } finally {
       setOcupado(false);
+      setEnviandoAnexo(false);
     }
+  }
+
+  function escolherAnexo(f: File | null) {
+    if (!f) return;
+    const ok = f.type.startsWith("image/") || f.type.startsWith("video/") || f.type.startsWith("audio/");
+    if (!ok) {
+      setErro("Só é possível anexar imagem, vídeo ou áudio.");
+      return;
+    }
+    if (f.size > 25 * 1024 * 1024) {
+      setErro("Arquivo muito grande. Envie algo até 25MB.");
+      return;
+    }
+    setErro(null);
+    setAnexo(f);
   }
 
   async function encerrar() {
@@ -240,13 +301,8 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
                       </div>
                       <div className="bal">
                         <b style={{ color: "var(--txt)" }}>{m.do_suporte ? "Suporte NITO" : meu ? "Você" : "Membro"}</b>
-                        <p>{m.conteudo}</p>
-                        {m.anexo_url && (
-                          <a className="go" href={m.anexo_url} target="_blank" rel="noopener noreferrer"
-                             style={{ display: "inline-block", marginTop: 6 }}>
-                            ABRIR ANEXO
-                          </a>
-                        )}
+                        {m.conteudo && <p>{m.conteudo}</p>}
+                        {m.anexo_url && <Anexo url={m.anexo_url} />}
                         <time>{hora(m.criado_em)}</time>
                       </div>
                     </div>
@@ -257,7 +313,43 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
 
               {aberto.situacao !== "resolvido" ? (
                 <>
+                  {anexo && (
+                    <div className="pad" style={{ paddingTop: 10, paddingBottom: 10, borderTop: "1px solid var(--line)",
+                                                  display: "flex", alignItems: "center", gap: 8 }}>
+                      <span className="muted tiny" style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        📎 {anexo.name}
+                      </span>
+                      <button
+                        type="button"
+                        className="btn wa"
+                        style={{ padding: "4px 10px", fontSize: ".65rem" }}
+                        onClick={() => {
+                          setAnexo(null);
+                          if (anexoRef.current) anexoRef.current.value = "";
+                        }}
+                      >
+                        Remover
+                      </button>
+                    </div>
+                  )}
                   <div className="chat-barra">
+                    <input
+                      ref={anexoRef}
+                      type="file"
+                      accept="image/*,video/*,audio/*"
+                      hidden
+                      onChange={(e) => escolherAnexo(e.target.files?.[0] ?? null)}
+                    />
+                    <button
+                      className="env"
+                      onClick={() => anexoRef.current?.click()}
+                      disabled={ocupado}
+                      type="button"
+                      aria-label="Anexar imagem, vídeo ou áudio"
+                      title="Anexar imagem, vídeo ou áudio"
+                    >
+                      <Icone nome="clip" tam={16} />
+                    </button>
                     <input
                       placeholder={admin ? "Responder ao membro…" : "Responder ao suporte…"}
                       value={resposta}
@@ -265,7 +357,7 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
                       onKeyDown={(e) => e.key === "Enter" && responder()}
                     />
                     <button className="env" onClick={responder} disabled={ocupado} type="button" aria-label="Enviar">
-                      <Icone nome="send" tam={16} />
+                      {enviandoAnexo ? "…" : <Icone nome="send" tam={16} />}
                     </button>
                   </div>
                   <div className="pad" style={{ paddingTop: 12, paddingBottom: 12, borderTop: "1px solid var(--line)",
