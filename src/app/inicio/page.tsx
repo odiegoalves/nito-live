@@ -37,14 +37,14 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
   const [resumo, setResumo] = useState<Resumo>(VAZIO);
   const [carregando, setCarregando] = useState(true);
 
-  const dias = PERIODOS.find((p) => p.chave === periodo)!.dias;
+  const diasPeriodo = PERIODOS.find((p) => p.chave === periodo)!.dias;
 
   useEffect(() => {
     let vivo = true;
     setCarregando(true);
 
     const buscar = () =>
-      Vendas.resumo(dias)
+      Vendas.resumo(diasPeriodo)
         .then((r) => {
           if (vivo) {
             setResumo(r);
@@ -59,7 +59,7 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
       vivo = false;
       parar();
     };
-  }, [dias]);
+  }, [diasPeriodo]);
 
   const dias = diasRestantes(perfil.assinatura_expira_em);
   const venceEm = perfil.assinatura_expira_em
