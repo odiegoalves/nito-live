@@ -86,8 +86,13 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
     setErro(null);
     setOk(null);
     try {
-      const nova = await Extensao.publicarVersao(numero.trim(), arquivo, notas.trim() || undefined, helper);
-      setVersao(nova);
+      await Extensao.publicarVersao(numero.trim(), arquivo, notas.trim() || undefined, helper);
+      // Busca de novo com Extensao.versaoAtual() em vez de usar o retorno cru
+      // do insert: só essa função aplica a herança do último Helper publicado.
+      // Usar o retorno cru fazia o Helper "sumir" da tela até um F5, mesmo
+      // continuando certinho no banco.
+      const atualizada = await Extensao.versaoAtual();
+      setVersao(atualizada);
       setNumero("");
       setNotas("");
       setArquivo(null);
