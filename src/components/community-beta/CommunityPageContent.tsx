@@ -225,6 +225,37 @@ export function CommunityPageContent({ perfil }: CommunityPageContentProps) {
     }
   };
 
+  // Excluir Tópico — só quem chama isso já foi liberado no PostCard (dono
+  // do post ou moderador/fundador). Confirmação já acontece no PostCard
+  // antes de chegar aqui.
+  const handleDeletePost = async (postId: string) => {
+    const anterior = posts;
+    setPosts((prev) => prev.filter((p) => p.id !== postId));
+    try {
+      await Feed.apagar(postId);
+    } catch (err) {
+      console.error("Erro ao excluir tópico:", err);
+      setPosts(anterior); // desfaz se o servidor recusar
+      alert("Não consegui excluir o tópico. Tenta de novo em instantes.");
+    }
+  };
+
+  // Editar Tópico
+  const handleEditPost = async (
+    postId: string,
+    dados: { titulo?: string | null; conteudo: string }
+  ) => {
+    try {
+      const atualizado = await Feed.editar(postId, dados);
+      setPosts((prev) =>
+        prev.map((p) => (p.id === postId ? { ...p, ...atualizado } : p))
+      );
+    } catch (err) {
+      console.error("Erro ao editar tópico:", err);
+      alert("Não consegui salvar a edição. Tenta de novo em instantes.");
+    }
+  };
+
   // Adicionar Comentário
   const handleAddComment = async (postId: string, commentText: string) => {
     try {
@@ -334,6 +365,7 @@ export function CommunityPageContent({ perfil }: CommunityPageContentProps) {
                   const autorNome = post.autor?.nome || post.autor?.username || "Membro";
                   const postFormatted = {
                     id: post.id,
+                    authorId: post.autor_id,
                     authorName: autorNome,
                     authorLevel: post.autor?.nivel ?? 1,
                     createdAt: Fmt.quando(post.criado_em),
@@ -366,9 +398,13 @@ export function CommunityPageContent({ perfil }: CommunityPageContentProps) {
                       key={post.id}
                       post={postFormatted as any}
                       currentUserName={perfil.nome}
+                      currentUserId={perfil.id}
+                      isModerator={perfil.papel === "moderador" || perfil.papel === "fundador"}
                       onTogglePostLike={handleTogglePostLike}
                       onAddComment={handleAddComment}
                       onToggleCommentLike={() => {}}
+                      onDeletePost={handleDeletePost}
+                      onEditPost={handleEditPost}
                     />
                   );
                 })

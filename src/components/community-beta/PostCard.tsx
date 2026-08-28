@@ -18,23 +18,59 @@ import { PostItem, CommentItem } from "@/lib/nito-motor";
 interface PostCardProps {
   post: PostItem;
   currentUserName: string;
+  currentUserId?: string;
+  isModerator?: boolean;
   onTogglePostLike: (postId: string) => void;
   onAddComment: (postId: string, commentText: string) => void;
   onToggleCommentLike: (postId: string, commentId: string) => void;
+  onDeletePost?: (postId: string) => void;
+  onEditPost?: (postId: string, dados: { titulo?: string | null; conteudo: string }) => void;
 }
 
 export function PostCard({
   post,
   currentUserName,
+  currentUserId,
+  isModerator,
   onTogglePostLike,
   onAddComment,
   onToggleCommentLike,
+  onDeletePost,
+  onEditPost,
 }: PostCardProps) {
   const [showComments, setShowComments] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
   const [newCommentText, setNewCommentText] = useState("");
+  const [isEditing, setIsEditing] = useState(false);
+  const [editTitle, setEditTitle] = useState(post.title);
+  const [editContent, setEditContent] = useState(post.content);
 
   const authorInitial = (post.authorName || "U").charAt(0).toUpperCase();
+
+  // Só o dono do tópico ou moderador/fundador pode editar/excluir — nunca
+  // qualquer membro da comunidade.
+  const podeGerenciar =
+    !!currentUserId && (post.authorId === currentUserId || !!isModerator);
+
+  const handleStartEdit = () => {
+    setEditTitle(post.title);
+    setEditContent(post.content);
+    setIsEditing(true);
+    setShowMenu(false);
+  };
+
+  const handleSaveEdit = () => {
+    if (!editContent.trim()) return;
+    onEditPost?.(post.id, { titulo: editTitle || null, conteudo: editContent.trim() });
+    setIsEditing(false);
+  };
+
+  const handleDelete = () => {
+    setShowMenu(false);
+    if (window.confirm("Tem certeza que quer excluir este tópico? Essa ação não pode ser desfeita.")) {
+      onDeletePost?.(post.id);
+    }
+  };
 
   const handleCommentSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -88,26 +124,18 @@ export function PostCard({
                 <Flag size={14} color="#f59e0b" />
                 <span>Denunciar Tópico</span>
               </button>
-              <button
-                style={styles.menuItem}
-                onClick={() => {
-                  alert("Edição em breve na versão final.");
-                  setShowMenu(false);
-                }}
-              >
-                <Edit size={14} color="#94a3b8" />
-                <span>Editar Tópico</span>
-              </button>
-              <button
-                style={styles.menuItem}
-                onClick={() => {
-                  alert("Exclusão em breve na versão final.");
-                  setShowMenu(false);
-                }}
-              >
-                <Trash2 size={14} color="#ef4444" />
-                <span>Excluir Tópico</span>
-              </button>
+              {podeGerenciar && (
+                <>
+                  <button style={styles.menuItem} onClick={handleStartEdit}>
+                    <Edit size={14} color="#94a3b8" />
+                    <span>Editar Tópico</span>
+                  </button>
+                  <button style={styles.menuItem} onClick={handleDelete}>
+                    <Trash2 size={14} color="#ef4444" />
+                    <span>Excluir Tópico</span>
+                  </button>
+                </>
+              )}
             </div>
           )}
         </div>
@@ -115,18 +143,56 @@ export function PostCard({
 
       {/* Conteúdo do Tópico */}
       <div style={styles.cardBody}>
-        <h3 style={styles.postTitle}>{post.title}</h3>
-        <p style={styles.postContent}>{post.content}</p>
-
-        {/* Imagem Opcional */}
-        {post.imageUrl && (
-          <div style={styles.imageContainer}>
-            <img
-              src={post.imageUrl}
-              alt="Resultado/Anexo do Tópico"
-              style={styles.postImage}
+        {isEditing ? (
+          <div style={styles.editForm}>
+            <input
+              type="text"
+              value={editTitle}
+              onChange={(e) => setEditTitle(e.target.value)}
+              placeholder="Título (opcional)"
+              style={styles.editTitleInput}
             />
+            <textarea
+              value={editContent}
+              onChange={(e) => setEditContent(e.target.value)}
+              placeholder="Conteúdo do tópico"
+              style={styles.editContentInput}
+              rows={4}
+            />
+            <div style={styles.editActions}>
+              <button
+                type="button"
+                style={styles.editCancelBtn}
+                onClick={() => setIsEditing(false)}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                style={styles.editSaveBtn}
+                onClick={handleSaveEdit}
+                disabled={!editContent.trim()}
+              >
+                Salvar
+              </button>
+            </div>
           </div>
+        ) : (
+          <>
+            <h3 style={styles.postTitle}>{post.title}</h3>
+            <p style={styles.postContent}>{post.content}</p>
+
+            {/* Imagem Opcional */}
+            {post.imageUrl && (
+              <div style={styles.imageContainer}>
+                <img
+                  src={post.imageUrl}
+                  alt="Resultado/Anexo do Tópico"
+                  style={styles.postImage}
+                />
+              </div>
+            )}
+          </>
         )}
       </div>
 
@@ -385,6 +451,57 @@ const styles: Record<string, React.CSSProperties> = {
     color: "#cbd5e1",
     lineHeight: 1.5,
     margin: 0,
+  },
+  editForm: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "0.6rem",
+  },
+  editTitleInput: {
+    backgroundColor: "#09090b",
+    border: "1px solid rgba(255, 255, 255, 0.1)",
+    borderRadius: "8px",
+    padding: "0.6rem 0.85rem",
+    color: "#ffffff",
+    fontSize: "0.95rem",
+    fontWeight: 700,
+    outline: "none",
+  },
+  editContentInput: {
+    backgroundColor: "#09090b",
+    border: "1px solid rgba(255, 255, 255, 0.1)",
+    borderRadius: "8px",
+    padding: "0.6rem 0.85rem",
+    color: "#ffffff",
+    fontSize: "0.9rem",
+    outline: "none",
+    resize: "vertical",
+    fontFamily: "inherit",
+  },
+  editActions: {
+    display: "flex",
+    justifyContent: "flex-end",
+    gap: "0.5rem",
+  },
+  editCancelBtn: {
+    backgroundColor: "transparent",
+    border: "1px solid rgba(255, 255, 255, 0.15)",
+    color: "#94a3b8",
+    padding: "0.5rem 1rem",
+    borderRadius: "8px",
+    fontSize: "0.8rem",
+    fontWeight: 700,
+    cursor: "pointer",
+  },
+  editSaveBtn: {
+    backgroundColor: "#ef4444",
+    border: "none",
+    color: "#ffffff",
+    padding: "0.5rem 1rem",
+    borderRadius: "8px",
+    fontSize: "0.8rem",
+    fontWeight: 700,
+    cursor: "pointer",
   },
   imageContainer: {
     marginTop: "0.5rem",
