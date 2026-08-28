@@ -427,6 +427,20 @@ export const Feed = {
     if (error) throw error;
   },
 
+  // Editar titulo/conteudo de um post ja publicado. Mesma politica do banco
+  // do fixar: so o autor ou a administracao conseguem, a tela nao e a unica
+  // guarda.
+  async editar(postId: string, dados: { titulo?: string | null; conteudo: string }): Promise<Post> {
+    const { data, error } = await sb
+      .from("posts")
+      .update(dados)
+      .eq("id", postId)
+      .select(SELECT_POST)
+      .single();
+    if (error) throw comoErro(error, "Nao consegui salvar a edicao.");
+    return data as unknown as Post;
+  },
+
   // Curtir / descurtir. Atualiza a tela na hora (otimista) e o servidor confirma.
   async alternarCurtida(postId: string, jaCurtiu: boolean): Promise<boolean> {
     const {

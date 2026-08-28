@@ -68,6 +68,8 @@ interface Props {
   onVotar?: (enqueteId: string, voto: boolean) => void;
   onAbrirComentarios?: (postId: string) => void;
   onFixar?: (postId: string, fixado: boolean) => void;
+  onEditar?: (postId: string, dados: { titulo?: string | null; conteudo: string }) => void;
+  onApagar?: (postId: string) => void;
 }
 
 export function PostNito({
@@ -79,9 +81,14 @@ export function PostNito({
   onVotar,
   onAbrirComentarios,
   onFixar,
+  onEditar,
+  onApagar,
 }: Props) {
   const [ocupado, setOcupado] = useState(false);
   const [ampliada, setAmpliada] = useState(false);
+  const [editando, setEditando] = useState(false);
+  const [tituloEdit, setTituloEdit] = useState(post.titulo ?? "");
+  const [conteudoEdit, setConteudoEdit] = useState(post.conteudo);
 
   // ---- comentarios --------------------------------------------------------
   // Ficam dentro do proprio cartao. Sao buscados na primeira vez que a pessoa
@@ -214,6 +221,25 @@ export function PostNito({
     }
   }
 
+  function iniciarEdicao() {
+    setTituloEdit(post.titulo ?? "");
+    setConteudoEdit(post.conteudo);
+    setEditando(true);
+  }
+
+  function salvarEdicao() {
+    const limpo = conteudoEdit.trim();
+    if (!limpo) return;
+    onEditar?.(post.id, { titulo: tituloEdit.trim() || null, conteudo: limpo });
+    setEditando(false);
+  }
+
+  function apagar() {
+    if (window.confirm("Excluir esta publicação? Essa ação não pode ser desfeita.")) {
+      onApagar?.(post.id);
+    }
+  }
+
   return (
     <article
       className="panel post"
@@ -325,18 +351,75 @@ export function PostNito({
         </div>
       )}
 
-      {post.titulo && (
-        <div className="corpo" style={{ fontWeight: 800, marginBottom: 6, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
-          {post.titulo}
+      {editando ? (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 10 }}>
+          <input
+            type="text"
+            value={tituloEdit}
+            onChange={(e) => setTituloEdit(e.target.value)}
+            placeholder="Título (opcional)"
+            style={{
+              padding: "9px 12px",
+              borderRadius: 10,
+              background: "rgba(0,0,0,.42)",
+              border: "1px solid var(--line)",
+              color: "var(--txt)",
+              font: "inherit",
+              fontWeight: 800,
+              fontSize: ".92rem",
+            }}
+          />
+          <textarea
+            rows={4}
+            value={conteudoEdit}
+            onChange={(e) => setConteudoEdit(e.target.value)}
+            style={{
+              padding: "9px 12px",
+              borderRadius: 10,
+              background: "rgba(0,0,0,.42)",
+              border: "1px solid var(--line)",
+              color: "var(--txt)",
+              font: "inherit",
+              fontSize: ".87rem",
+              resize: "vertical",
+            }}
+          />
+          <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+            <button
+              className="btn g"
+              type="button"
+              onClick={() => setEditando(false)}
+              style={{ padding: "8px 14px", fontSize: ".7rem" }}
+            >
+              Cancelar
+            </button>
+            <button
+              className="btn p"
+              type="button"
+              onClick={salvarEdicao}
+              disabled={!conteudoEdit.trim()}
+              style={{ padding: "8px 14px", fontSize: ".7rem" }}
+            >
+              Salvar
+            </button>
+          </div>
         </div>
+      ) : (
+        <>
+          {post.titulo && (
+            <div className="corpo" style={{ fontWeight: 800, marginBottom: 6, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+              {post.titulo}
+            </div>
+          )}
+          {/* "pre-wrap" preserva as quebras de linha que a pessoa digitou. Sem ele o
+              navegador junta tudo num paragrafo so, e o texto perde o formato que
+              o autor deu. Nao interpreta marcacao nenhuma: o que foi escrito e o
+              que aparece, sem risco de alguem injetar HTML pelo campo de texto. */}
+          <div className="corpo" style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+            {post.conteudo}
+          </div>
+        </>
       )}
-      {/* "pre-wrap" preserva as quebras de linha que a pessoa digitou. Sem ele o
-          navegador junta tudo num paragrafo so, e o texto perde o formato que
-          o autor deu. Nao interpreta marcacao nenhuma: o que foi escrito e o
-          que aparece, sem risco de alguem injetar HTML pelo campo de texto. */}
-      <div className="corpo" style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
-        {post.conteudo}
-      </div>
 
       {enquete && temOpcoes && (
         <div className="enquete">
@@ -472,16 +555,36 @@ export function PostNito({
           <span className="num" style={{ fontSize: ".78rem", fontWeight: 800 }}>{total}</span>
           <span>{total === 1 ? "comentário" : "comentários"}</span>
         </button>
-        {admin && (
-          <button
-            style={{ marginLeft: "auto", color: post.fixado ? "var(--gold)" : "var(--mut2)" }}
-            onClick={alternarFixado}
-            disabled={ocupado}
-            type="button"
-            title={post.fixado ? "Tirar do topo" : "Fixar no topo"}
-          >
-            📌 {post.fixado ? "Fixado" : "Fixar"}
-          </button>
+        {admin && !editando && (
+          <>
+            <button
+              style={{ marginLeft: "auto", color: post.fixado ? "var(--gold)" : "var(--mut2)" }}
+              onClick={alternarFixado}
+              disabled={ocupado}
+              type="button"
+              title={post.fixado ? "Tirar do topo" : "Fixar no topo"}
+            >
+              📌 {post.fixado ? "Fixado" : "Fixar"}
+            </button>
+            <button
+              style={{ color: "var(--mut2)" }}
+              onClick={iniciarEdicao}
+              disabled={ocupado}
+              type="button"
+              title="Editar publicação"
+            >
+              ✏️ Editar
+            </button>
+            <button
+              style={{ color: "var(--red)" }}
+              onClick={apagar}
+              disabled={ocupado}
+              type="button"
+              title="Excluir publicação"
+            >
+              🗑️ Excluir
+            </button>
+          </>
         )}
 
         {post.situacao === "em_analise" && (

@@ -16,7 +16,7 @@ import { AppShell, ehAdmin } from "@/components/nito/AppShell";
 import { PostNito } from "@/components/nito/PostNito";
 import { CompositorNito } from "@/components/nito/CompositorNito";
 import { ChatNito } from "@/components/nito/ChatNito";
-import { Feed, Enquetes, Post, Enquete, Perfil } from "@/lib/nito-motor";
+import { Feed, Enquetes, Post, Enquete, Perfil, comoErro } from "@/lib/nito-motor";
 
 type Sub = "importante" | "chat" | "resultado" | "insight" | "melhoria";
 
@@ -177,6 +177,31 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
     if (sub === "melhoria") carregar("melhoria");
   }
 
+  async function aoEditar(postId: string, dados: { titulo?: string | null; conteudo: string }) {
+    const anterior = posts;
+    // Otimista: atualiza a tela na hora, desfaz se o servidor recusar.
+    setPosts((antes) =>
+      antes.map((p) => (p.id === postId ? { ...p, titulo: dados.titulo ?? undefined, conteudo: dados.conteudo } : p))
+    );
+    try {
+      await Feed.editar(postId, dados);
+    } catch (e) {
+      setPosts(anterior);
+      alert(comoErro(e, "Não consegui salvar a edição. Tenta de novo em instantes.").message);
+    }
+  }
+
+  async function aoApagar(postId: string) {
+    const anterior = posts;
+    setPosts((antes) => antes.filter((p) => p.id !== postId));
+    try {
+      await Feed.apagar(postId);
+    } catch (e) {
+      setPosts(anterior);
+      alert(comoErro(e, "Não consegui excluir a publicação. Tenta de novo em instantes.").message);
+    }
+  }
+
   const podeCompor = sub !== "chat" && (sub !== "importante" || admin);
   // Fora da aba de chat, "sub" e sempre um tipo de publicacao valido.
   const tipoPost = sub as Exclude<Sub, "chat">;
@@ -261,6 +286,8 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
                   onCurtir={aoCurtir}
                   onVotar={aoVotar}
                   onFixar={aoFixar}
+                  onEditar={aoEditar}
+                  onApagar={aoApagar}
                 />
               ))}
           </>
