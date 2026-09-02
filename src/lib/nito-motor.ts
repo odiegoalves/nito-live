@@ -811,8 +811,18 @@ export const Chat = {
 // VENDAS
 // ---------------------------------------------------------------------------
 export const Vendas = {
+  // Filtra por user_id explicitamente aqui, em vez de confiar so na regra do
+  // banco (RLS). Para a maioria das contas nao muda nada - a regra ja limitava
+  // a propria conta. Mas quem e staff (fundador/moderador) tem uma segunda
+  // regra que libera ver TODAS as vendas da plataforma - pensada para outras
+  // telas de suporte, nao para esta. Sem o filtro aqui, "Minhas Vendas" virava
+  // "Vendas de Todo Mundo" pra qualquer staff, o que confundia (e assustava)
+  // o proprio fundador ao ver pedido que ele nao fez.
   async listar({ limite = 100, dias = null }: { limite?: number; dias?: number | null } = {}): Promise<Venda[]> {
-    let q = sb.from("vendas").select("*");
+    const { data: { user } } = await sb.auth.getUser();
+    if (!user) return [];
+
+    let q = sb.from("vendas").select("*").eq("user_id", user.id);
     if (dias) q = q.gte("ocorrido_em", new Date(Date.now() - dias * 864e5).toISOString());
     const { data, error } = await q.order("ocorrido_em", { ascending: false }).limit(limite);
     if (error) throw error;

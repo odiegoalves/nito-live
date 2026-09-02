@@ -96,10 +96,11 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
         <div className="spread" style={{ alignItems: "flex-start" }}>
           <div>
             <h1 className="title-xl">
-              Minhas <em>vendas</em>.
+              Vendas <em>TikTok</em>.
             </h1>
             <p className="sub">
-              Tudo que a extensão NITO registrou nas suas lives do TikTok Shop, em tempo real.
+              Tudo que a extensão NITO registrou nas suas lives do TikTok Shop, em tempo real. As
+              comissões de afiliado do NITO LIVE (Cakto) ficam separadas em &quot;Vendas NITO LIVE&quot;.
             </p>
           </div>
         </div>

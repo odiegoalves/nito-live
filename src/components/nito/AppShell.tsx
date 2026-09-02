@@ -25,6 +25,7 @@ export type AbaAtiva =
   | "comunidade"
   | "aulas"
   | "vendas"
+  | "vendas-nito-live"
   | "ranking"
   | "separar"
   | "extensao"
@@ -36,7 +37,8 @@ const ABAS: { chave: AbaAtiva; rotulo: string; icone: string; href: string }[] =
   { chave: "inicio", rotulo: "Início", icone: "home", href: "/inicio" },
   { chave: "comunidade", rotulo: "Comunidade", icone: "users", href: "/comunidade" },
   { chave: "aulas", rotulo: "Aulas", icone: "book", href: "/aulas" },
-  { chave: "vendas", rotulo: "Minhas Vendas", icone: "chart", href: "/vendas" },
+  { chave: "vendas", rotulo: "Vendas TikTok", icone: "chart", href: "/vendas" },
+  { chave: "vendas-nito-live", rotulo: "Vendas NITO LIVE", icone: "trofeu", href: "/vendas-nito-live" },
   { chave: "ranking", rotulo: "Ranking", icone: "trofeu", href: "/ranking" },
   { chave: "separar", rotulo: "Separar Áudio", icone: "onda", href: "/separar-audio" },
   { chave: "extensao", rotulo: "Extensão", icone: "plug", href: "/extensao" },
