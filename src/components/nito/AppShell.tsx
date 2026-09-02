@@ -41,7 +41,7 @@ const ABAS: { chave: AbaAtiva; rotulo: string; icone: string; href: string }[] =
   { chave: "vendas-nito-live", rotulo: "Vendas NITO LIVE", icone: "trofeu", href: "/vendas-nito-live" },
   { chave: "ranking", rotulo: "Ranking", icone: "trofeu", href: "/ranking" },
   { chave: "separar", rotulo: "Separar Áudio", icone: "onda", href: "/separar-audio" },
-  { chave: "extensao", rotulo: "Extensão", icone: "plug", href: "/extensao" },
+  { chave: "extensao", rotulo: "Extensão / Chave", icone: "plug", href: "/extensao" },
   { chave: "alertas", rotulo: "Alertas no Celular", icone: "bell", href: "/alertas-celular" },
   { chave: "suporte", rotulo: "Suporte", icone: "help", href: "/suporte" },
   { chave: "perfil", rotulo: "Meu Perfil", icone: "user", href: "/perfil" },
