@@ -8,7 +8,7 @@
 // misturar os dois tipos de venda na mesma lista.
 // =============================================================================
 
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { AuthGuard } from "@/components/AuthGuard";
 import { AppShell } from "@/components/nito/AppShell";
 import { Indicacoes, VendaAfiliado, Perfil, Fmt } from "@/lib/nito-motor";
@@ -19,6 +19,26 @@ const SITUACAO: Record<string, { pill: string; texto: string }> = {
   chargeback: { pill: "no", texto: "Chargeback" },
 };
 
+// dias: null = todo o periodo, sem corte de data.
+const PERIODOS = [
+  { chave: "dia", rotulo: "Diário", dias: 1 },
+  { chave: "semana", rotulo: "Semanal", dias: 7 },
+  { chave: "mes", rotulo: "Mensal", dias: 30 },
+  { chave: "ano", rotulo: "Anual", dias: 365 },
+  { chave: "todo", rotulo: "Todo período", dias: null },
+] as const;
+
+type Chave = (typeof PERIODOS)[number]["chave"];
+
+function faixaDeDatas(dias: number | null) {
+  const fim = new Date();
+  const f = (d: Date) => d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
+  if (dias === null) return "desde o início";
+  if (dias === 1) return fim.toLocaleDateString("pt-BR");
+  const ini = new Date(Date.now() - dias * 864e5);
+  return `${f(ini)} A ${fim.toLocaleDateString("pt-BR")}`;
+}
+
 function quando(iso: string) {
   const d = new Date(iso);
   return `${d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })} · ${d.toLocaleTimeString(
@@ -28,16 +48,19 @@ function quando(iso: string) {
 }
 
 function Conteudo({ perfil }: { perfil: Perfil }) {
-  const [lista, setLista] = useState<VendaAfiliado[]>([]);
+  const [periodo, setPeriodo] = useState<Chave>("mes");
+  const [todas, setTodas] = useState<VendaAfiliado[]>([]);
   const [carregando, setCarregando] = useState(true);
+
+  const dias = PERIODOS.find((p) => p.chave === periodo)!.dias;
 
   const carregar = useCallback(async () => {
     setCarregando(true);
     try {
-      const dados = await Indicacoes.minhas(200);
-      setLista(dados);
+      const dados = await Indicacoes.minhas(1000);
+      setTodas(dados);
     } catch {
-      setLista([]);
+      setTodas([]);
     } finally {
       setCarregando(false);
     }
@@ -46,6 +69,15 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
   useEffect(() => {
     carregar();
   }, [carregar]);
+
+  // Filtro por periodo e feito aqui no navegador (mesmo padrao da tela de
+  // Vendas TikTok): o volume e pequeno e assim os 3 numeros do topo, o
+  // historico e o resumo ficam sempre olhando para a mesma janela de tempo.
+  const lista = useMemo(() => {
+    if (dias === null) return todas;
+    const corte = Date.now() - dias * 864e5;
+    return todas.filter((v) => new Date(v.criado_em).getTime() >= corte);
+  }, [todas, dias]);
 
   const resumo = Indicacoes.resumir(lista);
 
@@ -62,6 +94,22 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
               das vendas do TikTok Shop — essas ficam em &quot;Minhas Vendas&quot;.
             </p>
           </div>
+        </div>
+
+        <div className="spread" style={{ margin: "20px 0 4px", flexWrap: "wrap", gap: 10 }}>
+          <div className="periodo">
+            {PERIODOS.map((p) => (
+              <button
+                key={p.chave}
+                className={periodo === p.chave ? "on" : ""}
+                onClick={() => setPeriodo(p.chave)}
+                type="button"
+              >
+                {p.rotulo}
+              </button>
+            ))}
+          </div>
+          <span className="eyebrow">{faixaDeDatas(dias)}</span>
         </div>
 
         <div className="cards">
