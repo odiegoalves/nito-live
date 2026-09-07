@@ -29,6 +29,7 @@ export type AbaAtiva =
   | "ranking"
   | "separar"
   | "extensao"
+  | "shopee"
   | "alertas"
   | "suporte"
   | "perfil";
@@ -42,6 +43,7 @@ const ABAS: { chave: AbaAtiva; rotulo: string; icone: string; href: string }[] =
   { chave: "ranking", rotulo: "Ranking", icone: "trofeu", href: "/ranking" },
   { chave: "separar", rotulo: "Separar Áudio", icone: "onda", href: "/separar-audio" },
   { chave: "extensao", rotulo: "Extensão / Chave", icone: "plug", href: "/extensao" },
+  { chave: "shopee", rotulo: "NITO LIVE Shopee", icone: "plug", href: "/shopee" },
   { chave: "alertas", rotulo: "Alertas no Celular", icone: "bell", href: "/alertas-celular" },
   { chave: "suporte", rotulo: "Suporte", icone: "help", href: "/suporte" },
   { chave: "perfil", rotulo: "Meu Perfil", icone: "user", href: "/perfil" },
