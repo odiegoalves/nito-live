@@ -4,23 +4,44 @@
 // NITO LIVE - Shopee.
 // Igual a aba da Extensao (TikTok), so que fala com o produto "shopee" no
 // servidor de licencas. Mesma engrenagem, chave separada, mesma conta.
-// Instalador (NitoLiveSetup.exe) hospedado em public/downloads/ e servido
-// como asset estatico pelo Next.js/Vercel, mesmo esquema ja usado pelo
-// LIVE INFINITY em public/downloads/*.zip.
+// O instalador (.exe) e publicado direto por aqui pelo admin - mesmo
+// mecanismo ja usado na aba /extensao (Storage.enviar no bucket "extensao" +
+// tabela extensao_versoes), so que filtrado por produto="shopee". Sem
+// campo de Helper: o instalador do Shopee ja e um .exe unico self-contained.
 // =============================================================================
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { AuthGuard } from "@/components/AuthGuard";
-import { AppShell } from "@/components/nito/AppShell";
-import { Chaves, RespostaChaves, Perfil } from "@/lib/nito-motor";
+import { AppShell, ehAdmin } from "@/components/nito/AppShell";
+import { Chaves, RespostaChaves, Perfil, Extensao, VersaoExtensao, comoErro } from "@/lib/nito-motor";
 import { diasRestantes } from "@/lib/nito-gamificacao";
 
+function mb(bytes?: number | null) {
+  if (!bytes) return "";
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+}
+
 function Conteudo({ perfil }: { perfil: Perfil }) {
+  const admin = ehAdmin(perfil);
   const [chaves, setChaves] = useState<RespostaChaves | null>(null);
   const [carregandoChaves, setCarregandoChaves] = useState(true);
   const [gerando, setGerando] = useState(false);
   const [erroChaves, setErroChaves] = useState<string | null>(null);
   const [copiada, setCopiada] = useState<string | null>(null);
+
+  // instalador publicado (todo mundo le)
+  const [versao, setVersao] = useState<VersaoExtensao | null>(null);
+  const [carregandoVersao, setCarregandoVersao] = useState(true);
+
+  // publicacao de versao nova (admin)
+  const [numero, setNumero] = useState("");
+  const [notas, setNotas] = useState("");
+  const [arquivo, setArquivo] = useState<File | null>(null);
+  const [enviando, setEnviando] = useState(false);
+  const [erroPublicar, setErroPublicar] = useState<string | null>(null);
+  const [okPublicar, setOkPublicar] = useState<string | null>(null);
+  const arquivoRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     Chaves.chamar("listar", "shopee")
@@ -28,6 +49,33 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
       .catch((e) => setErroChaves(e instanceof Error ? e.message : "Falha ao buscar suas chaves."))
       .finally(() => setCarregandoChaves(false));
   }, []);
+
+  useEffect(() => {
+    Extensao.versaoAtual("shopee")
+      .then(setVersao)
+      .catch(() => setVersao(null))
+      .finally(() => setCarregandoVersao(false));
+  }, []);
+
+  async function publicar() {
+    if (!numero.trim() || !arquivo || enviando) return;
+    setEnviando(true);
+    setErroPublicar(null);
+    setOkPublicar(null);
+    try {
+      await Extensao.publicarVersao(numero.trim(), arquivo, notas.trim() || undefined, null, "shopee");
+      const atualizada = await Extensao.versaoAtual("shopee");
+      setVersao(atualizada);
+      setNumero("");
+      setNotas("");
+      setArquivo(null);
+      setOkPublicar("Instalador publicado. Todo mundo já baixa essa versão a partir de agora.");
+    } catch (e) {
+      setErroPublicar(comoErro(e, "Não consegui publicar o instalador.").message);
+    } finally {
+      setEnviando(false);
+    }
+  }
 
   const chavesAtivas = (chaves?.chaves ?? []).filter((c) => c.ativa);
   const venceEm = chavesAtivas
@@ -72,6 +120,55 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
           <p className="sub">Baixe o programa de PC e ative com sua chave. Mesma conta, chave separada da extensão.</p>
         </div>
 
+        {admin && (
+          <div className="admin-bar" style={{ marginTop: 22, display: "block" }}>
+            <div className="row" style={{ marginBottom: 13 }}>
+              <span className="tag">ADMIN</span>
+              <b>
+                {versao
+                  ? `Publicado agora: versão ${versao.versao} · ${mb(versao.tamanho_bytes)}`
+                  : "Nenhum instalador publicado ainda."}
+              </b>
+            </div>
+
+            <div className="grid3">
+              <div className="campo">
+                <label>Número da versão</label>
+                <input value={numero} onChange={(e) => setNumero(e.target.value)} placeholder="1.1.0" />
+              </div>
+              <div className="campo">
+                <label>Instalador (.exe)</label>
+                <input ref={arquivoRef} type="file" accept=".exe" hidden onChange={(e) => setArquivo(e.target.files?.[0] ?? null)} />
+                <button className="btn g" style={{ width: "100%" }} onClick={() => arquivoRef.current?.click()} type="button">
+                  {arquivo ? `${arquivo.name} (${mb(arquivo.size)})` : "Escolher arquivo"}
+                </button>
+              </div>
+              <div className="campo">
+                <label>O que mudou</label>
+                <input value={notas} onChange={(e) => setNotas(e.target.value)} placeholder="Tela de login sem revalidação" />
+              </div>
+            </div>
+
+            {erroPublicar && <div className="regra" style={{ display: "block", marginBottom: 9 }}>{erroPublicar}</div>}
+            {okPublicar && <div className="regra" style={{ display: "block", marginBottom: 9, color: "var(--green)" }}>{okPublicar}</div>}
+
+            <div className="row" style={{ gap: 12, flexWrap: "wrap" }}>
+              {(!numero.trim() || !arquivo) && (
+                <span className="regra">
+                  Falta {!numero.trim() && !arquivo
+                    ? "digitar a versão e escolher o arquivo"
+                    : !numero.trim()
+                    ? "digitar o número da versão (o 1.1.0 cinza é só exemplo)"
+                    : "escolher o instalador .exe"}.
+                </span>
+              )}
+              <button className="btn gold" onClick={publicar} disabled={enviando || !numero.trim() || !arquivo} type="button">
+                {enviando ? "Enviando…" : "Publicar este instalador"}
+              </button>
+            </div>
+          </div>
+        )}
+
         <div className="grid2" style={{ marginTop: 16 }}>
           <div className="stack">
             <div className="panel pad">
@@ -79,17 +176,39 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
                 <div className="n">1</div>
                 <div className="c">
                   <b>Baixar o programa</b>
-                  <p className="muted tiny">
-                    Baixe o instalador do NITO LIVE Shopee pra Windows (64 bits).
-                  </p>
-                  <a
-                    className="btn p"
-                    href="/downloads/NitoLiveSetup.exe"
-                    download="NitoLiveSetup.exe"
-                    style={{ marginTop: 10, display: "inline-flex" }}
-                  >
-                    Baixar NITO LIVE Shopee
-                  </a>
+                  {carregandoVersao && <p className="muted tiny">Buscando a versão publicada…</p>}
+
+                  {!carregandoVersao && versao && (
+                    <>
+                      <p className="muted tiny">
+                        Versão {versao.versao} — sempre a mais recente publicada pela administração.
+                        {versao.notas ? ` ${versao.notas}` : ""}
+                      </p>
+                      <a
+                        className="material"
+                        href={versao.arquivo_url}
+                        download
+                        style={{ marginTop: 12, textDecoration: "none", color: "inherit" }}
+                      >
+                        <div className="mi">💻</div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <b>NitoLiveSetup_{versao.versao}.exe</b>
+                          <span>
+                            {mb(versao.tamanho_bytes)} · publicado em{" "}
+                            {new Date(versao.publicado_em).toLocaleDateString("pt-BR")}
+                          </span>
+                        </div>
+                        <span className="go">BAIXAR</span>
+                      </a>
+                    </>
+                  )}
+
+                  {!carregandoVersao && !versao && (
+                    <p className="muted tiny">
+                      O instalador ainda está sendo preparado. Assim que a administração publicar, o
+                      link de download aparece aqui — sua chave abaixo já funciona independente disso.
+                    </p>
+                  )}
                 </div>
               </div>
 
