@@ -93,6 +93,8 @@ Deno.serve(async (req) => {
     // ---- 2. o que a pessoa quer ----
     const corpo = req.method === "POST" ? await req.json().catch(() => ({})) : {};
     const acao = corpo?.acao === "gerar" ? "gerar" : "listar";
+    // Qual produto: "tiktok" (extensao, padrao) ou "shopee" (programa desktop).
+    const produto = corpo?.produto === "shopee" ? "shopee" : "tiktok";
 
     const token = await entrarNoPainel(base);
     let cliente = await clienteDoEmail(base, token, email);
@@ -113,10 +115,16 @@ Deno.serve(async (req) => {
     const plano = String(cliente.plan ?? "basic").trim().toLowerCase();
     const limite = LIMITE[plano] ?? 1;
 
+    // Cada aba (TikTok / Shopee) tem sua propria cota de chaves - uma nao
+    // consome a outra, mesmo sendo a mesma conta e o mesmo plano.
+    const licencasDoProduto = (cliente.licenses ?? []).filter(
+      (l: any) => String(l?.product ?? "tiktok").trim().toLowerCase() === produto
+    );
+
     // ---- 3. gerar chave nova, se o plano deixar ----
     if (acao === "gerar") {
-      const ativas = (cliente.licenses ?? []).filter((l: any) => l?.active).length;
-      if (limite !== -1 && ativas >= limite) {
+      const ativasAgora = licencasDoProduto.filter((l: any) => l?.active).length;
+      if (limite !== -1 && ativasAgora >= limite) {
         return responder(
           {
             erro: `Seu plano permite ${limite} ${limite === 1 ? "chave" : "chaves"}. Para ter mais, faça o upgrade.`,
@@ -128,7 +136,7 @@ Deno.serve(async (req) => {
       const g = await fetch(`${base}/api/admin/actions/generate-key-for-customer`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ email, plan: plano, durationDays: 30 }),
+        body: JSON.stringify({ email, plan: plano, durationDays: 30, product: produto }),
       });
       const resultado = await g.json().catch(() => ({}));
       if (!g.ok || resultado?.ok === false) {
@@ -138,17 +146,20 @@ Deno.serve(async (req) => {
       cliente = (await clienteDoEmail(base, token, email)) ?? cliente;
     }
 
-    // ---- 4. devolve so o que e dessa pessoa ----
-    const chaves = (cliente.licenses ?? []).map((l: any) => ({
-      id: l?.id,
-      chave: l?.key,
-      plano: l?.plan,
-      ativa: !!l?.active,
-      situacao: l?.status,
-      expira_em: l?.expiresAt ?? null,
-      ultimo_uso: l?.lastValidationAt ?? null,
-      vinculada: !!l?.activationIp,
-    }));
+    // ---- 4. devolve so o que e dessa pessoa, so desse produto ----
+    const chaves = (cliente.licenses ?? [])
+      .filter((l: any) => String(l?.product ?? "tiktok").trim().toLowerCase() === produto)
+      .map((l: any) => ({
+        id: l?.id,
+        chave: l?.key,
+        plano: l?.plan,
+        produto,
+        ativa: !!l?.active,
+        situacao: l?.status,
+        expira_em: l?.expiresAt ?? null,
+        ultimo_uso: l?.lastValidationAt ?? null,
+        vinculada: !!l?.activationIp,
+      }));
 
     const ativas = chaves.filter((c) => c.ativa).length;
 
@@ -156,6 +167,7 @@ Deno.serve(async (req) => {
       email,
       encontrado: true,
       plano,
+      produto,
       limite,
       ativas,
       podeGerar: limite === -1 || ativas < limite,
