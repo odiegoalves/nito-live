@@ -1384,10 +1384,13 @@ export const Extensao = {
   },
 };
 
+export type ProdutoChave = "tiktok" | "shopee";
+
 export interface ChaveDoMembro {
   id: string;
   chave: string;
   plano: string;
+  produto?: ProdutoChave;
   ativa: boolean;
   situacao: string;
   expira_em: string | null;
@@ -1399,6 +1402,7 @@ export interface RespostaChaves {
   email: string;
   encontrado: boolean;
   plano: string | null;
+  produto?: ProdutoChave;
   limite: number;      // -1 = ilimitado
   ativas?: number;
   podeGerar: boolean;
@@ -1410,8 +1414,8 @@ export interface RespostaChaves {
 export const Chaves = {
   // Fala com a funcao "chaves" do Supabase, que por sua vez pergunta ao painel.
   // O navegador nunca ve a senha do painel.
-  async chamar(acao: "listar" | "gerar" = "listar"): Promise<RespostaChaves> {
-    const { data, error } = await sb.functions.invoke("chaves", { body: { acao } });
+  async chamar(acao: "listar" | "gerar" = "listar", produto: ProdutoChave = "tiktok"): Promise<RespostaChaves> {
+    const { data, error } = await sb.functions.invoke("chaves", { body: { acao, produto } });
 
     if (error) {
       // A funcao devolve o motivo real no corpo. Sem ler esse corpo, toda falha
