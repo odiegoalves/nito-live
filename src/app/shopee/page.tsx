@@ -4,9 +4,9 @@
 // NITO LIVE - Shopee.
 // Igual a aba da Extensao (TikTok), so que fala com o produto "shopee" no
 // servidor de licencas. Mesma engrenagem, chave separada, mesma conta.
-// O download do programa de PC ainda nao esta configurado aqui - por
-// enquanto a aba so cuida da chave. Quando o instalador tiver um lugar para
-// ficar hospedado, o passo 1 troca de aviso para o link de baixar.
+// Instalador (NitoLiveSetup.exe) hospedado em public/downloads/ e servido
+// como asset estatico pelo Next.js/Vercel, mesmo esquema ja usado pelo
+// LIVE INFINITY em public/downloads/*.zip.
 // =============================================================================
 
 import React, { useEffect, useState } from "react";
@@ -80,9 +80,16 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
                 <div className="c">
                   <b>Baixar o programa</b>
                   <p className="muted tiny">
-                    O link de download ainda está sendo preparado. Assim que estiver no ar, ele aparece
-                    aqui — sua chave abaixo já funciona independente disso.
+                    Baixe o instalador do NITO LIVE Shopee pra Windows (64 bits).
                   </p>
+                  <a
+                    className="btn p"
+                    href="/downloads/NitoLiveSetup.exe"
+                    download="NitoLiveSetup.exe"
+                    style={{ marginTop: 10, display: "inline-flex" }}
+                  >
+                    Baixar NITO LIVE Shopee
+                  </a>
                 </div>
               </div>
 
