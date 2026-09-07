@@ -215,15 +215,45 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
               <div className="passo">
                 <div className="n">2</div>
                 <div className="c">
-                  <b>Instalar</b>
+                  <b>Instalar o programa</b>
                   <p className="muted tiny">
-                    Abra o instalador baixado e siga as telas até o fim.
+                    Abra o <strong>NitoLiveSetup.exe</strong> baixado e siga as telas até o fim. Se o
+                    Windows perguntar se você confia no programa (SmartScreen), clique em{" "}
+                    <strong>Mais informações → Executar assim mesmo</strong>.
+                  </p>
+                  <p className="muted tiny" style={{ marginTop: 6 }}>
+                    O instalador já copia sozinho o programa e a extensão do Chrome pra pasta{" "}
+                    <span className="num" style={{ color: "var(--cyan)" }}>C:\Program Files\NITO LIVE</span>.
+                    Você não precisa extrair nem copiar nada na mão.
+                  </p>
+                </div>
+              </div>
+
+              {/* A extensao do Shopee ja vem descompactada dentro da propria
+                  instalacao do .exe (payload\Extension no instalador), num
+                  caminho fixo - por isso aqui nao existe passo de "extrair
+                  .zip" como na aba /extensao do TikTok. So falta carregar
+                  ela no Chrome, porque ela nao esta publicada na Web Store. */}
+              <div className="passo">
+                <div className="n">3</div>
+                <div className="c">
+                  <b>Carregar a extensão no Chrome</b>
+                  <p className="muted tiny">
+                    Abra <span className="num" style={{ color: "var(--cyan)" }}>chrome://extensions</span> e
+                    ligue o <strong>Modo do desenvolvedor</strong> no canto superior direito.
+                  </p>
+                  <p className="muted tiny" style={{ marginTop: 6 }}>
+                    Clique em <strong>Carregar sem compactação</strong> e escolha a pasta{" "}
+                    <span className="num" style={{ color: "var(--cyan)" }}>
+                      C:\Program Files\NITO LIVE\Extension
+                    </span>
+                    . A extensão aparece na lista — não precisa mexer em mais nada aqui.
                   </p>
                 </div>
               </div>
 
               <div className="passo">
-                <div className="n">3</div>
+                <div className="n">4</div>
                 <div className="c">
                   <b>Ativar com sua chave</b>
                   <p className="muted tiny">
