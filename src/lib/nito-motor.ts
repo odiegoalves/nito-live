@@ -1302,6 +1302,8 @@ export const Chamados = {
   },
 };
 
+export type ProdutoChave = "tiktok" | "shopee";
+
 export interface VersaoExtensao {
   id: string;
   versao: string;
@@ -1312,14 +1314,18 @@ export interface VersaoExtensao {
   publicado_em: string;
   helper_url?: string | null;
   helper_bytes?: number | null;
+  produto?: ProdutoChave;
 }
 
 export const Extensao = {
-  async versaoAtual(): Promise<VersaoExtensao | null> {
+  // produto default "tiktok" mantem o comportamento de sempre pra quem ja
+  // chama Extensao.versaoAtual() sem argumento (a aba /extensao).
+  async versaoAtual(produto: ProdutoChave = "tiktok"): Promise<VersaoExtensao | null> {
     const { data, error } = await sb
       .from("extensao_versoes")
       .select("*")
       .eq("atual", true)
+      .eq("produto", produto)
       .order("publicado_em", { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -1327,12 +1333,14 @@ export const Extensao = {
     const atual = (data as VersaoExtensao) ?? null;
     if (!atual) return atual;
 
-    // Se essa versao nao trouxe Helper novo, ela herda o ultimo que foi
-    // publicado - assim o cliente sempre acha um Helper pra baixar.
-    if (!atual.helper_url) {
+    // Helper e um conceito so do TikTok (app auxiliar da extensao Chrome).
+    // O instalador do Shopee ja e um .exe unico self-contained, sem helper
+    // separado - entao a heranca so faz sentido pro produto tiktok.
+    if (produto === "tiktok" && !atual.helper_url) {
       const { data: ultimo } = await sb
         .from("extensao_versoes")
         .select("helper_url, helper_bytes")
+        .eq("produto", "tiktok")
         .not("helper_url", "is", null)
         .order("publicado_em", { ascending: false })
         .limit(1)
@@ -1350,7 +1358,8 @@ export const Extensao = {
     versao: string,
     arquivo: File,
     notas?: string,
-    helper?: File | null
+    helper?: File | null,
+    produto: ProdutoChave = "tiktok"
   ): Promise<VersaoExtensao> {
     const {
       data: { user },
@@ -1376,6 +1385,7 @@ export const Extensao = {
         publicado_por: user.id,
         helper_url,
         helper_bytes,
+        produto,
       })
       .select("*")
       .single();
@@ -1383,8 +1393,6 @@ export const Extensao = {
     return data as unknown as VersaoExtensao;
   },
 };
-
-export type ProdutoChave = "tiktok" | "shopee";
 
 export interface ChaveDoMembro {
   id: string;
