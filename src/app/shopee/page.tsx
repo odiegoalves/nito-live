@@ -187,7 +187,7 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
                       <a
                         className="material"
                         href={versao.arquivo_url}
-                        download
+                                                download={`NitoLiveSetup_${versao.versao}.exe`}
                         style={{ marginTop: 12, textDecoration: "none", color: "inherit" }}
                       >
                         <div className="mi">💻</div>
