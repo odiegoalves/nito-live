@@ -1302,6 +1302,32 @@ export const Chamados = {
   },
 };
 
+// Upload de arquivo grande (instalador .exe) direto pra VPS, contornando o
+// limite de 50MB do Supabase Storage no plano free. A VPS confere a sessao
+// (token do usuario logado) e o papel dele em "perfis" antes de aceitar -
+// so fundador/moderador consegue, igual a politica do Storage pros outros.
+async function enviarInstaladorGrandeParaVps(arquivo: File): Promise<string> {
+  const {
+    data: { session },
+  } = await sb.auth.getSession();
+  if (!session) throw new Error("Precisa estar logado.");
+
+  const form = new FormData();
+  form.append("arquivo", arquivo);
+  form.append("nomeArquivo", arquivo.name);
+
+  const resp = await fetch("https://api.nitolive.com.br/api/admin/upload-instalador", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${session.access_token}` },
+    body: form,
+  });
+  const dados = await resp.json().catch(() => ({}));
+  if (!resp.ok || !dados.ok) {
+    throw new Error(dados.error || "Falha ao enviar o arquivo pra VPS.");
+  }
+  return dados.url as string;
+}
+
 export type ProdutoChave = "tiktok" | "shopee";
 
 export interface VersaoExtensao {
@@ -1366,7 +1392,17 @@ export const Extensao = {
     } = await sb.auth.getUser();
     if (!user) throw new Error("Precisa estar logado.");
 
-    const url = await Storage.enviar("extensao", arquivo);
+    // Arquivos grandes (instalador do Shopee, tipicamente >50MB) nao cabem no
+    // limite do bucket do Supabase Storage no plano free - vao direto pra
+    // VPS via rota que confere que quem manda e admin de verdade (token da
+    // sessao + papel na tabela perfis, nada de senha fixa no navegador).
+    const LIMITE_STORAGE_BYTES = 45 * 1024 * 1024;
+    let url: string;
+    if (arquivo.size > LIMITE_STORAGE_BYTES) {
+      url = await enviarInstaladorGrandeParaVps(arquivo);
+    } else {
+      url = await Storage.enviar("extensao", arquivo);
+    }
     let helper_url: string | null = null;
     let helper_bytes: number | null = null;
     if (helper) {
