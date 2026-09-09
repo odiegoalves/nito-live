@@ -350,7 +350,20 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
               {erroChaves && (
                 <div className="aviso erro" style={{ marginTop: 12, marginBottom: 0 }}>
                   <span className="avisoIcone">!</span>
-                  <div>{erroChaves}</div>
+                  <div>
+                    {erroChaves}
+                    {erroChaves.toLowerCase().includes("vendido separado") && (
+                      <a
+                        href="https://nitolive.com.br/"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="btn p"
+                        style={{ display: "block", textAlign: "center", marginTop: 10 }}
+                      >
+                        COMPRAR NITO LIVE SHOPEE
+                      </a>
+                    )}
+                  </div>
                 </div>
               )}
 
