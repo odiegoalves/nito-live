@@ -123,6 +123,29 @@ Deno.serve(async (req) => {
 
     // ---- 3. gerar chave nova, se o plano deixar ----
     if (acao === "gerar") {
+      // O Nito Live Shopee e um produto vendido separado na Cakto (oferta
+      // "Nito Live SHOPEE"), diferente da comunidade/extensao TikTok. So
+      // pode gerar chave do Shopee quem realmente comprou essa oferta.
+      //
+      // O painel VPS nao devolve uma lista de "produtos comprados" por
+      // cliente - ele devolve productName/offerName da compra encontrada.
+      // Por isso a checagem e por texto nesses dois campos. Se um dia o
+      // painel passar a devolver varias compras, essa checagem deve ser
+      // trocada para olhar a lista inteira em vez de so productName/offerName.
+      if (produto === "shopee") {
+        const textoOferta = `${cliente.productName ?? ""} ${cliente.offerName ?? ""}`.toLowerCase();
+        const comprouShopee = textoOferta.includes("shopee");
+        if (!comprouShopee) {
+          return responder(
+            {
+              erro:
+                "O NITO LIVE Shopee é um produto vendido separado. Para gerar a chave, é preciso comprar a oferta \"Nito Live SHOPEE\" na Cakto.",
+            },
+            403
+          );
+        }
+      }
+
       const ativasAgora = licencasDoProduto.filter((l: any) => l?.active).length;
       if (limite !== -1 && ativasAgora >= limite) {
         return responder(
@@ -163,18 +186,34 @@ Deno.serve(async (req) => {
 
      const ativas = chaves.filter((c) => c.ativa).length;
 
-    // A assinatura da comunidade nao e por produto - fica ativa se a pessoa
-    // tiver QUALQUER licenca ativa, em qualquer produto.
+    // A assinatura da comunidade nao e por produto - fica ativa se a
+    // ASSINATURA em si estiver em dia, mesmo que a pessoa ainda nao tenha
+    // gerado nenhuma chave (ex: acesso liberado manualmente, ou acabou de
+    // comprar e ainda nao abriu a extensao/app pra gerar a primeira chave).
+    //
+    // Por isso NAO basta olhar so "tem licenca ativa" (bug visto em
+    // diegoalvesdealmeida14@gmail.com: conta com status=active e
+    // expiresAt no futuro, mas licenses=[] - dava assinatura vencida
+    // errado). A fonte principal e cliente.status + cliente.expiresAt (ou
+    // dueDate); licenca ativa entra como reforco/plano B pros casos em que
+    // o painel nao devolve status/expiresAt no nivel da conta.
+    const statusConta = String(cliente.status ?? "").trim().toLowerCase();
+    const expiraConta: string | null = cliente.expiresAt ?? cliente.dueDate ?? null;
+    const contaVencida = expiraConta ? new Date(expiraConta).getTime() < Date.now() : false;
+    const assinaturaAtivaPelaConta = statusConta === "active" && !contaVencida;
+
     const todasLicencas = cliente.licenses ?? [];
     const licencasAtivasGeral = todasLicencas.filter((l: any) => l?.active);
-    const assinaturaAtiva = licencasAtivasGeral.length > 0;
-    const assinaturaExpiraEm = licencasAtivasGeral.length > 0
-      ? licencasAtivasGeral
-          .map((l: any) => l?.expiresAt)
-          .filter(Boolean)
-          .sort()
-          .pop() ?? null
-      : null;
+    const assinaturaAtiva = assinaturaAtivaPelaConta || licencasAtivasGeral.length > 0;
+    const assinaturaExpiraEm =
+      expiraConta ??
+      (licencasAtivasGeral.length > 0
+        ? licencasAtivasGeral
+            .map((l: any) => l?.expiresAt)
+            .filter(Boolean)
+            .sort()
+            .pop() ?? null
+        : null);
 
     return responder({
       email,
