@@ -161,7 +161,20 @@ Deno.serve(async (req) => {
         vinculada: !!l?.activationIp,
       }));
 
-    const ativas = chaves.filter((c) => c.ativa).length;
+     const ativas = chaves.filter((c) => c.ativa).length;
+
+    // A assinatura da comunidade nao e por produto - fica ativa se a pessoa
+    // tiver QUALQUER licenca ativa, em qualquer produto.
+    const todasLicencas = cliente.licenses ?? [];
+    const licencasAtivasGeral = todasLicencas.filter((l: any) => l?.active);
+    const assinaturaAtiva = licencasAtivasGeral.length > 0;
+    const assinaturaExpiraEm = licencasAtivasGeral.length > 0
+      ? licencasAtivasGeral
+          .map((l: any) => l?.expiresAt)
+          .filter(Boolean)
+          .sort()
+          .pop() ?? null
+      : null;
 
     return responder({
       email,
@@ -172,6 +185,8 @@ Deno.serve(async (req) => {
       ativas,
       podeGerar: limite === -1 || ativas < limite,
       status: cliente.status ?? null,
+      assinatura_ativa: assinaturaAtiva,
+      assinatura_expira_em: assinaturaExpiraEm,
       chaves,
     });
   } catch (e) {
