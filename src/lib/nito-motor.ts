@@ -1302,6 +1302,34 @@ export const Chamados = {
   },
 };
 
+// Upload de arquivo grande (instalador .exe) direto pra VPS, contornando o
+// limite de 50MB do Supabase Storage no plano free. A VPS confere a sessao
+// (token do usuario logado) e o papel dele em "perfis" antes de aceitar -
+// so fundador/moderador consegue, igual a politica do Storage pros outros.
+async function enviarInstaladorGrandeParaVps(arquivo: File): Promise<string> {
+  const {
+    data: { session },
+  } = await sb.auth.getSession();
+  if (!session) throw new Error("Precisa estar logado.");
+
+  const form = new FormData();
+  form.append("arquivo", arquivo);
+  form.append("nomeArquivo", arquivo.name);
+
+  const resp = await fetch("https://api.nitolive.com.br/api/admin/upload-instalador", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${session.access_token}` },
+    body: form,
+  });
+  const dados = await resp.json().catch(() => ({}));
+  if (!resp.ok || !dados.ok) {
+    throw new Error(dados.error || "Falha ao enviar o arquivo pra VPS.");
+  }
+  return dados.url as string;
+}
+
+export type ProdutoChave = "tiktok" | "shopee";
+
 export interface VersaoExtensao {
   id: string;
   versao: string;
@@ -1312,14 +1340,18 @@ export interface VersaoExtensao {
   publicado_em: string;
   helper_url?: string | null;
   helper_bytes?: number | null;
+  produto?: ProdutoChave;
 }
 
 export const Extensao = {
-  async versaoAtual(): Promise<VersaoExtensao | null> {
+  // produto default "tiktok" mantem o comportamento de sempre pra quem ja
+  // chama Extensao.versaoAtual() sem argumento (a aba /extensao).
+  async versaoAtual(produto: ProdutoChave = "tiktok"): Promise<VersaoExtensao | null> {
     const { data, error } = await sb
       .from("extensao_versoes")
       .select("*")
       .eq("atual", true)
+      .eq("produto", produto)
       .order("publicado_em", { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -1327,12 +1359,14 @@ export const Extensao = {
     const atual = (data as VersaoExtensao) ?? null;
     if (!atual) return atual;
 
-    // Se essa versao nao trouxe Helper novo, ela herda o ultimo que foi
-    // publicado - assim o cliente sempre acha um Helper pra baixar.
-    if (!atual.helper_url) {
+    // Helper e um conceito so do TikTok (app auxiliar da extensao Chrome).
+    // O instalador do Shopee ja e um .exe unico self-contained, sem helper
+    // separado - entao a heranca so faz sentido pro produto tiktok.
+    if (produto === "tiktok" && !atual.helper_url) {
       const { data: ultimo } = await sb
         .from("extensao_versoes")
         .select("helper_url, helper_bytes")
+        .eq("produto", "tiktok")
         .not("helper_url", "is", null)
         .order("publicado_em", { ascending: false })
         .limit(1)
@@ -1350,14 +1384,25 @@ export const Extensao = {
     versao: string,
     arquivo: File,
     notas?: string,
-    helper?: File | null
+    helper?: File | null,
+    produto: ProdutoChave = "tiktok"
   ): Promise<VersaoExtensao> {
     const {
       data: { user },
     } = await sb.auth.getUser();
     if (!user) throw new Error("Precisa estar logado.");
 
-    const url = await Storage.enviar("extensao", arquivo);
+    // Arquivos grandes (instalador do Shopee, tipicamente >50MB) nao cabem no
+    // limite do bucket do Supabase Storage no plano free - vao direto pra
+    // VPS via rota que confere que quem manda e admin de verdade (token da
+    // sessao + papel na tabela perfis, nada de senha fixa no navegador).
+    const LIMITE_STORAGE_BYTES = 45 * 1024 * 1024;
+    let url: string;
+    if (arquivo.size > LIMITE_STORAGE_BYTES) {
+      url = await enviarInstaladorGrandeParaVps(arquivo);
+    } else {
+      url = await Storage.enviar("extensao", arquivo);
+    }
     let helper_url: string | null = null;
     let helper_bytes: number | null = null;
     if (helper) {
@@ -1376,6 +1421,7 @@ export const Extensao = {
         publicado_por: user.id,
         helper_url,
         helper_bytes,
+        produto,
       })
       .select("*")
       .single();
@@ -1388,6 +1434,7 @@ export interface ChaveDoMembro {
   id: string;
   chave: string;
   plano: string;
+  produto?: ProdutoChave;
   ativa: boolean;
   situacao: string;
   expira_em: string | null;
@@ -1399,6 +1446,7 @@ export interface RespostaChaves {
   email: string;
   encontrado: boolean;
   plano: string | null;
+  produto?: ProdutoChave;
   limite: number;      // -1 = ilimitado
   ativas?: number;
   podeGerar: boolean;
@@ -1417,8 +1465,8 @@ export interface RespostaChaves {
 export const Chaves = {
   // Fala com a funcao "chaves" do Supabase, que por sua vez pergunta ao painel.
   // O navegador nunca ve a senha do painel.
-  async chamar(acao: "listar" | "gerar" = "listar"): Promise<RespostaChaves> {
-    const { data, error } = await sb.functions.invoke("chaves", { body: { acao } });
+  async chamar(acao: "listar" | "gerar" = "listar", produto: ProdutoChave = "tiktok"): Promise<RespostaChaves> {
+    const { data, error } = await sb.functions.invoke("chaves", { body: { acao, produto } });
 
     if (error) {
       // A funcao devolve o motivo real no corpo. Sem ler esse corpo, toda falha
