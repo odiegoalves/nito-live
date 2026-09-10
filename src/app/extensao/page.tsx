@@ -76,9 +76,15 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
   // extensao justamente para usar a chave que vai gerar. Se eu exigisse
   // chave ativa para liberar o download, o cliente novo ficava preso:
   // sem extensao para usar a chave, sem chave para baixar a extensao.
+  // chaves.status e o status geral da conta no painel externo (VPS admin) -
+  // pode ficar dessincronizado de uma renovacao/reativacao de licenca. Quem
+  // decide se libera o download e assinatura_ativa, calculado no backend a
+  // partir das licencas de verdade (chaves.some(c => c.ativa)) - o mesmo
+  // sinal que o AuthGuard usa para liberar login. situacao/bloqueado seguem
+  // existindo so para eventual texto informativo, nunca mais como criterio.
   const situacao = String(chaves?.status ?? "").trim().toLowerCase();
   const bloqueado = ["cancelled", "canceled", "refunded", "expired", "revoked", "inactive"].includes(situacao);
-  const podeBaixar = Boolean(chaves?.encontrado) && !bloqueado;
+  const podeBaixar = Boolean(chaves?.encontrado) && Boolean(chaves?.assinatura_ativa);
 
   async function publicar() {
     if (!numero.trim() || !arquivo || enviando) return;

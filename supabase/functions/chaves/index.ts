@@ -105,6 +105,8 @@ Deno.serve(async (req) => {
         limite: 0,
         podeGerar: false,
         chaves: [],
+        assinatura_ativa: false,
+        assinatura_expira_em: null,
         recado:
           "Não encontrei compra com este e-mail. Use o mesmo e-mail que você usou na Cakto.",
       });
@@ -152,6 +154,18 @@ Deno.serve(async (req) => {
 
     const ativas = chaves.filter((c) => c.ativa).length;
 
+    // Resumo de assinatura no nivel raiz: o AuthGuard do site le exatamente
+    // estes dois campos para decidir se libera ou bloqueia o usuario. Antes
+    // essa resposta so trazia o array "chaves" por licenca individual, entao
+    // o AuthGuard nunca via "assinatura_ativa" e tratava como false sempre -
+    // derrubando assinantes em dia depois de alguns minutos de sessao.
+    const assinaturaAtiva = chaves.some((c) => c.ativa);
+    const assinaturaExpiraEm = chaves
+      .filter((c) => c.ativa && c.expira_em)
+      .map((c) => c.expira_em as string)
+      .sort()
+      .pop() ?? null;
+
     return responder({
       email,
       encontrado: true,
@@ -161,6 +175,8 @@ Deno.serve(async (req) => {
       podeGerar: limite === -1 || ativas < limite,
       status: cliente.status ?? null,
       chaves,
+      assinatura_ativa: assinaturaAtiva,
+      assinatura_expira_em: assinaturaExpiraEm,
     });
   } catch (e) {
     return responder({ erro: e instanceof Error ? e.message : "falha inesperada" }, 500);

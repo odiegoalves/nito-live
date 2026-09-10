@@ -1405,6 +1405,13 @@ export interface RespostaChaves {
   status?: string | null;
   chaves: ChaveDoMembro[];
   recado?: string;
+  // Sinal confiavel de "pode usar o produto": true se existir pelo menos
+  // uma licenca individual ativa. Ao contrario de "status" (status geral da
+  // conta no painel externo, que pode ficar dessincronizado de uma renovacao),
+  // este campo e calculado a partir das chaves de verdade - e o mesmo que o
+  // AuthGuard usa para liberar login.
+  assinatura_ativa?: boolean;
+  assinatura_expira_em?: string | null;
 }
 
 export const Chaves = {
