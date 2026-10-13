@@ -324,6 +324,30 @@
 }
 .submit:disabled { opacity: 0.55; cursor: wait; }
 
+.suporte {
+  margin-top: 12px;
+  width: 100%;
+  padding: 13px;
+  border-radius: 12px;
+  border: 1px solid rgba(37, 211, 102, 0.55);
+  background: rgba(37, 211, 102, 0.1);
+  color: #25d366;
+  font: 800 0.88rem/1 inherit;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: 0.2s;
+}
+.suporte:hover {
+  background: #25d366;
+  color: #04170b;
+  transform: translateY(-2px);
+}
+
 .foot {
   margin-top: 18px;
   text-align: center;
