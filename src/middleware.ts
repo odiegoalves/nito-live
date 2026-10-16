@@ -19,6 +19,9 @@ const ROTAS_PUBLICAS = [
   // login envolvido: quem pergunta e um programa, e a resposta e so o numero
   // da versao e a nota do que mudou.
   "/api/versao",
+  // Mesma coisa para o programa NITO LIVE Shopee (desktop): sem isto a pergunta
+  // dele caia na tela de login e o aviso de atualizacao nunca aparecia.
+  "/api/shopee/versao",
   "/download",
   "/downloads",
   "/ativar-liveinfinity",
