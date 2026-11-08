@@ -15,6 +15,7 @@ import { AuthGuard } from "@/components/AuthGuard";
 import { AppShell, ehAdmin } from "@/components/nito/AppShell";
 import { Chaves, RespostaChaves, Perfil, Extensao, VersaoExtensao, comoErro } from "@/lib/nito-motor";
 import { diasRestantes } from "@/lib/nito-gamificacao";
+import { ProdutoBloqueado } from "@/components/nito/ProdutoBloqueado";
 
 function mb(bytes?: number | null) {
   if (!bytes) return "";
@@ -86,6 +87,10 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
 
   const ativa = chavesAtivas.length > 0 && (!venceEm || new Date(venceEm).getTime() > Date.now());
   const dias = diasRestantes(venceEm);
+
+  // Nao comprou o Shopee (e nao ganhou chave do admin): cadeado + botao de
+  // compra no lugar do download e das chaves. Admin sempre ve a tela inteira.
+  const semCompra = !admin && chaves?.encontrado === true && chaves.produto_liberado === false;
 
   async function gerarChave() {
     if (gerando) return;
@@ -169,6 +174,9 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
           </div>
         )}
 
+        {semCompra ? (
+          <ProdutoBloqueado produto="shopee" links={chaves?.links_compra} />
+        ) : (
         <div className="grid2" style={{ marginTop: 16 }}>
           <div className="stack">
             <div className="panel pad">
@@ -354,7 +362,7 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
                     {erroChaves}
                     {erroChaves.toLowerCase().includes("vendido separado") && (
                       <a
-                        href="https://nitolive.com.br/"
+                        href={chaves?.links_compra?.[0]?.url ?? "https://pay.cakto.com.br/3bt54pt_1091653"}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="btn p"
@@ -409,6 +417,7 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
             </div>
           </div>
         </div>
+        )}
       </div>
     </AppShell>
   );

@@ -8,7 +8,14 @@
 
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
-import { Auth, Chamados, Perfil } from "@/lib/nito-motor";
+import {
+  Auth,
+  Chamados,
+  Perfil,
+  ProdutoChave,
+  produtosLiberadosSalvos,
+  EVENTO_PRODUTOS_LIBERADOS,
+} from "@/lib/nito-motor";
 import { SpriteIcones, Icone } from "./NitoIcones";
 import { SinoNotificacoes } from "./SinoNotificacoes";
 import { AvisosOnline } from "./AvisosOnline";
@@ -70,11 +77,27 @@ export function AppShell({ perfil, ativa, children, recado }: Props) {
   const [menuAberto, setMenuAberto] = useState(false);
   const [recolhida, setRecolhida] = useState(false);
   const [chamadosPendentes, setChamadosPendentes] = useState(0);
+  const [liberados, setLiberados] = useState<Record<ProdutoChave, boolean> | null>(null);
 
   useEffect(() => {
     const salva = window.localStorage.getItem("nito_rail_recolhida");
     if (salva === "1") setRecolhida(true);
   }, []);
+
+  // Cadeado no menu para o produto que a pessoa nao comprou. A informacao vem
+  // da ultima resposta da funcao "chaves" (o AuthGuard ja chama ela).
+  useEffect(() => {
+    const ler = () => setLiberados(produtosLiberadosSalvos());
+    ler();
+    window.addEventListener(EVENTO_PRODUTOS_LIBERADOS, ler);
+    return () => window.removeEventListener(EVENTO_PRODUTOS_LIBERADOS, ler);
+  }, []);
+
+  const produtoDaAba: Partial<Record<AbaAtiva, ProdutoChave>> = { extensao: "tiktok", shopee: "shopee" };
+  const travada = (aba: AbaAtiva) => {
+    const p = produtoDaAba[aba];
+    return !admin && !!p && liberados !== null && liberados[p] === false;
+  };
 
   // So o admin ve o numerinho de chamados aguardando no menu, e atualiza
   // sozinho quando alguem abre um chamado novo, sem precisar recarregar.
@@ -140,10 +163,16 @@ export function AppShell({ perfil, ativa, children, recado }: Props) {
                 className={ativa === a.chave ? "on" : ""}
                 aria-current={ativa === a.chave ? "page" : undefined}
                 onClick={() => setMenuAberto(false)}
-                title={recolhida ? a.rotulo : undefined}
+                title={travada(a.chave) ? `${a.rotulo} — não incluso no seu plano` : recolhida ? a.rotulo : undefined}
+                style={travada(a.chave) ? { opacity: 0.6 } : undefined}
               >
                 <Icone nome={a.icone} />
                 <span className="lbl">{a.rotulo}</span>
+                {travada(a.chave) && (
+                  <span aria-label="bloqueado" style={{ marginLeft: "auto", fontSize: ".8rem" }}>
+                    🔒
+                  </span>
+                )}
                 {a.chave === "suporte" && admin && chamadosPendentes > 0 && (
                   <span className="badge">{chamadosPendentes}</span>
                 )}

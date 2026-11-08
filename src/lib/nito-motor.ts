@@ -1460,6 +1460,47 @@ export interface RespostaChaves {
   // AuthGuard usa para liberar login.
   assinatura_ativa?: boolean;
   assinatura_expira_em?: string | null;
+  // Quais produtos a pessoa comprou na Cakto (estornos ja descontados).
+  comprou?: Record<ProdutoChave, boolean>;
+  // Comprou, ou recebeu do admin uma chave ativa desse produto (cortesia).
+  liberado?: Record<ProdutoChave, boolean>;
+  // Atalho para o produto desta chamada. false = mostrar o cadeado.
+  produto_liberado?: boolean;
+  // Checkout da Cakto do produto desta chamada.
+  links_compra?: LinkCompra[];
+  // true quando esta chamada acabou de gerar a primeira chave sozinha.
+  primeira_chave_gerada?: boolean;
+}
+
+export interface LinkCompra {
+  rotulo: string;
+  preco: string;
+  url: string;
+}
+
+// O menu lateral precisa saber quais produtos estao liberados em qualquer
+// pagina, sem chamar o servidor de novo. Toda resposta da funcao "chaves"
+// guarda isso aqui e avisa quem estiver ouvindo.
+const CHAVE_PRODUTOS_LIBERADOS = "nito_produtos_liberados";
+export const EVENTO_PRODUTOS_LIBERADOS = "nito-produtos-liberados";
+
+export function produtosLiberadosSalvos(): Record<ProdutoChave, boolean> | null {
+  try {
+    const bruto = window.sessionStorage.getItem(CHAVE_PRODUTOS_LIBERADOS);
+    return bruto ? (JSON.parse(bruto) as Record<ProdutoChave, boolean>) : null;
+  } catch {
+    return null;
+  }
+}
+
+function guardarProdutosLiberados(liberado?: Record<ProdutoChave, boolean>) {
+  if (!liberado || typeof window === "undefined") return;
+  try {
+    window.sessionStorage.setItem(CHAVE_PRODUTOS_LIBERADOS, JSON.stringify(liberado));
+    window.dispatchEvent(new Event(EVENTO_PRODUTOS_LIBERADOS));
+  } catch {
+    // sem sessionStorage o menu so fica sem cadeado; a pagina continua certa
+  }
 }
 
 export const Chaves = {
@@ -1492,6 +1533,7 @@ export const Chaves = {
     const corpo = data as RespostaChaves & { erro?: string };
     if (corpo?.erro) throw new Error(corpo.erro);
 
+    guardarProdutosLiberados(corpo?.liberado);
     return corpo;
   },
 };

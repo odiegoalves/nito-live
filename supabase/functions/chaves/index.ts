@@ -11,7 +11,10 @@
 //   1. confere quem esta pedindo, pelo login do proprio site
 //   2. usa o e-mail dessa pessoa - nunca um e-mail que venha do navegador
 //   3. pergunta ao painel as chaves daquele e-mail
-//   4. devolve so o que e daquela pessoa
+//   4. devolve so o que e daquela pessoa, so do produto pedido
+//
+// Produtos: "tiktok" (extensao, padrao) e "shopee" (programa desktop). Cada
+// produto tem sua propria lista e sua propria cota de chaves.
 //
 // Segredos necessarios (Edge Functions -> Secrets):
 //   ADMIN_API_URL   https://admin.nitolive.com.br
@@ -27,12 +30,19 @@ const CORS = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-// Quantas chaves cada plano permite. Sem limite = -1.
+// Quantas chaves cada plano permite, por produto. Sem limite = -1.
 const LIMITE: Record<string, number> = {
   basic: 1,     // R$ 67
   pro: 2,       // R$ 97
   premium: -1,  // R$ 147, ilimitado
 };
+
+// Status do cliente no painel que significam "sem direito a acesso".
+const STATUS_QUE_BLOQUEIAM = [
+  "cancel", "refund", "reembols", "estorn", "chargeback",
+  "bloque", "block", "ban", "suspen", "inativ", "inactive",
+  "expir", "revog", "revok",
+];
 
 function responder(corpo: unknown, status = 200) {
   return new Response(JSON.stringify(corpo), {
@@ -68,6 +78,65 @@ async function clienteDoEmail(base: string, token: string, email: string) {
   ) ?? null;
 }
 
+function produtoDa(l: any) {
+  return String(l?.product ?? "tiktok").trim().toLowerCase() === "shopee" ? "shopee" : "tiktok";
+}
+
+function ativa(l: any) {
+  return (l?.active === 1 || l?.active === true) && String(l?.status ?? "").toLowerCase() === "active";
+}
+
+type Produto = "tiktok" | "shopee";
+type InfoProduto = { comprou: boolean; plano: string | null };
+type Produtos = Record<Produto, InfoProduto>;
+
+// Checkout da Cakto de cada produto (mostrado no cadeado do portal).
+const LINKS_COMPRA: Record<Produto, { rotulo: string; preco: string; url: string }[]> = {
+  tiktok: [
+    { rotulo: "Básico · 1 chave", preco: "R$ 67", url: "https://pay.cakto.com.br/xd4yj7y" },
+    { rotulo: "Pro · 2 chaves", preco: "R$ 97", url: "https://pay.cakto.com.br/3477jz3_976117" },
+    { rotulo: "Premium · ilimitado", preco: "R$ 147", url: "https://pay.cakto.com.br/mdz39dg" },
+  ],
+  shopee: [
+    { rotulo: "1 chave", preco: "R$ 67", url: "https://pay.cakto.com.br/3bt54pt_1091653" },
+    { rotulo: "2 chaves", preco: "R$ 97", url: "https://pay.cakto.com.br/xirh3pe_1091658" },
+  ],
+};
+
+const NOME_PRODUTO: Record<Produto, string> = { tiktok: "NITO LIVE (TikTok)", shopee: "NITO LIVE Shopee" };
+
+// Pergunta ao painel quais produtos a pessoa comprou (com estornos descontados).
+// Devolve null se a rota nao existir ou falhar - ai a funcao usa o plano B.
+async function produtosDoCliente(base: string, token: string, email: string): Promise<Produtos | null> {
+  try {
+    const r = await fetch(`${base}/api/admin/customer-products?email=${encodeURIComponent(email)}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!r.ok) return null;
+    const d = await r.json().catch(() => null);
+    return d?.ok && d?.produtos?.tiktok && d?.produtos?.shopee ? (d.produtos as Produtos) : null;
+  } catch {
+    return null;
+  }
+}
+
+// Gera a primeira chave do produto, se ainda nao existir nenhuma. O painel
+// garante que chamadas repetidas ou simultaneas nao criam duas chaves.
+async function garantirPrimeiraChave(base: string, token: string, email: string, produto: Produto): Promise<boolean> {
+  try {
+    const r = await fetch(`${base}/api/admin/actions/ensure-first-key`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ email, product: produto }),
+    });
+    const d = await r.json().catch(() => ({}));
+    if (d?.created) console.log(`[chaves] primeira chave ${produto} gerada automaticamente para ${email}`);
+    return !!d?.created;
+  } catch {
+    return false;
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
 
@@ -93,63 +162,94 @@ Deno.serve(async (req) => {
     // ---- 2. o que a pessoa quer ----
     const corpo = req.method === "POST" ? await req.json().catch(() => ({})) : {};
     const acao = corpo?.acao === "gerar" ? "gerar" : "listar";
-    // Qual produto: "tiktok" (extensao, padrao) ou "shopee" (programa desktop).
     const produto = corpo?.produto === "shopee" ? "shopee" : "tiktok";
+
+    console.log(`[chaves] ${acao} ${produto} pedido por: ${email}`);
 
     const token = await entrarNoPainel(base);
     let cliente = await clienteDoEmail(base, token, email);
 
     if (!cliente) {
+      console.log(`[chaves] ${email} -> nao encontrado no painel`);
       return responder({
         email,
         encontrado: false,
         plano: null,
+        produto,
         limite: 0,
         podeGerar: false,
         chaves: [],
         assinatura_ativa: false,
         assinatura_expira_em: null,
+        comprou: { tiktok: false, shopee: false },
+        liberado: { tiktok: false, shopee: false },
+        produto_liberado: false,
+        links_compra: LINKS_COMPRA[produto],
         recado:
           "Não encontrei compra com este e-mail. Use o mesmo e-mail que você usou na Cakto.",
       });
     }
 
-    const plano = String(cliente.plan ?? "basic").trim().toLowerCase();
-    const limite = LIMITE[plano] ?? 1;
+    // ---- 3. quais produtos a pessoa comprou ----
+    const produtosPainel = await produtosDoCliente(base, token, email);
+    let produtos: Produtos;
+    if (produtosPainel) {
+      produtos = produtosPainel;
+    } else {
+      // Plano B (rota do painel fora do ar): comportamento antigo.
+      const textoOferta = `${cliente.productName ?? ""} ${cliente.offerName ?? ""}`.toLowerCase();
+      const temShopee = (cliente.licenses ?? []).some((l: any) => produtoDa(l) === "shopee");
+      produtos = {
+        tiktok: { comprou: true, plano: null },
+        shopee: { comprou: textoOferta.includes("shopee") || temShopee, plano: null },
+      };
+    }
 
-    // Cada aba (TikTok / Shopee) tem sua propria cota de chaves - uma nao
-    // consome a outra, mesmo sendo a mesma conta e o mesmo plano.
-    const licencasDoProduto = (cliente.licenses ?? []).filter(
-      (l: any) => String(l?.product ?? "tiktok").trim().toLowerCase() === produto
-    );
-
-    // ---- 3. gerar chave nova, se o plano deixar ----
-    if (acao === "gerar") {
-      // O Nito Live Shopee e um produto vendido separado na Cakto (oferta
-      // "Nito Live SHOPEE"), diferente da comunidade/extensao TikTok. So
-      // pode gerar chave do Shopee quem realmente comprou essa oferta.
-      //
-      // O painel VPS nao devolve uma lista de "produtos comprados" por
-      // cliente - ele devolve productName/offerName da compra encontrada.
-      // Por isso a checagem e por texto nesses dois campos. Se um dia o
-      // painel passar a devolver varias compras, essa checagem deve ser
-      // trocada para olhar a lista inteira em vez de so productName/offerName.
-      if (produto === "shopee") {
-        const textoOferta = `${cliente.productName ?? ""} ${cliente.offerName ?? ""}`.toLowerCase();
-        const comprouShopee = textoOferta.includes("shopee");
-        if (!comprouShopee) {
-          return responder(
-            {
-              erro:
-                "O NITO LIVE Shopee é um produto vendido separado. Para gerar a chave, é preciso comprar a oferta \"Nito Live SHOPEE\" na Cakto.",
-            },
-            403
-          );
+    // ---- 4. primeira chave automatica ----
+    // Quem comprou um produto e ainda nao tem nenhuma chave dele ganha a
+    // primeira na hora em que entra no portal. So roda com a resposta real do
+    // painel, nunca com o plano B.
+    let primeiraChaveGerada = false;
+    if (acao === "listar" && produtosPainel) {
+      for (const p of ["tiktok", "shopee"] as Produto[]) {
+        const temAlguma = (cliente.licenses ?? []).some((l: any) => produtoDa(l) === p);
+        if (produtos[p].comprou && !temAlguma) {
+          if (await garantirPrimeiraChave(base, token, email, p)) primeiraChaveGerada = true;
         }
       }
+      if (primeiraChaveGerada) cliente = (await clienteDoEmail(base, token, email)) ?? cliente;
+    }
 
-      const ativasAgora = licencasDoProduto.filter((l: any) => l?.active).length;
-      if (limite !== -1 && ativasAgora >= limite) {
+    // Liberado = comprou, ou recebeu do admin uma chave ativa desse produto
+    // (cortesia/parceiro).
+    const temChaveAtiva = (p: Produto) => (cliente.licenses ?? []).some((l: any) => produtoDa(l) === p && ativa(l));
+    const liberado: Record<Produto, boolean> = {
+      tiktok: produtos.tiktok.comprou || temChaveAtiva("tiktok"),
+      shopee: produtos.shopee.comprou || temChaveAtiva("shopee"),
+    };
+
+    // Cada produto tem o seu plano (ex.: Shopee "2 Chaves" = pro).
+    const plano = String(produtos[produto].plano ?? cliente.plan ?? "basic").trim().toLowerCase();
+    const limite = LIMITE[plano] ?? 1;
+
+    // ---- 5. gerar chave nova, se o plano deixar ----
+    if (acao === "gerar") {
+      // Cada produto e vendido separado na Cakto. So gera chave de produto
+      // comprado. Cortesias o admin gera pelo painel escolhendo o produto.
+      if (!liberado[produto]) {
+        return responder(
+          {
+            erro:
+              `O ${NOME_PRODUTO[produto]} é um produto vendido separado. Para gerar a chave, é preciso comprar essa ferramenta na Cakto com este mesmo e-mail.`,
+            produto_liberado: false,
+            links_compra: LINKS_COMPRA[produto],
+          },
+          403
+        );
+      }
+
+      const ativasDoProduto = (cliente.licenses ?? []).filter((l: any) => produtoDa(l) === produto && ativa(l)).length;
+      if (limite !== -1 && ativasDoProduto >= limite) {
         return responder(
           {
             erro: `Seu plano permite ${limite} ${limite === 1 ? "chave" : "chaves"}. Para ter mais, faça o upgrade.`,
@@ -167,67 +267,70 @@ Deno.serve(async (req) => {
       if (!g.ok || resultado?.ok === false) {
         return responder({ erro: resultado?.error ?? "não consegui gerar a chave" }, 502);
       }
-      // Relê para devolver a lista ja atualizada.
+      console.log(`[chaves] chave ${produto} gerada para ${email}`);
+      // Rele para devolver a lista ja atualizada.
       cliente = (await clienteDoEmail(base, token, email)) ?? cliente;
     }
 
-    // ---- 4. devolve so o que e dessa pessoa, so desse produto ----
-    const chaves = (cliente.licenses ?? [])
-      .filter((l: any) => String(l?.product ?? "tiktok").trim().toLowerCase() === produto)
-      .map((l: any) => ({
-        id: l?.id,
-        chave: l?.key,
-        plano: l?.plan,
-        produto,
-        ativa: !!l?.active,
-        situacao: l?.status,
-        expira_em: l?.expiresAt ?? null,
-        ultimo_uso: l?.lastValidationAt ?? null,
-        vinculada: !!l?.activationIp,
-      }));
+    // ---- 6. devolve so o que e dessa pessoa, so desse produto ----
+    const todasLicencas: any[] = cliente.licenses ?? [];
+    const chaves = todasLicencas
+      .filter((l: any) => produtoDa(l) === produto)
+      .map((l: any) => {
+        const ip = String(l?.activationIp ?? "").trim();
+        return {
+          id: l?.id,
+          chave: l?.key,
+          plano: l?.plan,
+          produto,
+          ativa: ativa(l),
+          situacao: l?.status,
+          expira_em: l?.expiresAt ?? null,
+          ultimo_uso: l?.lastValidationAt ?? null,
+          // O painel manda "—" quando nao ha aparelho; isso nao e vinculo.
+          vinculada: ip !== "" && ip !== "—" && ip !== "-",
+        };
+      });
 
-     const ativas = chaves.filter((c) => c.ativa).length;
+    const ativas = chaves.filter((c) => c.ativa).length;
 
-    // A assinatura da comunidade nao e por produto - fica ativa se a
-    // ASSINATURA em si estiver em dia, mesmo que a pessoa ainda nao tenha
-    // gerado nenhuma chave (ex: acesso liberado manualmente, ou acabou de
-    // comprar e ainda nao abriu a extensao/app pra gerar a primeira chave).
-    //
-    // Por isso NAO basta olhar so "tem licenca ativa" (bug visto em
-    // diegoalvesdealmeida14@gmail.com: conta com status=active e
-    // expiresAt no futuro, mas licenses=[] - dava assinatura vencida
-    // errado). A fonte principal e cliente.status + cliente.expiresAt (ou
-    // dueDate); licenca ativa entra como reforco/plano B pros casos em que
-    // o painel nao devolve status/expiresAt no nivel da conta.
+    // ---- 7. a pessoa pode usar o portal? ----
+    // A assinatura nao e por produto. O AuthGuard do site le estes campos
+    // para liberar ou bloquear o usuario. Libera se:
+    //   a) tem alguma chave ativa (qualquer produto); ou
+    //   b) a conta tem data de validade futura e status ativo (ex.: acesso
+    //      manual); ou
+    //   c) compra nova: ainda nao tem nenhuma chave e o status nao e de
+    //      cancelado/reembolsado/bloqueado/vencido. Sem isso o cliente era
+    //      barrado antes de chegar na tela de gerar a primeira chave.
+    // Quem ja teve chave e ela venceu, sem validade futura, continua
+    // bloqueado (precisa renovar).
     const statusConta = String(cliente.status ?? "").trim().toLowerCase();
+    const statusValido = !STATUS_QUE_BLOQUEIAM.some((s) => statusConta.includes(s));
     const expiraConta: string | null = cliente.expiresAt ?? cliente.dueDate ?? null;
-    const contaVencida = expiraConta ? new Date(expiraConta).getTime() < Date.now() : false;
-    const assinaturaAtivaPelaConta = statusConta === "active" && !contaVencida;
+    const expiraContaMs = expiraConta ? new Date(expiraConta).getTime() : NaN;
+    const contaVencida = Number.isFinite(expiraContaMs) && expiraContaMs < Date.now();
+    const contaComValidadeFutura = Number.isFinite(expiraContaMs) && !contaVencida;
 
-    const todasLicencas = cliente.licenses ?? [];
-    const licencasAtivasGeral = todasLicencas.filter((l: any) => l?.active);
-    const assinaturaAtiva = assinaturaAtivaPelaConta || licencasAtivasGeral.length > 0;
+    const licencasAtivasGeral = todasLicencas.filter(ativa);
+    const assinaturaAtiva =
+      licencasAtivasGeral.length > 0 ||
+      (statusValido && contaComValidadeFutura) ||
+      (statusValido && !contaVencida && todasLicencas.length === 0);
+
     const assinaturaExpiraEm =
-      expiraConta ??
-      (licencasAtivasGeral.length > 0
-        ? licencasAtivasGeral
-            .map((l: any) => l?.expiresAt)
-            .filter(Boolean)
-            .sort()
-            .pop() ?? null
-        : null);
+      (contaComValidadeFutura ? expiraConta : null) ??
+      (licencasAtivasGeral
+        .map((l: any) => l?.expiresAt)
+        .filter(Boolean)
+        .sort()
+        .pop() ?? null);
 
-    // Resumo de assinatura no nivel raiz: o AuthGuard do site le exatamente
-    // estes dois campos para decidir se libera ou bloqueia o usuario. Antes
-    // essa resposta so trazia o array "chaves" por licenca individual, entao
-    // o AuthGuard nunca via "assinatura_ativa" e tratava como false sempre -
-    // derrubando assinantes em dia depois de alguns minutos de sessao.
-    const assinaturaAtiva = chaves.some((c) => c.ativa);
-    const assinaturaExpiraEm = chaves
-      .filter((c) => c.ativa && c.expira_em)
-      .map((c) => c.expira_em as string)
-      .sort()
-      .pop() ?? null;
+    console.log(
+      `[chaves] ${email} -> status=${statusConta || "null"}, plano=${plano}, produto=${produto}, ` +
+        `liberado=${liberado[produto]}, chaves_produto=${chaves.length}, ativas_produto=${ativas}, ` +
+        `assinatura_ativa=${assinaturaAtiva}${primeiraChaveGerada ? ", primeira_chave_gerada" : ""}`
+    );
 
     return responder({
       email,
@@ -236,15 +339,19 @@ Deno.serve(async (req) => {
       produto,
       limite,
       ativas,
-      podeGerar: limite === -1 || ativas < limite,
+      podeGerar: liberado[produto] && (limite === -1 || ativas < limite),
       status: cliente.status ?? null,
-      assinatura_ativa: assinaturaAtiva,
-      assinatura_expira_em: assinaturaExpiraEm,
       chaves,
       assinatura_ativa: assinaturaAtiva,
       assinatura_expira_em: assinaturaExpiraEm,
+      comprou: { tiktok: produtos.tiktok.comprou, shopee: produtos.shopee.comprou },
+      liberado,
+      produto_liberado: liberado[produto],
+      links_compra: LINKS_COMPRA[produto],
+      primeira_chave_gerada: primeiraChaveGerada,
     });
   } catch (e) {
+    console.log(`[chaves] ERRO: ${e instanceof Error ? e.message : String(e)}`);
     return responder({ erro: e instanceof Error ? e.message : "falha inesperada" }, 500);
   }
 });

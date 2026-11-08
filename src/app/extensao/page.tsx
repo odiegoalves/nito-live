@@ -11,6 +11,7 @@ import { AuthGuard } from "@/components/AuthGuard";
 import { AppShell, ehAdmin } from "@/components/nito/AppShell";
 import { Extensao, VersaoExtensao, Chaves, RespostaChaves, Perfil, comoErro } from "@/lib/nito-motor";
 import { diasRestantes } from "@/lib/nito-gamificacao";
+import { ProdutoBloqueado } from "@/components/nito/ProdutoBloqueado";
 
 function mb(bytes?: number | null) {
   if (!bytes) return "";
@@ -85,6 +86,10 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
   const situacao = String(chaves?.status ?? "").trim().toLowerCase();
   const bloqueado = ["cancelled", "canceled", "refunded", "expired", "revoked", "inactive"].includes(situacao);
   const podeBaixar = Boolean(chaves?.encontrado) && Boolean(chaves?.assinatura_ativa);
+
+  // Nao comprou o TikTok (ex.: comprou so o Shopee) e nao ganhou chave do
+  // admin: cadeado + botao de compra. Admin sempre ve a tela inteira.
+  const semCompra = !admin && chaves?.encontrado === true && chaves.produto_liberado === false;
 
   async function publicar() {
     if (!numero.trim() || !arquivo || enviando) return;
@@ -230,6 +235,9 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
           </div>
         )}
 
+        {semCompra ? (
+          <ProdutoBloqueado produto="tiktok" links={chaves?.links_compra} />
+        ) : (
         <div className="grid2" style={{ marginTop: 16 }}>
           <div className="stack">
             <div className="panel pad">
@@ -562,6 +570,7 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
             </div>
           </div>
         </div>
+        )}
 
       </div>
     </AppShell>
