@@ -177,7 +177,7 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
         {semCompra ? (
           <ProdutoBloqueado produto="shopee" links={chaves?.links_compra} />
         ) : (
-        <div className="grid2" style={{ marginTop: 16 }}>
+        <div className="grid2 chave-primeiro" style={{ marginTop: 16 }}>
           <div className="stack">
             <div className="panel pad">
               <div className="passo">
@@ -190,8 +190,13 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
                     <>
                       <p className="muted tiny">
                         Versão {versao.versao} — sempre a mais recente publicada pela administração.
-                        {versao.notas ? ` ${versao.notas}` : ""}
                       </p>
+                      {versao.notas && (
+                        <details className="notas">
+                          <summary>O que mudou nesta versão</summary>
+                          <p className="muted tiny">{versao.notas}</p>
+                        </details>
+                      )}
                       <a
                         className="material"
                         href={versao.arquivo_url}

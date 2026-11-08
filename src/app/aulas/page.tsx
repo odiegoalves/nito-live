@@ -31,6 +31,12 @@ function duracao(seg?: number | null) {
   return `${m}:${String(s).padStart(2, "0")}`;
 }
 
+// Nome digitado como "BAIXAR,INSTALAR" vira "BAIXAR, INSTALAR" na tela.
+// Nao mexe no que esta salvo no banco.
+function textoLimpo(t: string) {
+  return t.replace(/,(?=\S)/g, ", ").replace(/\s{2,}/g, " ").trim();
+}
+
 const AULA_VAZIA = {
   id: undefined as string | undefined,
   modulo: "",
@@ -619,7 +625,7 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
           return (
             <div key={modulo.id}>
               <div className="spread" style={{ marginBottom: 14 }}>
-                <h2 className="h-sec">{modulo.nome}</h2>
+                <h2 className="h-sec">{textoLimpo(modulo.nome)}</h2>
                 <span className={`pill ${estado}`}>{rotulo}</span>
               </div>
 
@@ -631,7 +637,7 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
 
               {doModulo.length > 0 && (
                 <div className="trilha" style={{ marginBottom: 26 }}>
-                  {doModulo.map((a) => {
+                  {doModulo.map((a, indice) => {
                     const p = progresso[a.id];
                     const feita = !!p?.concluida;
                     const pctAula =
@@ -649,6 +655,12 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
                         onKeyDown={(e) => e.key === "Enter" && setAberta(a)}
                       >
                         <div className="thumb">
+                          {!a.thumb_url && (
+                            <div className="capa-auto" aria-hidden>
+                              <small>{textoLimpo(modulo.nome)}</small>
+                              <strong>{a.titulo}</strong>
+                            </div>
+                          )}
                           {a.thumb_url && (
                             <>
                               {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -677,7 +689,10 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
                           <div className="play" style={{ position: "relative", zIndex: 1 }}>
                             <Icone nome="play" tam={16} />
                           </div>
-                          <span className="mod">AULA {a.ordem}</span>
+                          {/* Posicao real na trilha, nao o campo "ordem": duas
+                              aulas cadastradas com a mesma ordem apareciam como
+                              "AULA 2" repetida. */}
+                          <span className="mod">AULA {indice + 1}</span>
                           {a.duracao_seg ? <span className="dur num">{duracao(a.duracao_seg)}</span> : null}
                         </div>
                         <div className="info">

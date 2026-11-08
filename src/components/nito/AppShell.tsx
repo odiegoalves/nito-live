@@ -41,19 +41,42 @@ export type AbaAtiva =
   | "suporte"
   | "perfil";
 
-const ABAS: { chave: AbaAtiva; rotulo: string; icone: string; href: string }[] = [
-  { chave: "inicio", rotulo: "Início", icone: "home", href: "/inicio" },
-  { chave: "comunidade", rotulo: "Comunidade", icone: "users", href: "/comunidade" },
-  { chave: "aulas", rotulo: "Aulas", icone: "book", href: "/aulas" },
-  { chave: "vendas", rotulo: "Vendas TikTok", icone: "chart", href: "/vendas" },
-  { chave: "vendas-nito-live", rotulo: "Vendas NITO LIVE", icone: "trofeu", href: "/vendas-nito-live" },
-  { chave: "ranking", rotulo: "Ranking", icone: "trofeu", href: "/ranking" },
-  { chave: "separar", rotulo: "Separar Áudio", icone: "onda", href: "/separar-audio" },
-  { chave: "extensao", rotulo: "Extensão / Chave", icone: "plug", href: "/extensao" },
-  { chave: "shopee", rotulo: "NITO LIVE Shopee", icone: "plug", href: "/shopee" },
-  { chave: "alertas", rotulo: "Alertas no Celular", icone: "bell", href: "/alertas-celular" },
-  { chave: "suporte", rotulo: "Suporte", icone: "help", href: "/suporte" },
-  { chave: "perfil", rotulo: "Meu Perfil", icone: "user", href: "/perfil" },
+type Aba = { chave: AbaAtiva; rotulo: string; icone: string; href: string };
+
+// Menu agrupado por assunto: 12 itens em fila unica cansavam a leitura.
+const SECOES: { titulo: string; abas: Aba[] }[] = [
+  {
+    titulo: "Operação",
+    abas: [
+      { chave: "inicio", rotulo: "Início", icone: "home", href: "/inicio" },
+      { chave: "vendas", rotulo: "Vendas TikTok", icone: "chart", href: "/vendas" },
+      { chave: "vendas-nito-live", rotulo: "Vendas NITO LIVE", icone: "trofeu", href: "/vendas-nito-live" },
+      { chave: "ranking", rotulo: "Ranking", icone: "trofeu", href: "/ranking" },
+    ],
+  },
+  {
+    titulo: "Ferramentas",
+    abas: [
+      { chave: "extensao", rotulo: "Extensão / Chave", icone: "plug", href: "/extensao" },
+      { chave: "shopee", rotulo: "NITO LIVE Shopee", icone: "plug", href: "/shopee" },
+      { chave: "separar", rotulo: "Separar Áudio", icone: "onda", href: "/separar-audio" },
+      { chave: "alertas", rotulo: "Alertas no Celular", icone: "bell", href: "/alertas-celular" },
+    ],
+  },
+  {
+    titulo: "Aprender",
+    abas: [
+      { chave: "aulas", rotulo: "Aulas", icone: "book", href: "/aulas" },
+      { chave: "comunidade", rotulo: "Comunidade", icone: "users", href: "/comunidade" },
+    ],
+  },
+  {
+    titulo: "Conta",
+    abas: [
+      { chave: "perfil", rotulo: "Meu Perfil", icone: "user", href: "/perfil" },
+      { chave: "suporte", rotulo: "Suporte", icone: "help", href: "/suporte" },
+    ],
+  },
 ];
 
 export function ehAdmin(perfil: Perfil): boolean {
@@ -156,7 +179,10 @@ export function AppShell({ perfil, ativa, children, recado }: Props) {
           </button>
 
           <nav className="nav">
-            {ABAS.map((a) => (
+            {SECOES.map((secao) => (
+              <React.Fragment key={secao.titulo}>
+                <div className="secao" aria-hidden>{secao.titulo}</div>
+                {secao.abas.map((a) => (
               <Link
                 key={a.chave}
                 href={a.href}
@@ -177,6 +203,8 @@ export function AppShell({ perfil, ativa, children, recado }: Props) {
                   <span className="badge">{chamadosPendentes}</span>
                 )}
               </Link>
+                ))}
+              </React.Fragment>
             ))}
           </nav>
 
@@ -222,7 +250,8 @@ export function AppShell({ perfil, ativa, children, recado }: Props) {
             <div className="push" />
             {dias !== null && (
               <div className={dias <= 5 ? "stat-min fire" : "stat-min cyan-chip"}>
-                ASSINATURA · {dias} {dias === 1 ? "DIA" : "DIAS"}
+                <span className="so-largo">ASSINATURA · </span>
+                {dias} {dias === 1 ? "DIA" : "DIAS"}
               </div>
             )}
             <SinoNotificacoes />

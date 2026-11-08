@@ -291,9 +291,13 @@ export function PostNito({
             alt=""
             onClick={() => setAmpliada(true)}
             style={{
+              // Imagem inteira, sem recorte: antes o quadrado 1:1 cortava as
+              // laterais de banners e prints largos.
               width: "100%",
-              aspectRatio: "1 / 1",
-              objectFit: "cover",
+              height: "auto",
+              maxHeight: 620,
+              objectFit: "contain",
+              background: "rgba(0,0,0,.35)",
               borderRadius: 13,
               border: "1px solid var(--line)",
               display: "block",

@@ -10,8 +10,46 @@
 import React, { useEffect, useState } from "react";
 import { AuthGuard } from "@/components/AuthGuard";
 import { AppShell } from "@/components/nito/AppShell";
-import { Vendas, Perfil, Fmt } from "@/lib/nito-motor";
+import { Vendas, Perfil, Fmt, Chaves, Aulas, RespostaChaves } from "@/lib/nito-motor";
 import { diasRestantes } from "@/lib/nito-gamificacao";
+
+// Primeiros passos de quem acabou de entrar. Cada item se marca sozinho com
+// o que ja aconteceu de verdade (chave gerada, aparelho ativado, aula vista,
+// venda registrada). Quando tudo estiver feito, o bloco some.
+interface Passos {
+  chave: boolean;
+  ativou: boolean;
+  aula: boolean;
+  venda: boolean;
+  paginaProduto: "/extensao" | "/shopee";
+}
+
+async function carregarPassos(): Promise<Passos> {
+  let chaves: RespostaChaves | null = await Chaves.chamar("listar").catch(() => null);
+  // Quem comprou so o Shopee tem a chave na outra aba.
+  if (chaves?.liberado && !chaves.liberado.tiktok && chaves.liberado.shopee) {
+    chaves = await Chaves.chamar("listar", "shopee").catch(() => chaves);
+  }
+  const [progresso, vendas] = await Promise.all([
+    Aulas.meuProgresso().catch(() => ({})),
+    Vendas.listar({ limite: 1 }).catch(() => []),
+  ]);
+  const lista = chaves?.chaves ?? [];
+  return {
+    chave: lista.length > 0,
+    ativou: lista.some((c) => c.vinculada),
+    aula: Object.values(progresso).some((p) => p.concluida || (p.segundos ?? 0) > 0),
+    venda: vendas.length > 0,
+    paginaProduto: chaves?.produto === "shopee" ? "/shopee" : "/extensao",
+  };
+}
+
+const ATALHOS = [
+  { href: "/extensao", ic: "🔑", titulo: "Extensão e chave", texto: "Baixe, instale e ative" },
+  { href: "/aulas", ic: "🎬", titulo: "Aulas", texto: "Do zero à primeira venda" },
+  { href: "/comunidade", ic: "💬", titulo: "Comunidade", texto: "Novidades e dicas" },
+  { href: "/suporte", ic: "🛟", titulo: "Suporte", texto: "Fale com a equipe" },
+];
 
 interface Resumo {
   faturamento_centavos: number;
@@ -36,6 +74,17 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
   const [periodo, setPeriodo] = useState<Chave>("mes");
   const [resumo, setResumo] = useState<Resumo>(VAZIO);
   const [carregando, setCarregando] = useState(true);
+  const [passos, setPassos] = useState<Passos | null>(null);
+
+  useEffect(() => {
+    let vivo = true;
+    carregarPassos()
+      .then((p) => vivo && setPassos(p))
+      .catch(() => {});
+    return () => {
+      vivo = false;
+    };
+  }, []);
 
   const diasPeriodo = PERIODOS.find((p) => p.chave === periodo)!.dias;
 
@@ -138,6 +187,44 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
               />
             </div>
           </div>
+        </div>
+
+        {passos && !(passos.chave && passos.ativou && passos.aula && passos.venda) && (
+          <div className="panel pad" style={{ marginTop: 16 }}>
+            <div className="spread">
+              <h2 className="h-sec">Primeiros passos</h2>
+              <span className="eyebrow">
+                {[passos.chave, passos.ativou, passos.aula, passos.venda].filter(Boolean).length} DE 4
+              </span>
+            </div>
+            <div className="passos-inicio">
+              {[
+                { ok: passos.chave, titulo: "Pegue sua chave", texto: "Ela já fica pronta na aba do seu produto.", href: passos.paginaProduto, ir: "VER CHAVE" },
+                { ok: passos.ativou, titulo: "Instale e ative", texto: "Baixe, instale e cole a chave. Leva uns 3 minutos.", href: passos.paginaProduto, ir: "INSTALAR" },
+                { ok: passos.aula, titulo: "Assista à primeira aula", texto: "O passo a passo para a sua primeira live.", href: "/aulas", ir: "ASSISTIR" },
+                { ok: passos.venda, titulo: "Faça sua primeira venda", texto: "Ela aparece aqui sozinha quando a extensão registrar.", href: "/aulas", ir: "VER DICAS" },
+              ].map((p, i) => (
+                <a key={p.titulo} href={p.href} className={`passo-item${p.ok ? " ok" : ""}`}>
+                  <span className="ck">{p.ok ? "✓" : i + 1}</span>
+                  <div>
+                    <b>{p.titulo}</b>
+                    <span>{p.texto}</span>
+                  </div>
+                  {!p.ok && <span className="ir">{p.ir} →</span>}
+                </a>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className="atalhos">
+          {ATALHOS.map((a) => (
+            <a key={a.href} href={a.href} className="atalho">
+              <span className="ic">{a.ic}</span>
+              <b>{a.titulo}</b>
+              <span>{a.texto}</span>
+            </a>
+          ))}
         </div>
       </div>
     </AppShell>
