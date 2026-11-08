@@ -7,6 +7,7 @@
 // =============================================================================
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Chat, MensagemChat, Perfil, comoErro } from "@/lib/nito-motor";
 import { iniciais, ehVerificado } from "@/lib/nito-gamificacao";
 import { Icone, SeloVerificado } from "./NitoIcones";
@@ -138,9 +139,30 @@ export function ChatNito({ perfil }: { perfil: Perfil }) {
   const [apagando, setApagando] = useState<string | null>(null);
   const [limpando, setLimpando] = useState(false);
 
-  async function apagarMensagem(id: string) {
+  // Confirmacao desenhada no proprio portal. O window.confirm do navegador
+  // nao serve: alguns navegadores embutidos nem mostram a janela e respondem
+  // "cancelar" na hora, e ai o botao parecia nao fazer nada.
+  const [confirmar, setConfirmar] = useState<null | { tipo: "limpar" } | { tipo: "apagar"; id: string }>(null);
+
+  function apagarMensagem(id: string) {
     if (apagando) return;
-    if (!window.confirm("Apagar esta mensagem do chat para todo mundo?")) return;
+    setConfirmar({ tipo: "apagar", id });
+  }
+
+  function limparChat() {
+    if (limpando) return;
+    setConfirmar({ tipo: "limpar" });
+  }
+
+  async function confirmarAcao() {
+    const c = confirmar;
+    setConfirmar(null);
+    if (!c) return;
+    if (c.tipo === "apagar") await executarApagar(c.id);
+    else await executarLimpar();
+  }
+
+  async function executarApagar(id: string) {
     setApagando(id);
     setErro(null);
     try {
@@ -153,12 +175,7 @@ export function ChatNito({ perfil }: { perfil: Perfil }) {
     }
   }
 
-  async function limparChat() {
-    if (limpando) return;
-    const ok = window.confirm(
-      "Limpar o chat ao vivo?\n\nTodas as mensagens serão apagadas para todo mundo, e isso não tem volta."
-    );
-    if (!ok) return;
+  async function executarLimpar() {
     setLimpando(true);
     setErro(null);
     try {
@@ -524,6 +541,42 @@ export function ChatNito({ perfil }: { perfil: Perfil }) {
   return (
     <div className="chat-layout">
       {painel}
+
+      {/* Vai direto no <body> para ficar por cima do menu lateral tambem.
+          O div.nito em volta mantem o estilo do portal. */}
+      {confirmar && typeof document !== "undefined" && createPortal(
+        <div className="nito" style={{ background: "transparent" }}>
+        <div
+          className="confirmar-fundo"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="confirmar-titulo"
+          onMouseDown={(e) => e.target === e.currentTarget && setConfirmar(null)}
+          onKeyDown={(e) => e.key === "Escape" && setConfirmar(null)}
+        >
+          <div className="panel pad confirmar-caixa">
+            <div className="confirmar-icone" aria-hidden>🗑</div>
+            <h3 id="confirmar-titulo" className="h-sec" style={{ justifyContent: "center" }}>
+              {confirmar.tipo === "limpar" ? "Limpar o chat ao vivo?" : "Apagar esta mensagem?"}
+            </h3>
+            <p className="muted tiny" style={{ marginTop: 8 }}>
+              {confirmar.tipo === "limpar"
+                ? "Todas as mensagens do chat serão apagadas para todo mundo. Isso não tem volta."
+                : "Ela some do chat para todo mundo. Isso não tem volta."}
+            </p>
+            <div className="row" style={{ gap: 10, justifyContent: "center", marginTop: 18 }}>
+              <button type="button" className="btn g" onClick={() => setConfirmar(null)} autoFocus>
+                Cancelar
+              </button>
+              <button type="button" className="btn p" onClick={confirmarAcao}>
+                {confirmar.tipo === "limpar" ? "Sim, limpar o chat" : "Sim, apagar"}
+              </button>
+            </div>
+          </div>
+        </div>
+        </div>,
+        document.body
+      )}
 
       <aside className="panel pad chat-online">
         <div className="spread" style={{ marginBottom: 12 }}>
