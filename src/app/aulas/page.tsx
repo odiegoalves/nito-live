@@ -34,6 +34,30 @@ function duracao(seg?: number | null) {
 
 // Nome digitado como "BAIXAR,INSTALAR" vira "BAIXAR, INSTALAR" na tela.
 // Nao mexe no que esta salvo no banco.
+// Capa da aula: a enviada pelo portal; sem ela, a miniatura do proprio
+// YouTube (a que foi escolhida la no YouTube). "maxresdefault" e a de alta
+// resolucao; nem todo video tem, entao o <img> cai para "hqdefault" se falhar.
+function idDoYouTube(url?: string | null): string | null {
+  const m = (url ?? "").match(/(?:youtube\.com\/(?:watch\?v=|embed\/|live\/|shorts\/)|youtu\.be\/)([\w-]{6,})/);
+  return m ? m[1] : null;
+}
+
+function capaDaAula(a: { thumb_url?: string | null; video_url?: string | null }): string | null {
+  if (a.thumb_url) return a.thumb_url;
+  const id = idDoYouTube(a.video_url);
+  return id ? `https://i.ytimg.com/vi/${id}/maxresdefault.jpg` : null;
+}
+
+// Sem a versao em alta, o YouTube as vezes da erro e as vezes devolve uma
+// imagem cinza de 120x90. Nos dois casos, troca pela versao normal.
+function capaReserva(e: React.SyntheticEvent<HTMLImageElement>) {
+  const img = e.currentTarget;
+  const pequena = e.type === "load" && img.naturalWidth > 0 && img.naturalWidth <= 120;
+  if ((e.type === "error" || pequena) && img.src.includes("/maxresdefault.jpg")) {
+    img.src = img.src.replace("/maxresdefault.jpg", "/hqdefault.jpg");
+  }
+}
+
 function textoLimpo(t: string) {
   return t.replace(/,(?=\S)/g, ", ").replace(/\s{2,}/g, " ").trim();
 }
@@ -67,6 +91,16 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
   const [curtidas_minhas, setMinhas] = useState<Set<string>>(new Set());
   const [aberta, setAberta] = useState<Aula | null>(null);
   const [carregando, setCarregando] = useState(true);
+
+  // A aula aberta aparece acima da lista. No celular a lista e uma coluna so:
+  // quem tocava numa aula la embaixo nao via o video abrir (ficava fora da
+  // tela) e achava que nao funcionava. Agora a tela rola ate o video.
+  const aulaAbertaRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!aberta) return;
+    const t = setTimeout(() => aulaAbertaRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 60);
+    return () => clearTimeout(t);
+  }, [aberta?.id]);
 
   const [form, setForm] = useState({ ...AULA_VAZIA });
   const [mostrarForm, setMostrarForm] = useState(false);
@@ -592,6 +626,8 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
           </div>
         </div>
 
+        {/* scroll-margin: para o video nao ficar escondido atras do topo fixo */}
+        <div ref={aulaAbertaRef} style={{ scrollMarginTop: 80 }} />
         {aberta && (
           <AulaDetalhe
             aula={aberta}
@@ -668,18 +704,21 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
                         onKeyDown={(e) => e.key === "Enter" && setAberta(a)}
                       >
                         <div className="thumb">
-                          {!a.thumb_url && (
+                          {!capaDaAula(a) && (
                             <div className="capa-auto" aria-hidden>
                               <small>{textoLimpo(modulo.nome)}</small>
                               <strong>{a.titulo}</strong>
                             </div>
                           )}
-                          {a.thumb_url && (
+                          {capaDaAula(a) && (
                             <>
                               {/* eslint-disable-next-line @next/next/no-img-element */}
                               <img
-                                src={a.thumb_url}
+                                src={capaDaAula(a)!}
                                 alt=""
+                                loading="lazy"
+                                onError={capaReserva}
+                                onLoad={capaReserva}
                                 style={{
                                   position: "absolute",
                                   inset: 0,
