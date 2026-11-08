@@ -11,6 +11,7 @@ import { Feed, Enquetes, Post, Enquete, OpcaoEnquete, Comentario, Fmt, comoErro 
 import { patenteDoNivel, iniciais, ehVerificado } from "@/lib/nito-gamificacao";
 import { SeloVerificado } from "./NitoIcones";
 import { Avatar } from "./Avatar";
+import { useConfirmar } from "./Confirmar";
 
 const CORES_AVATAR = [
   "linear-gradient(100deg,#a855f7,#6d28d9)",
@@ -85,6 +86,7 @@ export function PostNito({
   onApagar,
 }: Props) {
   const [ocupado, setOcupado] = useState(false);
+  const { confirmar, janela: janelaConfirmar } = useConfirmar();
   const [ampliada, setAmpliada] = useState(false);
   const [editando, setEditando] = useState(false);
   const [tituloEdit, setTituloEdit] = useState(post.titulo ?? "");
@@ -234,10 +236,13 @@ export function PostNito({
     setEditando(false);
   }
 
-  function apagar() {
-    if (window.confirm("Excluir esta publicação? Essa ação não pode ser desfeita.")) {
-      onApagar?.(post.id);
-    }
+  async function apagar() {
+    const ok = await confirmar({
+      titulo: "Excluir esta publicação?",
+      texto: "Essa ação não pode ser desfeita.",
+      botao: "Sim, excluir",
+    });
+    if (ok) onApagar?.(post.id);
   }
 
   return (
@@ -252,6 +257,7 @@ export function PostNito({
           : null),
       }}
     >
+      {janelaConfirmar}
       <div className="head">
         <Avatar
           className="av"

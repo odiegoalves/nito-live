@@ -11,6 +11,7 @@ import { AuthGuard } from "@/components/AuthGuard";
 import { AppShell, ehAdmin } from "@/components/nito/AppShell";
 import { AulaDetalhe } from "@/components/nito/AulaDetalhe";
 import { Icone } from "@/components/nito/NitoIcones";
+import { useConfirmar } from "@/components/nito/Confirmar";
 import {
   Aulas,
   AulasAdmin,
@@ -53,6 +54,7 @@ const AULA_VAZIA = {
 
 function Conteudo({ perfil }: { perfil: Perfil }) {
   const admin = ehAdmin(perfil);
+  const { confirmar, janela: janelaConfirmar } = useConfirmar();
 
   const [aulas, setAulas] = useState<Aula[]>([]);
   const [modulos, setModulos] = useState<Modulo[]>([]);
@@ -174,7 +176,12 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
         );
         return;
       }
-      if (!window.confirm(`Excluir o módulo "${m.nome}"? Ele está vazio, então nada de conteúdo se perde.`)) return;
+      const ok = await confirmar({
+        titulo: `Excluir o módulo "${m.nome}"?`,
+        texto: "Ele está vazio, então nada de conteúdo se perde.",
+        botao: "Sim, excluir",
+      });
+      if (!ok) return;
       setSalvando(true);
       await Modulos.apagar(m.id);
       await carregar();
@@ -187,7 +194,12 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
 
   async function apagarAula(a: Aula) {
     if (salvando) return;
-    if (!window.confirm(`Excluir a aula "${a.titulo}"? Os comentários e o progresso dos alunos vão junto. Isso não tem volta.`)) return;
+    const ok = await confirmar({
+      titulo: `Excluir a aula "${a.titulo}"?`,
+      texto: "Os comentários e o progresso dos alunos vão junto. Isso não tem volta.",
+      botao: "Sim, excluir",
+    });
+    if (!ok) return;
     setSalvando(true);
     try {
       await AulasAdmin.apagarAula(a.id);
@@ -273,6 +285,7 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
 
   return (
     <AppShell perfil={perfil} ativa="aulas">
+      {janelaConfirmar}
       <div className="view on">
         <div className="spread" style={{ alignItems: "flex-start" }}>
           <div>
