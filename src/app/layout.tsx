@@ -1,40 +1,35 @@
 import type { Metadata } from "next";
 export const dynamic = "force-dynamic";
-import { Roboto, TikTok_Sans, Archivo, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import "./nito-ui.css";
 import { ThemeProvider } from "@/context/ThemeContext";
 
-// Texto do site inteiro. E a mesma familia que o YouTube usa na interface.
+// Fontes do site, carregadas do Google Fonts pelo navegador.
 //
-// Vai como VARIAVEL, nao so como classe: o CSS do ecossistema pedia a fonte
-// pelo nome literal, e o Next entrega a fonte com um nome interno gerado. O
-// navegador nao achava "Inter" e caia no Segoe UI — ou seja, a fonte que o
-// site carregava nao era a que ele mostrava.
-const roboto = Roboto({
-  subsets: ["latin"],
-  weight: ["400", "500", "700", "900"],
-  variable: "--font-roboto",
-});
+// Antes elas vinham do next/font/google, que baixa as fontes DURANTE o build.
+// Em nov/2026 o build da Vercel (Next 16 + Turbopack) passou a falhar nesse
+// passo ("Can't resolve '@vercel/turbopack-next/internal/font/google/font'"),
+// e nenhum deploy novo subia. Carregando pelo navegador, o build nao depende
+// mais disso.
+//
+// As variaveis --font-* continuam com o mesmo nome, entao o CSS do site nao
+// muda:
+//   --font-roboto       texto do site inteiro (mesma familia do YouTube)
+//   --font-tiktok-sans  marca
+//   --font-archivo      titulos do ecossistema de membros
+//   --font-jetbrains    numeros, etiquetas e codigos
+const FONTES_GOOGLE =
+  "https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800;900&family=JetBrains+Mono:wght@500;700;800&family=Roboto:wght@400;500;700;900&family=TikTok+Sans:wght@300..900&display=swap";
 
-const tiktokSans = TikTok_Sans({
-  subsets: ["latin"],
-  variable: "--font-tiktok-sans",
-});
-
-// Titulos do ecossistema de membros: mais encorpado que a fonte de texto.
-const archivo = Archivo({
-  subsets: ["latin"],
-  weight: ["600", "700", "800", "900"],
-  variable: "--font-archivo",
-});
-
-// Numeros, etiquetas e codigos.
-const jetbrains = JetBrains_Mono({
-  subsets: ["latin"],
-  weight: ["500", "700", "800"],
-  variable: "--font-jetbrains",
-});
+const VARIAVEIS_FONTES = `
+:root{
+  --font-roboto:'Roboto',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --font-tiktok-sans:'TikTok Sans','Roboto',system-ui,sans-serif;
+  --font-archivo:'Archivo','Roboto',system-ui,sans-serif;
+  --font-jetbrains:'JetBrains Mono',ui-monospace,'SFMono-Regular',Consolas,monospace;
+}
+body{font-family:var(--font-roboto)}
+`;
 
 export const metadata: Metadata = {
   title: "NITO LIVE — Portal do Cliente",
@@ -54,9 +49,14 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="pt-BR">
-      <body
-        className={`${roboto.className} ${roboto.variable} ${tiktokSans.variable} ${archivo.variable} ${jetbrains.variable}`}
-      >
+      <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        {/* eslint-disable-next-line @next/next/no-page-custom-font */}
+        <link rel="stylesheet" href={FONTES_GOOGLE} />
+        <style dangerouslySetInnerHTML={{ __html: VARIAVEIS_FONTES }} />
+      </head>
+      <body>
         <ThemeProvider>{children}</ThemeProvider>
       </body>
     </html>
