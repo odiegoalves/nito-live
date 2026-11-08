@@ -11,6 +11,7 @@ import { Chat, MensagemChat, Perfil, comoErro } from "@/lib/nito-motor";
 import { iniciais, ehVerificado } from "@/lib/nito-gamificacao";
 import { Icone, SeloVerificado } from "./NitoIcones";
 import { Avatar } from "./Avatar";
+import { ehAdmin } from "./AppShell";
 
 const CORES = [
   "linear-gradient(100deg,#a855f7,#6d28d9)",
@@ -132,6 +133,44 @@ export function ChatNito({ perfil }: { perfil: Perfil }) {
   const inputArquivo = useRef<HTMLInputElement>(null);
   const vistosRef = useRef<Set<string>>(new Set());
 
+  // Moderacao: so a equipe (fundador/moderador) ve os botoes de apagar.
+  const admin = ehAdmin(perfil);
+  const [apagando, setApagando] = useState<string | null>(null);
+  const [limpando, setLimpando] = useState(false);
+
+  async function apagarMensagem(id: string) {
+    if (apagando) return;
+    if (!window.confirm("Apagar esta mensagem do chat para todo mundo?")) return;
+    setApagando(id);
+    setErro(null);
+    try {
+      await Chat.apagar(id);
+      setMensagens((antes) => antes.filter((x) => x.id !== id));
+    } catch (e) {
+      setErro(comoErro(e, "Não consegui apagar a mensagem.").message);
+    } finally {
+      setApagando(null);
+    }
+  }
+
+  async function limparChat() {
+    if (limpando) return;
+    const ok = window.confirm(
+      "Limpar o chat ao vivo?\n\nTodas as mensagens serão apagadas para todo mundo, e isso não tem volta."
+    );
+    if (!ok) return;
+    setLimpando(true);
+    setErro(null);
+    try {
+      await Chat.limpar("geral");
+      setMensagens([]);
+    } catch (e) {
+      setErro(comoErro(e, "Não consegui limpar o chat.").message);
+    } finally {
+      setLimpando(false);
+    }
+  }
+
   const [gravando, setGravando] = useState(false);
   const [segundosGravando, setSegundosGravando] = useState(0);
   const gravadorRef = useRef<MediaRecorder | null>(null);
@@ -234,6 +273,10 @@ export function ChatNito({ perfil }: { perfil: Perfil }) {
           setOnline(qtd);
           setMembros(Array.isArray(lista) ? lista : []);
         },
+        // Mensagem apagada (pelo autor ou pela equipe) some na hora para todos.
+        onApagada: (id: string) => setMensagens((antes) => antes.filter((x) => x.id !== id)),
+        // A equipe limpou o chat inteiro.
+        onLimpo: () => setMensagens([]),
       },
       perfil
     );
@@ -305,6 +348,18 @@ export function ChatNito({ perfil }: { perfil: Perfil }) {
           >
             {mudo ? "🔇" : "🔔"}
           </button>
+          {admin && (
+            <button
+              type="button"
+              className="btn g"
+              onClick={limparChat}
+              disabled={limpando || mensagens.length === 0}
+              title="Apagar todas as mensagens do chat"
+              style={{ padding: "6px 11px", fontSize: ".62rem", color: "var(--red)", borderColor: "rgba(255,15,61,.4)" }}
+            >
+              {limpando ? "Limpando…" : "🗑 Limpar chat"}
+            </button>
+          )}
           <span className="eyebrow" style={{ color: "var(--green)" }}>
             ● {online > 0 ? `${online} ONLINE` : "AO VIVO"}
           </span>
@@ -357,7 +412,21 @@ export function ChatNito({ perfil }: { perfil: Perfil }) {
                     {comMencoes(m.conteudo)}
                   </p>
                 )}
-                <time>{hora(m.criado_em)}</time>
+                <time>
+                  {hora(m.criado_em)}
+                  {admin && (
+                    <button
+                      type="button"
+                      className="msg-apagar"
+                      onClick={() => apagarMensagem(m.id)}
+                      disabled={apagando === m.id}
+                      title="Apagar mensagem"
+                      aria-label="Apagar mensagem"
+                    >
+                      {apagando === m.id ? "…" : "🗑"}
+                    </button>
+                  )}
+                </time>
               </div>
             </div>
           );

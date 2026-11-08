@@ -473,3 +473,191 @@
 .nito .atalho .ic{font-size:1.25rem}
 .nito .atalho b{font-size:.88rem;font-weight:700}
 .nito .atalho span{font-size:.74rem;color:var(--mut)}
+
+/* ===========================================================================
+   Efeitos e iluminacao (nov/2026)
+   Tudo aqui e decorativo: com "reduzir movimento" ligado no sistema, a regra
+   la do topo desliga as animacoes e o portal continua igual, so parado.
+   ========================================================================= */
+
+/* ---- Luz ambiente: manchas de luz que se movem devagar atras do conteudo -- */
+.nito .app{isolation:isolate}
+.nito .app::after{content:"";position:fixed;inset:-20%;z-index:-1;pointer-events:none;
+  background:
+    radial-gradient(40% 34% at 22% 16%,rgba(255,15,61,.24),transparent 70%),
+    radial-gradient(32% 30% at 84% 10%,rgba(168,85,247,.17),transparent 72%),
+    radial-gradient(34% 30% at 72% 90%,rgba(34,230,255,.10),transparent 70%),
+    radial-gradient(26% 24% at 10% 82%,rgba(255,75,43,.07),transparent 70%);
+  filter:blur(20px);animation:aurora 26s ease-in-out infinite alternate;will-change:transform}
+@keyframes aurora{
+  0%{transform:translate3d(0,0,0) scale(1)}
+  50%{transform:translate3d(-3%,2%,0) scale(1.06)}
+  100%{transform:translate3d(3%,-2%,0) scale(1.02)}}
+/* granulado bem leve: tira o aspecto "chapado" do preto */
+.nito .main::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:-1;opacity:.05;mix-blend-mode:overlay;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+
+/* ---- Menu lateral: borda de luz e item ativo iluminado ---- */
+.nito .rail{box-shadow:inset -1px 0 0 rgba(255,255,255,.03)}
+.nito .rail::after{content:"";position:absolute;top:0;right:-1px;width:1px;height:100%;pointer-events:none;
+  background:linear-gradient(180deg,transparent,rgba(255,15,61,.55) 22%,rgba(168,85,247,.35) 60%,transparent);opacity:.7}
+.nito .nav a, .nito .nav button{transition:background .18s,color .18s,transform .18s}
+.nito .nav a:hover, .nito .nav button:hover{transform:translateX(2px)}
+.nito .nav a.on, .nito .nav button.on{box-shadow:inset 0 0 0 1px rgba(255,15,61,.38),0 0 22px rgba(255,15,61,.16)}
+.nito .nav a.on svg{filter:drop-shadow(0 0 6px rgba(255,15,61,.9))}
+.nito .logo b i{animation:neon 3.6s ease-in-out infinite}
+@keyframes neon{0%,100%{text-shadow:0 0 14px rgba(255,15,61,.65)}50%{text-shadow:0 0 22px rgba(255,15,61,.95),0 0 40px rgba(255,15,61,.35)}}
+
+/* ---- Topo: reflexo de luz na borda de baixo ---- */
+.nito .topbar::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:1px;pointer-events:none;
+  background:linear-gradient(90deg,transparent,rgba(255,15,61,.6),rgba(168,85,247,.45),transparent)}
+
+/* ---- Titulo: degrade em movimento na palavra destacada ---- */
+.nito .title-xl em{background:linear-gradient(100deg,#ff0f3d,#ff4b2b 30%,#ff7a59 45%,#ff0f3d 70%);background-size:220% 100%;
+  -webkit-background-clip:text;background-clip:text;animation:brilho-texto 6s linear infinite;filter:drop-shadow(0 0 18px rgba(255,15,61,.35))}
+@keyframes brilho-texto{to{background-position:-220% 0}}
+
+/* ---- Paineis: vidro e borda que acende ---- */
+.nito .panel{box-shadow:0 1px 0 rgba(255,255,255,.04) inset,0 18px 40px -24px rgba(0,0,0,.9);transition:border-color .25s,box-shadow .25s,transform .25s}
+.nito .panel:hover{border-color:rgba(255,255,255,.12);box-shadow:0 1px 0 rgba(255,255,255,.06) inset,0 22px 50px -24px rgba(0,0,0,.95),0 0 0 1px rgba(255,15,61,.08)}
+.nito .atalho{position:relative;overflow:hidden}
+
+/* ---- Cartoes de numeros: brilho da cor de cada um ---- */
+.nito .kpi{position:relative}
+.nito .kpi.money .val{text-shadow:0 0 24px rgba(37,224,138,.45)}
+.nito .kpi.cyan .val{text-shadow:0 0 24px rgba(34,230,255,.45)}
+.nito .kpi.gold .val{text-shadow:0 0 24px rgba(255,194,58,.45)}
+.nito .kpi.red .val{text-shadow:0 0 24px rgba(255,15,61,.5)}
+.nito .kpi::before{height:2px;opacity:.9;background:linear-gradient(90deg,transparent,rgba(255,255,255,.22),transparent)}
+.nito .kpi.money::before{background:linear-gradient(90deg,transparent,rgba(37,224,138,.8),transparent)}
+.nito .kpi.cyan::before{background:linear-gradient(90deg,transparent,rgba(34,230,255,.8),transparent)}
+.nito .kpi.gold::before{background:linear-gradient(90deg,transparent,rgba(255,194,58,.8),transparent)}
+.nito .kpi:hover{transform:translateY(-3px)}
+
+/* ---- Entrada em sequencia ---- */
+.nito .cards > *, .nito .atalhos > *, .nito .passos-inicio > *, .nito .trilha > *{animation:subir .55s cubic-bezier(.2,.8,.2,1) both}
+.nito .cards > :nth-child(2), .nito .atalhos > :nth-child(2), .nito .passos-inicio > :nth-child(2), .nito .trilha > :nth-child(2){animation-delay:.07s}
+.nito .cards > :nth-child(3), .nito .atalhos > :nth-child(3), .nito .passos-inicio > :nth-child(3), .nito .trilha > :nth-child(3){animation-delay:.14s}
+.nito .cards > :nth-child(4), .nito .atalhos > :nth-child(4), .nito .passos-inicio > :nth-child(4), .nito .trilha > :nth-child(4){animation-delay:.21s}
+.nito .cards > :nth-child(n+5), .nito .trilha > :nth-child(n+5){animation-delay:.28s}
+@keyframes subir{from{opacity:0;transform:translateY(14px) scale(.985)}to{opacity:1;transform:none}}
+
+/* ---- Botao principal: reflexo de luz passando ---- */
+.nito .btn.p{position:relative;overflow:hidden;isolation:isolate}
+.nito .btn.p::after{content:"";position:absolute;top:0;left:-60%;width:40%;height:100%;z-index:-1;pointer-events:none;
+  background:linear-gradient(100deg,transparent,rgba(255,255,255,.35),transparent);transform:skewX(-20deg);transition:left .6s ease}
+.nito .btn.p:hover::after{left:130%}
+.nito .btn.p:disabled{box-shadow:none}
+.nito .periodo button.on{box-shadow:0 0 18px rgba(255,15,61,.45)}
+
+/* ---- Barras de progresso: brilho correndo ---- */
+.nito .bar i{position:relative;overflow:hidden}
+.nito .bar i::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.45),transparent);
+  transform:translateX(-100%);animation:corrida 2.8s ease-in-out infinite}
+@keyframes corrida{60%,100%{transform:translateX(100%)}}
+
+/* ---- Mascote com halo ---- */
+.nito .robo-hero{filter:drop-shadow(0 0 22px rgba(255,15,61,.55)) drop-shadow(0 0 60px rgba(255,15,61,.25))}
+
+/* ---- Aulas: elevacao com brilho e anel no play ---- */
+.nito .aula{transition:transform .25s,border-color .25s,box-shadow .25s}
+.nito .aula:hover{box-shadow:0 18px 40px -18px rgba(255,15,61,.45),0 0 0 1px rgba(255,15,61,.25)}
+.nito .aula .thumb .play{position:relative}
+.nito .aula .thumb .play::before{content:"";position:absolute;inset:-6px;border-radius:50%;border:2px solid rgba(255,15,61,.55);animation:anel 2.2s ease-out infinite}
+.nito .aula.done .thumb .play::before{border-color:rgba(37,224,138,.5)}
+@keyframes anel{from{transform:scale(.85);opacity:1}to{transform:scale(1.45);opacity:0}}
+
+/* ---- Primeiros passos e atalhos ---- */
+.nito a.passo-item{position:relative;overflow:hidden}
+.nito .passo-item.ok .ck{box-shadow:0 0 14px rgba(37,224,138,.55)}
+.nito .atalho .ic{filter:drop-shadow(0 0 10px rgba(255,15,61,.45));transition:transform .25s}
+.nito .atalho:hover .ic{transform:scale(1.12) rotate(-4deg)}
+
+/* ---- Cartao de patente: medalha com brilho pulsando ---- */
+.nito .player{position:relative;overflow:hidden}
+.nito .player::after{content:"";position:absolute;inset:-40% -10% auto auto;width:60%;height:120%;pointer-events:none;
+  background:radial-gradient(closest-side,rgba(255,194,58,.18),transparent);animation:respira 4s ease-in-out infinite}
+@keyframes respira{0%,100%{opacity:.5}50%{opacity:1}}
+
+/* Celular: menos luz pra nao pesar e nao distrair */
+@media (max-width:760px){
+  .nito .app::after{filter:blur(30px);opacity:.75}
+  .nito .main::before{display:none}
+}
+
+/* ===========================================================================
+   Iluminacao mais intensa (nov/2026, 2a versao)
+   ========================================================================= */
+
+/* Luz ambiente mais forte e mais viva */
+.nito .app::after{
+  background:
+    radial-gradient(42% 36% at 20% 14%,rgba(255,15,61,.34),transparent 70%),
+    radial-gradient(34% 32% at 86% 8%,rgba(168,85,247,.26),transparent 72%),
+    radial-gradient(36% 32% at 74% 92%,rgba(34,230,255,.14),transparent 70%),
+    radial-gradient(28% 26% at 8% 84%,rgba(255,75,43,.14),transparent 70%);
+  filter:blur(14px);animation-duration:18s}
+
+/* Feixe de luz atras do titulo de cada pagina */
+.nito .view{position:relative}
+.nito .view::before{content:"";position:absolute;top:-90px;left:4%;width:62%;height:300px;pointer-events:none;z-index:-1;
+  background:radial-gradient(closest-side,rgba(255,15,61,.26),rgba(255,15,61,.08) 55%,transparent);filter:blur(26px);
+  animation:feixe 7s ease-in-out infinite}
+@keyframes feixe{0%,100%{opacity:.75;transform:translateX(0)}50%{opacity:1;transform:translateX(4%)}}
+
+/* Titulo com neon */
+.nito .title-xl{text-shadow:0 0 28px rgba(255,255,255,.08)}
+.nito .title-xl em{filter:drop-shadow(0 0 14px rgba(255,15,61,.65)) drop-shadow(0 0 34px rgba(255,15,61,.3))}
+
+/* Paineis: borda superior acesa e brilho vermelho ao passar o mouse */
+.nito .panel::before{background:linear-gradient(90deg,transparent,rgba(255,15,61,.55),rgba(255,255,255,.25),rgba(168,85,247,.45),transparent)}
+.nito .panel:hover{border-color:rgba(255,15,61,.32);
+  box-shadow:0 1px 0 rgba(255,255,255,.06) inset,0 24px 54px -24px rgba(0,0,0,.95),0 0 0 1px rgba(255,15,61,.22),0 0 38px -6px rgba(255,15,61,.28)}
+
+/* Cartoes de numeros: luz correndo pela borda, na cor de cada um */
+@property --giro{syntax:"<angle>";inherits:false;initial-value:0deg}
+.nito .kpi{--cor:255,15,61}
+.nito .kpi.money{--cor:37,224,138}
+.nito .kpi.cyan{--cor:34,230,255}
+.nito .kpi.gold{--cor:255,194,58}
+.nito .kpi::after{content:"";position:absolute;inset:0;border-radius:inherit;padding:1px;pointer-events:none;
+  background:conic-gradient(from var(--giro),transparent 0 62%,rgba(var(--cor),.95) 76%,transparent 88%);
+  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;
+          mask:linear-gradient(#000 0 0) content-box exclude,linear-gradient(#000 0 0);
+  animation:girar 5s linear infinite}
+.nito .kpi:nth-child(2)::after{animation-delay:-1.6s}
+.nito .kpi:nth-child(3)::after{animation-delay:-3.2s}
+@keyframes girar{to{--giro:360deg}}
+.nito .kpi{box-shadow:0 1px 0 rgba(255,255,255,.05) inset,0 0 46px -18px rgba(var(--cor),.55)}
+.nito .kpi .val{text-shadow:0 0 18px rgba(var(--cor),.75),0 0 42px rgba(var(--cor),.35)}
+
+/* Menu: item ativo e logo com mais neon */
+.nito .nav a.on, .nito .nav button.on{background:linear-gradient(90deg,rgba(255,15,61,.32),rgba(255,15,61,.06));
+  box-shadow:inset 0 0 0 1px rgba(255,15,61,.5),0 0 30px rgba(255,15,61,.28)}
+.nito .rail::after{opacity:1;width:2px;filter:blur(.5px)}
+@keyframes neon{0%,100%{text-shadow:0 0 16px rgba(255,15,61,.8),0 0 30px rgba(255,15,61,.35)}50%{text-shadow:0 0 26px rgba(255,15,61,1),0 0 54px rgba(255,15,61,.55)}}
+
+/* Topo: linha de luz mais forte */
+.nito .topbar::after{height:2px;box-shadow:0 0 18px rgba(255,15,61,.6)}
+
+/* Botao principal: brilho pulsando */
+.nito .btn.p:not(:disabled){animation:pulso-botao 2.8s ease-in-out infinite}
+@keyframes pulso-botao{0%,100%{box-shadow:0 8px 24px rgba(255,15,61,.35)}50%{box-shadow:0 10px 34px rgba(255,15,61,.6),0 0 0 4px rgba(255,15,61,.08)}}
+
+/* Atalhos, passos e aulas: borda acesa ao passar o mouse */
+.nito .atalho:hover, .nito a.passo-item:hover{border-color:rgba(255,15,61,.45);box-shadow:0 0 30px -6px rgba(255,15,61,.35)}
+.nito .aula:hover{box-shadow:0 20px 46px -16px rgba(255,15,61,.6),0 0 0 1px rgba(255,15,61,.4)}
+.nito .aula .thumb .play{box-shadow:0 0 34px rgba(255,15,61,.75)}
+
+/* Celular: um pouco menos de luz */
+@media (max-width:760px){
+  .nito .app::after{filter:blur(26px);opacity:.8}
+  .nito .view::before{width:90%;left:0}
+}
+
+/* Chat: botao de apagar mensagem (so a equipe ve) */
+.nito .msg-apagar{margin-left:8px;padding:2px 5px;border:1px solid transparent;border-radius:6px;background:transparent;cursor:pointer;font-size:.72rem;line-height:1;opacity:0;transition:opacity .15s,border-color .15s,background .15s}
+.nito .msg:hover .msg-apagar, .nito .msg-apagar:focus-visible{opacity:.85}
+.nito .msg-apagar:hover{opacity:1;border-color:rgba(255,15,61,.45);background:rgba(255,15,61,.12)}
+.nito .msg-apagar:disabled{opacity:.6;cursor:wait}
+@media (hover:none){.nito .msg-apagar{opacity:.7}}

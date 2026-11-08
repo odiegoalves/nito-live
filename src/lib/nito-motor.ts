@@ -726,86 +726,160 @@ export const Chat = {
   },
 
 
+  // Apaga UMA mensagem. O banco so deixa o autor ou a equipe (p_chat_apagar).
+  async apagar(id: string): Promise<void> {
+    const { error } = await sb.from("mensagens_chat").delete().eq("id", id);
+    if (error) throw error;
+    // Os outros navegadores ficam sabendo pelo evento DELETE do tempo real.
+  },
+
+  // Apaga TODAS as mensagens da sala. So a equipe consegue (p_chat_apagar).
+  // Devolve quantas foram apagadas.
+  async limpar(sala = "geral"): Promise<number> {
+    const { data, error } = await sb.from("mensagens_chat").delete().eq("sala", sala).select("id");
+    if (error) throw error;
+    // Um aviso unico para todo mundo esvaziar a tela de uma vez, em vez de
+    // processar centenas de eventos DELETE um por um.
+    const s = salasChat.get(sala);
+    if (s) await s.canal.send({ type: "broadcast", event: "chat-limpo", payload: {} }).catch(() => {});
+    return data?.length ?? 0;
+  },
+
+  // Tempo real do chat. Todas as telas que mostram o chat (e as da comunidade
+  // beta) usam UM canal por sala, criado uma vez e reaproveitado.
+  //
+  // Por que: antes cada tela criava o canal "chat:geral" e, ao sair, pedia
+  // para remove-lo sem esperar terminar. Se a tela voltasse logo (trocar de
+  // aba, o portal recarregar o perfil, ou o React montar duas vezes), o
+  // Supabase devolvia o canal antigo, ja ligado, e o chat quebrava com
+  // "cannot add postgres_changes callbacks ... after subscribe()".
+  // Agora o canal fica aberto; ao sair, a tela so para de ouvir e, se ninguem
+  // mais estiver no chat, a pessoa deixa de aparecer como online.
   assinar(
     sala = "geral",
-    handlers: {
-      onMensagem?: (msg: MensagemChat) => void;
-      onOnline?: (qtd: number, membros: any[]) => void;
-      onDigitando?: (payload: { nome: string }) => void;
-    } = {},
+    handlers: OuvinteChat = {},
     perfil: Perfil | null = null
   ) {
-    const canal = sb.channel(`chat:${sala}`, {
-      config: { presence: { key: perfil?.id ?? (typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : String(Math.random())) } },
-    });
-
-    canal
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "mensagens_chat", filter: `sala=eq.${sala}` },
-        async ({ new: linha }) => {
-          const { data } = await sb
-            .from("mensagens_chat")
-            .select(
-              "id, sala, autor_id, conteudo, criado_em, midia_url, midia_tipo, midia_nome, mencoes, autor:perfis!mensagens_chat_autor_id_fkey (id, nome, username, avatar_url, papel, nivel)"
-            )
-            .eq("id", linha.id)
-            .single();
-          handlers.onMensagem?.((data as unknown as MensagemChat) ?? (linha as unknown as MensagemChat));
-        }
-      )
-      .on("presence", { event: "sync" }, () => {
-        // O Supabase guarda uma entrada por CONEXAO, nao por pessoa. A mesma
-        // pessoa pode gerar duas entradas (aba recarregada, componente montado
-        // duas vezes, reconexao). Sem agrupar por id, ela aparece duplicada
-        // na lista e o contador de online fica inflado.
-        const estado = canal.presenceState() as Record<string, any[]>;
-        const porPessoa = new Map<string, any>();
-
-        Object.values(estado)
-          .flat()
-          .forEach((m: any) => {
-            if (!m) return;
-            const chave = m.id ?? m.nome ?? JSON.stringify(m);
-            const jaTem = porPessoa.get(chave);
-            // Mantem a conexao mais antiga, para o horario de entrada nao
-            // ficar pulando a cada recarga de aba.
-            if (!jaTem || (m.entrou_em && jaTem.entrou_em && m.entrou_em < jaTem.entrou_em)) {
-              porPessoa.set(chave, m);
-            }
-          });
-
-        const membros = Array.from(porPessoa.values());
-        handlers.onOnline?.(membros.length, membros);
-      })
-      .on("broadcast", { event: "digitando" }, ({ payload }) => handlers.onDigitando?.(payload))
-      .subscribe(async (status) => {
-        if (status === "SUBSCRIBED" && perfil) {
-          await canal.track({
-            id: perfil.id,
-            nome: perfil.nome,
-            avatar_url: perfil.avatar_url,
-            entrou_em: new Date().toISOString(),
-          });
-        }
-      });
+    const s = salaDoChat(sala, perfil);
+    if (perfil) s.perfil = perfil;
+    s.ouvintes.add(handlers);
+    // Quem chega depois recebe na hora quem ja esta online.
+    if (s.membros.length) handlers.onOnline?.(s.membros.length, s.membros);
+    if (s.pronto) void marcarPresenca(s);
 
     return {
-      digitando: (nome: string) => canal.send({ type: "broadcast", event: "digitando", payload: { nome } }),
+      digitando: (nome: string) => s.canal.send({ type: "broadcast", event: "digitando", payload: { nome } }),
       sair: async () => {
-        // untrack ANTES de remover: avisa os outros navegadores que esta
-        // pessoa saiu. Sem isso, a presenca antiga fica pendurada e, se a
-        // pessoa voltar logo, ela aparece duas vezes na lista de online.
-        try {
-          await canal.untrack();
-        } catch {
-          // canal ja pode estar fechado - seguir para a remocao
+        s.ouvintes.delete(handlers);
+        if (s.ouvintes.size === 0 && s.presente) {
+          s.presente = false;
+          try {
+            await s.canal.untrack();
+          } catch {
+            // canal pode estar reconectando; a presenca expira sozinha
+          }
         }
-        sb.removeChannel(canal);
       },
     };
   },
 };
+
+type OuvinteChat = {
+  onMensagem?: (msg: MensagemChat) => void;
+  onOnline?: (qtd: number, membros: any[]) => void;
+  onDigitando?: (payload: { nome: string }) => void;
+  onApagada?: (id: string) => void;
+  onLimpo?: () => void;
+};
+
+type SalaChat = {
+  canal: ReturnType<typeof sb.channel>;
+  ouvintes: Set<OuvinteChat>;
+  membros: any[];
+  perfil: Perfil | null;
+  pronto: boolean;
+  presente: boolean;
+};
+
+const salasChat = new Map<string, SalaChat>();
+const SELECT_MENSAGEM =
+  "id, sala, autor_id, conteudo, criado_em, midia_url, midia_tipo, midia_nome, mencoes, autor:perfis!mensagens_chat_autor_id_fkey (id, nome, username, avatar_url, papel, nivel)";
+
+function salaDoChat(sala: string, perfil: Perfil | null): SalaChat {
+  const existente = salasChat.get(sala);
+  if (existente) return existente;
+
+  const canal = sb.channel(`chat:${sala}`, {
+    config: { presence: { key: perfil?.id ?? (typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : String(Math.random())) } },
+  });
+  const s: SalaChat = { canal, ouvintes: new Set(), membros: [], perfil, pronto: false, presente: false };
+  salasChat.set(sala, s);
+  const avisar = (f: (o: OuvinteChat) => void) => s.ouvintes.forEach((o) => { try { f(o); } catch { /* uma tela com erro nao derruba as outras */ } });
+
+  canal
+    .on(
+      "postgres_changes",
+      { event: "INSERT", schema: "public", table: "mensagens_chat", filter: `sala=eq.${sala}` },
+      async ({ new: linha }) => {
+        const { data } = await sb.from("mensagens_chat").select(SELECT_MENSAGEM).eq("id", linha.id).single();
+        const msg = (data as unknown as MensagemChat) ?? (linha as unknown as MensagemChat);
+        avisar((o) => o.onMensagem?.(msg));
+      }
+    )
+    .on(
+      "postgres_changes",
+      { event: "DELETE", schema: "public", table: "mensagens_chat", filter: `sala=eq.${sala}` },
+      ({ old: linha }) => {
+        const id = (linha as { id?: string })?.id;
+        if (id) avisar((o) => o.onApagada?.(id));
+      }
+    )
+    .on("presence", { event: "sync" }, () => {
+      // O Supabase guarda uma entrada por CONEXAO, nao por pessoa. A mesma
+      // pessoa pode gerar duas entradas (aba recarregada, reconexao). Sem
+      // agrupar por id, ela aparece duplicada e o contador fica inflado.
+      const estado = canal.presenceState() as Record<string, any[]>;
+      const porPessoa = new Map<string, any>();
+      Object.values(estado)
+        .flat()
+        .forEach((m: any) => {
+          if (!m) return;
+          const chave = m.id ?? m.nome ?? JSON.stringify(m);
+          const jaTem = porPessoa.get(chave);
+          // Mantem a conexao mais antiga, para o horario de entrada nao pular.
+          if (!jaTem || (m.entrou_em && jaTem.entrou_em && m.entrou_em < jaTem.entrou_em)) porPessoa.set(chave, m);
+        });
+      s.membros = Array.from(porPessoa.values());
+      avisar((o) => o.onOnline?.(s.membros.length, s.membros));
+    })
+    .on("broadcast", { event: "digitando" }, ({ payload }) => avisar((o) => o.onDigitando?.(payload)))
+    .on("broadcast", { event: "chat-limpo" }, () => avisar((o) => o.onLimpo?.()))
+    .subscribe((status) => {
+      if (status === "SUBSCRIBED") {
+        s.pronto = true;
+        // Depois de uma reconexao a presenca precisa ser marcada de novo.
+        s.presente = false;
+        void marcarPresenca(s);
+      }
+    });
+
+  return s;
+}
+
+async function marcarPresenca(s: SalaChat) {
+  if (s.presente || !s.perfil || s.ouvintes.size === 0) return;
+  s.presente = true;
+  try {
+    await s.canal.track({
+      id: s.perfil.id,
+      nome: s.perfil.nome,
+      avatar_url: s.perfil.avatar_url,
+      entrou_em: new Date().toISOString(),
+    });
+  } catch {
+    s.presente = false;
+  }
+}
 
 // ---------------------------------------------------------------------------
 // VENDAS
@@ -857,8 +931,11 @@ export const Vendas = {
     let canal: any;
     sb.auth.getUser().then(({ data: { user } }) => {
       if (!user) return;
+      // Nome unico por chamada: com nome fixo, a segunda tela que assinava
+      // recebia o canal ja ligado e o Supabase dava erro ("cannot add
+      // postgres_changes callbacks ... after subscribe()").
       canal = sb
-        .channel("minhas-vendas")
+        .channel(`minhas-vendas-${Math.random().toString(36).slice(2, 10)}`)
         .on(
           "postgres_changes",
           { event: "*", schema: "public", table: "vendas", filter: `user_id=eq.${user.id}` },
