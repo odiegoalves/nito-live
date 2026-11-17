@@ -34,6 +34,13 @@ const WHATSAPP_SUPORTE = "5537998244669";
 const LINK_SUPORTE =
   "https://wa.me/" + WHATSAPP_SUPORTE +
   "?text=" + encodeURIComponent("Ola! Minha assinatura do NITO LIVE aparece como vencida e preciso de ajuda para renovar.");
+
+function linkSuporteSemCompra(email?: string | null) {
+  const texto =
+    "Olá! Comprei o NITO LIVE mas o painel diz que não encontrou minha compra." +
+    (email ? ` Criei a conta com o e-mail ${email}.` : "");
+  return "https://wa.me/" + WHATSAPP_SUPORTE + "?text=" + encodeURIComponent(texto);
+}
 // -----------------------------------------------------------------------------
 
 // A mesma ideia de plano aparece com nomes diferentes no painel de licencas.
@@ -53,6 +60,12 @@ interface Props {
   verificando: boolean;
   onVerificarDeNovo: () => void;
   erro?: string | null;
+  // Por que a pessoa foi barrada (ver MotivoBloqueio no AuthGuard).
+  motivo?: "sem_compra" | "vencida" | "sem_resposta";
+  // E-mail da conta logada, para a pessoa ver com qual e-mail entrou.
+  email?: string | null;
+  // A tela esta conferindo de novo sozinha (primeiro minuto).
+  reconferindo?: boolean;
 }
 
 function formatarData(iso?: string | null): string | null {
@@ -62,7 +75,16 @@ function formatarData(iso?: string | null): string | null {
   return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" });
 }
 
-export function AssinaturaVencida({ perfil, plano, verificando, onVerificarDeNovo, erro }: Props) {
+export function AssinaturaVencida({
+  perfil,
+  plano,
+  verificando,
+  onVerificarDeNovo,
+  erro,
+  motivo = "vencida",
+  email,
+  reconferindo = false,
+}: Props) {
   const [saindo, setSaindo] = useState(false);
   const venceuEm = formatarData(perfil.assinatura_expira_em);
   const primeiroNome = (perfil.nome || perfil.username || "").trim().split(/\s+/)[0];
@@ -77,6 +99,140 @@ export function AssinaturaVencida({ perfil, plano, verificando, onVerificarDeNov
       setSaindo(false);
     }
   };
+
+  if (motivo === "sem_compra" || motivo === "sem_resposta") {
+    const semCompra = motivo === "sem_compra";
+    return (
+      <div className="nito">
+        <div
+          style={{
+            minHeight: "100vh",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "24px",
+          }}
+        >
+          <div className="panel" style={{ maxWidth: 540, width: "100%", padding: "32px 28px" }}>
+            <div className="stack" style={{ gap: 18 }}>
+              <div className="spread" style={{ alignItems: "flex-start", gap: 16 }}>
+                <div className="stack" style={{ gap: 8 }}>
+                  <span className="pill">{semCompra ? "Compra não encontrada" : "Conferindo acesso"}</span>
+                  <h1 className="title-xl" style={{ fontSize: "1.55rem", lineHeight: 1.15 }}>
+                    {semCompra ? (
+                      <>
+                        {primeiroNome ? `${primeiroNome}, ainda ` : "Ainda "}
+                        <em>não achamos sua compra</em>.
+                      </>
+                    ) : (
+                      <>
+                        Não consegui <em>confirmar seu acesso</em> agora.
+                      </>
+                    )}
+                  </h1>
+                </div>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img className="robo-hero" src="/nito-robo.webp" alt="" style={{ width: 96, flexShrink: 0 }} />
+              </div>
+
+              {semCompra ? (
+                <p className="sub" style={{ margin: 0 }}>
+                  Não encontramos nenhuma compra na Cakto com o e-mail{" "}
+                  {email ? <b style={{ wordBreak: "break-all" }}>{email}</b> : "desta conta"}.
+                </p>
+              ) : (
+                <p className="sub" style={{ margin: 0 }}>
+                  O servidor de licenças não respondeu. Isso não tem a ver com a sua assinatura.
+                </p>
+              )}
+
+              <div
+                style={{
+                  background: "rgba(255,255,255,.04)",
+                  border: "1px solid rgba(255,255,255,.08)",
+                  borderRadius: 12,
+                  padding: "14px 16px",
+                }}
+              >
+                {semCompra ? (
+                  <div className="stack" style={{ gap: 8 }}>
+                    <p className="tiny" style={{ margin: 0 }}>
+                      <b>Acabou de pagar?</b> A confirmação da Cakto pode levar alguns instantes.
+                      {reconferindo ? " Estamos conferindo de novo automaticamente." : ""}
+                    </p>
+                    <p className="tiny" style={{ margin: 0 }}>
+                      <b>Pagou com outro e-mail?</b> Saia e crie a conta com o <b>mesmo e-mail</b> que
+                      você usou na compra, ou chame o suporte.
+                    </p>
+                  </div>
+                ) : (
+                  <p className="tiny" style={{ margin: 0 }}>
+                    {reconferindo
+                      ? "Estamos tentando de novo automaticamente. Se não liberar em 1 minuto, clique em Verificar de novo."
+                      : "Clique em Verificar de novo. Se continuar, chame o suporte."}
+                  </p>
+                )}
+              </div>
+
+              {erro && (
+                <p className="tiny" style={{ margin: 0, color: "#ff8a80" }}>
+                  {erro}
+                </p>
+              )}
+
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
+                <button className="btn p" type="button" onClick={onVerificarDeNovo} disabled={verificando}>
+                  {verificando || reconferindo ? "Verificando..." : "Verificar de novo"}
+                </button>
+                <a
+                  className="btn"
+                  href={semCompra ? linkSuporteSemCompra(email) : LINK_SUPORTE}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Suporte no WhatsApp
+                </a>
+              </div>
+
+              {semCompra && (
+                <div className="stack" style={{ gap: 8 }}>
+                  <span className="tiny muted">Ainda não comprou? Escolha seu plano:</span>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                    {PLANOS.map((p) => (
+                      <a key={p.chave} className="btn" href={p.link} target="_blank" rel="noopener noreferrer">
+                        {p.rotulo} — {p.preco}
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div
+                className="spread"
+                style={{
+                  borderTop: "1px solid rgba(255,255,255,.08)",
+                  paddingTop: 14,
+                  gap: 12,
+                  flexWrap: "wrap",
+                }}
+              >
+                <span className="tiny muted">{email ? `Conta: ${email}` : ""}</span>
+                <button
+                  className="tiny muted"
+                  type="button"
+                  onClick={sair}
+                  disabled={saindo}
+                  style={{ background: "none", border: "none", cursor: "pointer", padding: 0 }}
+                >
+                  {saindo ? "Saindo..." : semCompra ? "Sair e entrar com outro e-mail" : "Sair da conta"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="nito">

@@ -63,25 +63,45 @@ interface RespostaAssinatura {
   assinatura_ativa?: boolean;
   assinatura_expira_em?: string | null;
   plano?: string | null;
+  encontrado?: boolean;
 }
+
+/**
+ * Por que a pessoa foi barrada. Cada motivo tem um texto proprio na tela -
+ * antes tudo virava "assinatura expirou", inclusive para quem tinha acabado
+ * de pagar com outro e-mail ou quando o servidor nao respondeu.
+ *   sem_compra  -> o painel nao tem nenhuma compra com este e-mail
+ *   vencida     -> tem cadastro no painel, mas nada em dia
+ *   sem_resposta-> nao deu para perguntar ao painel agora
+ */
+export type MotivoBloqueio = "sem_compra" | "vencida" | "sem_resposta";
 
 /**
  * Pergunta ao painel de licencas e devolve o perfil atualizado mais o plano.
  * O plano nao fica guardado na ficha - ele so serve para a tela de renovacao
  * mandar a pessoa para o checkout certo.
  */
-async function sincronizarAssinatura(atual: Perfil): Promise<{ perfil: Perfil; plano: string | null }> {
+async function sincronizarAssinatura(
+  atual: Perfil
+): Promise<{ perfil: Perfil; plano: string | null; motivo: MotivoBloqueio | null }> {
   const r = (await Chaves.chamar("listar")) as unknown as RespostaAssinatura;
   marcarSincronia();
+  const ativa = r.assinatura_ativa ?? false;
   return {
     perfil: {
       ...atual,
-      assinatura_ativa: r.assinatura_ativa ?? false,
+      assinatura_ativa: ativa,
       assinatura_expira_em: r.assinatura_expira_em ?? undefined,
     },
     plano: r.plano ?? null,
+    motivo: ativa ? null : r.encontrado === false ? "sem_compra" : "vencida",
   };
 }
+
+// Quem acabou de pagar pode chegar aqui antes do aviso da Cakto. Nesses casos a
+// tela confere de novo sozinha por um minuto, sem a pessoa precisar clicar.
+const RECONFERIR_A_CADA_MS = 6000;
+const RECONFERIR_POR_MS = 60000;
 
 type Fase = "carregando" | "liberado" | "bloqueado" | "falhou";
 
@@ -91,6 +111,9 @@ export function AuthGuard({ children }: AuthGuardProps) {
   const [fase, setFase] = useState<Fase>("carregando");
   const [erro, setErro] = useState<string | null>(null);
   const [verificando, setVerificando] = useState(false);
+  const [motivo, setMotivo] = useState<MotivoBloqueio>("vencida");
+  const [email, setEmail] = useState<string | null>(null);
+  const [reconferindo, setReconferindo] = useState(false);
   const vivo = useRef(true);
 
   const carregar = useCallback(async () => {
@@ -132,6 +155,7 @@ export function AuthGuard({ children }: AuthGuardProps) {
             if (!vivo.current) return;
             setPerfil(r.perfil);
             setPlano(r.plano);
+            if (r.motivo) setMotivo(r.motivo);
             if (!r.perfil.assinatura_ativa) setFase("bloqueado");
           })
           .catch(() => {
@@ -147,12 +171,14 @@ export function AuthGuard({ children }: AuthGuardProps) {
       if (!vivo.current) return;
       setPerfil(r.perfil);
       setPlano(r.plano);
+      if (r.motivo) setMotivo(r.motivo);
       setFase(r.perfil.assinatura_ativa ? "liberado" : "bloqueado");
     } catch {
       if (!vivo.current) return;
       // Nao deu para confirmar. A ficha veio de uma consulta que deu certo antes,
       // entao ela vale - e a tela de renovacao tem o botao de tentar de novo.
       setPerfil(base);
+      setMotivo("sem_resposta");
       setFase("bloqueado");
     }
   }, []);
@@ -160,10 +186,58 @@ export function AuthGuard({ children }: AuthGuardProps) {
   useEffect(() => {
     vivo.current = true;
     carregar();
+    Auth.sessao()
+      .then((s) => {
+        if (vivo.current) setEmail(s?.user?.email ?? null);
+      })
+      .catch(() => {
+        /* sem e-mail a tela so nao mostra qual conta esta logada */
+      });
     return () => {
       vivo.current = false;
     };
   }, [carregar]);
+
+  // Compra nao encontrada ou servidor sem resposta: confere de novo sozinha
+  // durante um minuto. Cobre quem cria a conta no mesmo instante em que paga,
+  // antes de o aviso da Cakto chegar ao painel. Assinatura vencida nao entra
+  // aqui - essa so muda quando a pessoa renova, e ai ela usa o botao.
+  useEffect(() => {
+    if (fase !== "bloqueado" || !perfil || motivo === "vencida") {
+      setReconferindo(false);
+      return;
+    }
+    let parar = false;
+    const fim = Date.now() + RECONFERIR_POR_MS;
+    setReconferindo(true);
+    const id = window.setInterval(async () => {
+      if (parar) return;
+      if (Date.now() > fim) {
+        window.clearInterval(id);
+        if (vivo.current) setReconferindo(false);
+        return;
+      }
+      try {
+        const r = await sincronizarAssinatura(perfil);
+        if (parar || !vivo.current) return;
+        if (r.perfil.assinatura_ativa) {
+          window.clearInterval(id);
+          setPerfil(r.perfil);
+          setPlano(r.plano);
+          setReconferindo(false);
+          setFase("liberado");
+        } else if (r.motivo && r.motivo !== motivo) {
+          setMotivo(r.motivo);
+        }
+      } catch {
+        /* segue tentando ate o fim do minuto */
+      }
+    }, RECONFERIR_A_CADA_MS);
+    return () => {
+      parar = true;
+      window.clearInterval(id);
+    };
+  }, [fase, perfil, motivo]);
 
   const verificarDeNovo = useCallback(async () => {
     if (!perfil || verificando) return;
@@ -174,10 +248,17 @@ export function AuthGuard({ children }: AuthGuardProps) {
       if (!vivo.current) return;
       setPerfil(r.perfil);
       setPlano(r.plano);
+      if (r.motivo) setMotivo(r.motivo);
       if (r.perfil.assinatura_ativa) setFase("liberado");
-      else setErro("Ainda não consta renovação para a sua conta.");
+      else
+        setErro(
+          r.motivo === "sem_compra"
+            ? "Ainda não encontramos compra com este e-mail."
+            : "Ainda não consta renovação para a sua conta."
+        );
     } catch (bruto) {
       if (!vivo.current) return;
+      setMotivo("sem_resposta");
       setErro(comoErro(bruto, "Não consegui falar com o servidor agora.").message);
     } finally {
       if (vivo.current) setVerificando(false);
@@ -238,6 +319,9 @@ export function AuthGuard({ children }: AuthGuardProps) {
         verificando={verificando}
         onVerificarDeNovo={verificarDeNovo}
         erro={erro}
+        motivo={motivo}
+        email={email}
+        reconferindo={reconferindo}
       />
     );
   }
