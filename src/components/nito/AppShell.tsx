@@ -67,7 +67,7 @@ const SECOES: { titulo: string; abas: Aba[] }[] = [
   {
     titulo: "Aprender",
     abas: [
-      { chave: "aulas", rotulo: "Aulas", icone: "book", href: "/aulas" },
+      { chave: "aulas", rotulo: "Aulas TikTok", icone: "book", href: "/aulas" },
       { chave: "aulas-shopee", rotulo: "Aulas Shopee", icone: "book", href: "/aulas-shopee" },
       { chave: "comunidade", rotulo: "Comunidade", icone: "users", href: "/comunidade" },
     ],

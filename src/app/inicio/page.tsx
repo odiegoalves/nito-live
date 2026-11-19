@@ -46,7 +46,7 @@ async function carregarPassos(): Promise<Passos> {
 
 const ATALHOS = [
   { href: "/extensao", ic: "🔑", titulo: "Extensão e chave", texto: "Baixe, instale e ative" },
-  { href: "/aulas", ic: "🎬", titulo: "Aulas", texto: "Do zero à primeira venda" },
+  { href: "/aulas", ic: "🎬", titulo: "Aulas TikTok", texto: "Do zero à primeira venda" },
   { href: "/comunidade", ic: "💬", titulo: "Comunidade", texto: "Novidades e dicas" },
   { href: "/suporte", ic: "🛟", titulo: "Suporte", texto: "Fale com a equipe" },
 ];
