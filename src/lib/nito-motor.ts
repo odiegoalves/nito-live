@@ -193,6 +193,9 @@ export interface Modulo {
   descricao?: string | null;
   ordem: number;
   criado_em: string;
+  // De qual trilha e o modulo: "tiktok" (aba Aulas) ou "shopee" (aba Aulas
+  // Shopee). Modulos antigos ficam sem valor e contam como TikTok.
+  produto?: "tiktok" | "shopee" | null;
 }
 
 export interface Aula {
@@ -1075,21 +1078,35 @@ export const Aulas = {
 // STORAGE
 // ---------------------------------------------------------------------------
 export const Modulos = {
-  async listar(): Promise<Modulo[]> {
-    const { data, error } = await sb
-      .from("aulas_modulos")
-      .select("*")
+  // Cada trilha tem os seus modulos. Sem coluna preenchida = TikTok, para os
+  // modulos que ja existiam continuarem na aba Aulas de sempre.
+  async listar(produto: ProdutoChave = "tiktok"): Promise<Modulo[]> {
+    let q = sb.from("aulas_modulos").select("*");
+    q = produto === "shopee" ? q.eq("produto", "shopee") : q.or("produto.is.null,produto.eq.tiktok");
+    const { data, error } = await q
       .order("ordem", { ascending: true })
       .order("criado_em", { ascending: true });
     if (error) throw error;
     return (data as Modulo[]) ?? [];
   },
 
-  async salvar(m: { id?: string; nome: string; ordem?: number; descricao?: string }): Promise<Modulo> {
+  async salvar(m: {
+    id?: string;
+    nome: string;
+    ordem?: number;
+    descricao?: string;
+    produto?: ProdutoChave;
+  }): Promise<Modulo> {
     const { data, error } = await sb
       .from("aulas_modulos")
       .upsert(
-        { id: m.id, nome: m.nome.trim(), ordem: m.ordem ?? 1, descricao: m.descricao ?? null },
+        {
+          id: m.id,
+          nome: m.nome.trim(),
+          ordem: m.ordem ?? 1,
+          descricao: m.descricao ?? null,
+          ...(m.produto ? { produto: m.produto } : {}),
+        },
         { onConflict: "id" }
       )
       .select("*")

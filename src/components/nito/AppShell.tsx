@@ -31,6 +31,7 @@ export type AbaAtiva =
   | "inicio"
   | "comunidade"
   | "aulas"
+  | "aulas-shopee"
   | "vendas"
   | "vendas-nito-live"
   | "ranking"
@@ -67,6 +68,7 @@ const SECOES: { titulo: string; abas: Aba[] }[] = [
     titulo: "Aprender",
     abas: [
       { chave: "aulas", rotulo: "Aulas", icone: "book", href: "/aulas" },
+      { chave: "aulas-shopee", rotulo: "Aulas Shopee", icone: "book", href: "/aulas-shopee" },
       { chave: "comunidade", rotulo: "Comunidade", icone: "users", href: "/comunidade" },
     ],
   },
@@ -116,7 +118,11 @@ export function AppShell({ perfil, ativa, children, recado }: Props) {
     return () => window.removeEventListener(EVENTO_PRODUTOS_LIBERADOS, ler);
   }, []);
 
-  const produtoDaAba: Partial<Record<AbaAtiva, ProdutoChave>> = { extensao: "tiktok", shopee: "shopee" };
+  const produtoDaAba: Partial<Record<AbaAtiva, ProdutoChave>> = {
+    extensao: "tiktok",
+    shopee: "shopee",
+    "aulas-shopee": "shopee",
+  };
   const travada = (aba: AbaAtiva) => {
     const p = produtoDaAba[aba];
     return !admin && !!p && liberados !== null && liberados[p] === false;

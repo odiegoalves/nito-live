@@ -7,8 +7,10 @@
 // =============================================================================
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { usePathname } from "next/navigation";
 import { AuthGuard } from "@/components/AuthGuard";
 import { AppShell, ehAdmin } from "@/components/nito/AppShell";
+import { ProdutoBloqueado } from "@/components/nito/ProdutoBloqueado";
 import { AulaDetalhe } from "@/components/nito/AulaDetalhe";
 import { Icone } from "@/components/nito/NitoIcones";
 import { useConfirmar } from "@/components/nito/Confirmar";
@@ -21,9 +23,35 @@ import {
   AulaMaterial,
   AulaProgresso,
   Perfil,
+  ProdutoChave,
   Storage,
   comoErro,
+  produtosLiberadosSalvos,
+  EVENTO_PRODUTOS_LIBERADOS,
 } from "@/lib/nito-motor";
+
+// A mesma tela serve as duas trilhas. /aulas = NITO LIVE (TikTok);
+// /aulas-shopee = NITO LIVE Shopee. Cada uma so mostra os seus modulos.
+const TEXTOS: Record<ProdutoChave, { titulo: React.ReactNode; sub: string; placeholder: string }> = {
+  tiktok: {
+    titulo: (
+      <>
+        Trilha do <em>vendedor de live</em>.
+      </>
+    ),
+    sub: "Do primeiro produto fixado à live de seis dígitos.",
+    placeholder: "Nome do módulo. Ex: Módulo 1 · Fundamentos",
+  },
+  shopee: {
+    titulo: (
+      <>
+        Aulas do <em>NITO LIVE Shopee</em>.
+      </>
+    ),
+    sub: "Do primeiro acesso à live automática rodando na Shopee.",
+    placeholder: "Nome do módulo. Ex: Módulo 1 · Instalação do NITO Shopee",
+  },
+};
 
 function duracao(seg?: number | null) {
   if (!seg) return "";
@@ -76,9 +104,21 @@ const AULA_VAZIA = {
   publicado: true,
 };
 
-function Conteudo({ perfil }: { perfil: Perfil }) {
+function Conteudo({ perfil, produto }: { perfil: Perfil; produto: ProdutoChave }) {
   const admin = ehAdmin(perfil);
   const { confirmar, janela: janelaConfirmar } = useConfirmar();
+  const textos = TEXTOS[produto];
+
+  // Aulas da Shopee sao de quem comprou o NITO LIVE Shopee. A informacao vem
+  // da ultima resposta da funcao "chaves" (o AuthGuard ja chama ela).
+  const [liberados, setLiberados] = useState<Record<ProdutoChave, boolean> | null>(null);
+  useEffect(() => {
+    const ler = () => setLiberados(produtosLiberadosSalvos());
+    ler();
+    window.addEventListener(EVENTO_PRODUTOS_LIBERADOS, ler);
+    return () => window.removeEventListener(EVENTO_PRODUTOS_LIBERADOS, ler);
+  }, []);
+  const semCompra = produto === "shopee" && !admin && liberados !== null && liberados.shopee === false;
 
   const [aulas, setAulas] = useState<Aula[]>([]);
   const [modulos, setModulos] = useState<Modulo[]>([]);
@@ -115,7 +155,13 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
   const carregar = useCallback(async () => {
     setCarregando(true);
     try {
-      const [lista, mods] = await Promise.all([Aulas.listar(admin), Modulos.listar()]);
+      const [todas, mods] = await Promise.all([Aulas.listar(admin), Modulos.listar(produto)]);
+      // So as aulas dos modulos desta trilha. Aula sem modulo fica na do TikTok,
+      // que e onde ela sempre apareceu.
+      const idsModulos = new Set(mods.map((m) => m.id));
+      const lista = todas.filter((a) =>
+        a.modulo_id ? idsModulos.has(a.modulo_id) : produto === "tiktok"
+      );
       setAulas(lista);
       setModulos(mods);
       const ids = lista.map((a) => a.id);
@@ -134,7 +180,7 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
     } finally {
       setCarregando(false);
     }
-  }, [admin]);
+  }, [admin, produto]);
 
   useEffect(() => {
     carregar();
@@ -187,7 +233,7 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
     setSalvando(true);
     setAvisoModulo(null);
     try {
-      await Modulos.salvar({ nome, ordem: modulos.length + 1 });
+      await Modulos.salvar({ nome, ordem: modulos.length + 1, produto });
       setNovoModulo("");
       await carregar();
     } catch (e) {
@@ -318,18 +364,24 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
   }
 
   return (
-    <AppShell perfil={perfil} ativa="aulas">
+    <AppShell perfil={perfil} ativa={produto === "shopee" ? "aulas-shopee" : "aulas"}>
       {janelaConfirmar}
       <div className="view on">
         <div className="spread" style={{ alignItems: "flex-start" }}>
           <div>
-            <h1 className="title-xl">
-              Trilha do <em>vendedor de live</em>.
-            </h1>
-            <p className="sub">Do primeiro produto fixado à live de seis dígitos.</p>
+            <h1 className="title-xl">{textos.titulo}</h1>
+            <p className="sub">{textos.sub}</p>
           </div>
         </div>
 
+        {semCompra && (
+          <div style={{ marginTop: 22 }}>
+            <ProdutoBloqueado produto="shopee" />
+          </div>
+        )}
+
+        {!semCompra && (
+        <>
         {admin && (
           <div className="admin-bar" style={{ marginTop: 22 }}>
             <span className="tag">ADMIN</span>
@@ -375,7 +427,7 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
                 value={novoModulo}
                 onChange={(e) => setNovoModulo(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && criarModulo()}
-                placeholder="Nome do módulo. Ex: Módulo 1 · Fundamentos"
+                placeholder={textos.placeholder}
               />
               <button className="btn p" onClick={criarModulo} disabled={salvando || !novoModulo.trim()} type="button">
                 Criar módulo
@@ -798,11 +850,16 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
             </div>
           );
         })}
+        </>
+        )}
       </div>
     </AppShell>
   );
 }
 
 export default function AulasPage() {
-  return <AuthGuard>{(perfil) => <Conteudo perfil={perfil} />}</AuthGuard>;
+  // /aulas-shopee reaproveita esta pagina (ver src/app/aulas-shopee/page.tsx).
+  const caminho = usePathname() ?? "";
+  const produto: ProdutoChave = caminho.startsWith("/aulas-shopee") ? "shopee" : "tiktok";
+  return <AuthGuard>{(perfil) => <Conteudo key={produto} perfil={perfil} produto={produto} />}</AuthGuard>;
 }
