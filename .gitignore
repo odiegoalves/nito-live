@@ -47,3 +47,5 @@ tmp/
 brain/
 .DS_Store
 *.log
+.vercel
+.env*

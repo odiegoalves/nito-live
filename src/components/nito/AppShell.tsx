@@ -38,6 +38,7 @@ export type AbaAtiva =
   | "separar"
   | "extensao"
   | "shopee"
+  | "novelinhas"
   | "alertas"
   | "suporte"
   | "perfil";
@@ -60,6 +61,7 @@ const SECOES: { titulo: string; abas: Aba[] }[] = [
     abas: [
       { chave: "extensao", rotulo: "Extensão / Chave", icone: "plug", href: "/extensao" },
       { chave: "shopee", rotulo: "NITO LIVE Shopee", icone: "plug", href: "/shopee" },
+      { chave: "novelinhas", rotulo: "Novelinhas", icone: "play", href: "/novelinhas" },
       { chave: "separar", rotulo: "Separar Áudio", icone: "onda", href: "/separar-audio" },
       { chave: "alertas", rotulo: "Alertas no Celular", icone: "bell", href: "/alertas-celular" },
     ],
@@ -83,6 +85,12 @@ const SECOES: { titulo: string; abas: Aba[] }[] = [
 
 export function ehAdmin(perfil: Perfil): boolean {
   return perfil.papel === "fundador" || perfil.papel === "moderador";
+}
+
+// Novelinhas (Novela Studio): produto a parte. Por enquanto so o fundador.
+// Quando a venda existir, a regra de "quem pagou" entra aqui.
+export function novelinhasLiberadas(perfil: Perfil): boolean {
+  return perfil.papel === "fundador";
 }
 
 interface Props {
@@ -124,6 +132,7 @@ export function AppShell({ perfil, ativa, children, recado }: Props) {
     "aulas-shopee": "shopee",
   };
   const travada = (aba: AbaAtiva) => {
+    if (aba === "novelinhas") return !novelinhasLiberadas(perfil);
     const p = produtoDaAba[aba];
     return !admin && !!p && liberados !== null && liberados[p] === false;
   };
