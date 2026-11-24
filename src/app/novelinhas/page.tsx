@@ -3,20 +3,19 @@
 // =============================================================================
 // NITO LIVE - Novelinhas.
 // Aba do Novela Studio (novela.nitolive.com.br): roteiro, prompts e edicao de
-// novelinhas com IA. Produto separado: so abre para quem tem acesso.
-// Por enquanto o acesso e so do fundador (regra de compra entra depois, em
-// novelinhasLiberadas). O botao abre o Studio ja logado: manda o token da
-// sessao do portal no "#" do endereco (nao vai para servidor nem para log), e
-// o Studio confere o token direto no Supabase antes de deixar entrar.
+// novelinhas com IA. Incluido no plano PRO do NITO LIVE (e no Premium); a regra
+// fica em novelinhasLiberadas. A pagina confere o plano na hora com a funcao
+// "chaves", e o servidor do Studio confere de novo por conta propria.
 // =============================================================================
 
 import React, { useEffect, useState } from "react";
 import { AuthGuard } from "@/components/AuthGuard";
 import { AppShell, novelinhasLiberadas } from "@/components/nito/AppShell";
-import { Perfil } from "@/lib/nito-motor";
+import { Chaves, Perfil, planoSalvo } from "@/lib/nito-motor";
 import { createClient } from "@/lib/supabase";
 
 const STUDIO = "https://novela.nitolive.com.br";
+const UPGRADE_PRO = "https://pay.cakto.com.br/3477jz3_976117";
 
 const RECURSOS = [
   "Roteiro pronto a partir de uma ideia ou de um viral",
@@ -25,7 +24,7 @@ const RECURSOS = [
   "Junta os clipes, corta os silêncios e põe legenda",
 ];
 
-function Bloqueada() {
+function Bloqueada({ planoAtual }: { planoAtual: string | null }) {
   return (
     <div className="panel pad" style={{ marginTop: 16, textAlign: "center", padding: "40px 24px" }}>
       <div
@@ -37,7 +36,7 @@ function Bloqueada() {
       >
         🔒
       </div>
-      <span className="eyebrow">EM BREVE</span>
+      <span className="eyebrow">INCLUSO NO PLANO PRO</span>
       <h2 className="h-sec" style={{ marginTop: 8, justifyContent: "center" }}>Novelinhas com IA</h2>
       <p className="muted" style={{ maxWidth: 460, margin: "10px auto 0" }}>
         Crie novelinhas virais para o Reels e o TikTok sem saber editar.
@@ -45,7 +44,13 @@ function Bloqueada() {
       <ul className="muted tiny" style={{ listStyle: "none", padding: 0, margin: "18px auto 0", maxWidth: 380, textAlign: "left", display: "grid", gap: 6 }}>
         {RECURSOS.map((i) => <li key={i}>✓ {i}</li>)}
       </ul>
-      <p className="muted tiny" style={{ marginTop: 22 }}>Essa ferramenta ainda não está liberada para a sua conta.</p>
+      <p className="muted tiny" style={{ marginTop: 22 }}>
+        As Novelinhas fazem parte do <b>plano PRO</b> do NITO LIVE
+        {planoAtual ? <> (o seu hoje é o <b style={{ textTransform: "uppercase" }}>{planoAtual}</b>)</> : null}.
+      </p>
+      <a className="btn p" href={UPGRADE_PRO} target="_blank" rel="noopener noreferrer" style={{ marginTop: 16 }}>
+        Quero o plano PRO
+      </a>
     </div>
   );
 }
@@ -98,11 +103,23 @@ function Liberada() {
 }
 
 function Conteudo({ perfil }: { perfil: Perfil }) {
-  const liberada = novelinhasLiberadas(perfil);
+  // Confere o plano na hora (o que ficou salvo serve so para nao piscar).
+  const [plano, setPlano] = useState(planoSalvo());
+  const [conferido, setConferido] = useState(perfil.papel === "fundador");
+  useEffect(() => {
+    if (perfil.papel === "fundador") return;
+    Chaves.chamar("listar")
+      .then(() => setPlano(planoSalvo()))
+      .catch(() => {})
+      .finally(() => setConferido(true));
+  }, [perfil.papel]);
+  const liberada = novelinhasLiberadas(perfil, plano);
   return (
     <AppShell perfil={perfil} ativa="novelinhas" recado="Novelinhas com IA, do roteiro ao vídeo.">
       <div className="view on">
-        {liberada ? (
+        {!conferido && !liberada ? (
+          <p className="muted tiny">Conferindo o seu plano…</p>
+        ) : liberada ? (
           <Liberada />
         ) : (
           <div>
@@ -110,7 +127,7 @@ function Conteudo({ perfil }: { perfil: Perfil }) {
               Novelinhas <em>IA</em>.
             </h1>
             <p className="sub">Roteiro, prompts e edição das suas novelinhas num lugar só.</p>
-            <Bloqueada />
+            <Bloqueada planoAtual={plano?.plano ?? null} />
           </div>
         )}
       </div>

@@ -15,6 +15,8 @@ import {
   ProdutoChave,
   produtosLiberadosSalvos,
   EVENTO_PRODUTOS_LIBERADOS,
+  planoSalvo,
+  PlanoSalvo,
 } from "@/lib/nito-motor";
 import { SpriteIcones, Icone } from "./NitoIcones";
 import { SinoNotificacoes } from "./SinoNotificacoes";
@@ -87,10 +89,14 @@ export function ehAdmin(perfil: Perfil): boolean {
   return perfil.papel === "fundador" || perfil.papel === "moderador";
 }
 
-// Novelinhas (Novela Studio): produto a parte. Por enquanto so o fundador.
-// Quando a venda existir, a regra de "quem pagou" entra aqui.
-export function novelinhasLiberadas(perfil: Perfil): boolean {
-  return perfil.papel === "fundador";
+// Novelinhas (Novela Studio): incluidas no plano PRO do NITO LIVE (e no Premium,
+// que esta acima dele), com a assinatura em dia. O fundador sempre entra.
+// O servidor do Studio confere a mesma regra por conta propria, entao mexer
+// nisto no navegador nao libera nada.
+export const PLANOS_NOVELINHAS = ["pro", "premium"];
+export function novelinhasLiberadas(perfil: Perfil, plano: PlanoSalvo | null = planoSalvo()): boolean {
+  if (perfil.papel === "fundador") return true;
+  return !!plano && plano.ativa && PLANOS_NOVELINHAS.includes(String(plano.plano ?? ""));
 }
 
 interface Props {
@@ -111,6 +117,7 @@ export function AppShell({ perfil, ativa, children, recado }: Props) {
   const [recolhida, setRecolhida] = useState(false);
   const [chamadosPendentes, setChamadosPendentes] = useState(0);
   const [liberados, setLiberados] = useState<Record<ProdutoChave, boolean> | null>(null);
+  const [plano, setPlano] = useState<PlanoSalvo | null>(null);
 
   useEffect(() => {
     const salva = window.localStorage.getItem("nito_rail_recolhida");
@@ -120,7 +127,7 @@ export function AppShell({ perfil, ativa, children, recado }: Props) {
   // Cadeado no menu para o produto que a pessoa nao comprou. A informacao vem
   // da ultima resposta da funcao "chaves" (o AuthGuard ja chama ela).
   useEffect(() => {
-    const ler = () => setLiberados(produtosLiberadosSalvos());
+    const ler = () => { setLiberados(produtosLiberadosSalvos()); setPlano(planoSalvo()); };
     ler();
     window.addEventListener(EVENTO_PRODUTOS_LIBERADOS, ler);
     return () => window.removeEventListener(EVENTO_PRODUTOS_LIBERADOS, ler);
@@ -132,7 +139,7 @@ export function AppShell({ perfil, ativa, children, recado }: Props) {
     "aulas-shopee": "shopee",
   };
   const travada = (aba: AbaAtiva) => {
-    if (aba === "novelinhas") return !novelinhasLiberadas(perfil);
+    if (aba === "novelinhas") return !novelinhasLiberadas(perfil, plano);
     const p = produtoDaAba[aba];
     return !admin && !!p && liberados !== null && liberados[p] === false;
   };

@@ -1597,6 +1597,28 @@ function guardarProdutosLiberados(liberado?: Record<ProdutoChave, boolean>) {
   }
 }
 
+// Plano do NITO LIVE (basic, pro, premium) e se a assinatura esta em dia.
+// Usado pelo menu para saber se as Novelinhas (plano PRO) ficam com cadeado.
+const CHAVE_PLANO = "nito_plano";
+export type PlanoSalvo = { plano: string | null; ativa: boolean };
+export function planoSalvo(): PlanoSalvo | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const bruto = window.sessionStorage.getItem(CHAVE_PLANO);
+    return bruto ? (JSON.parse(bruto) as PlanoSalvo) : null;
+  } catch {
+    return null;
+  }
+}
+function guardarPlano(plano?: string | null, ativa?: boolean) {
+  if (typeof window === "undefined" || plano === undefined) return;
+  try {
+    window.sessionStorage.setItem(CHAVE_PLANO, JSON.stringify({ plano: plano ? String(plano).toLowerCase() : null, ativa: !!ativa }));
+  } catch {
+    /* sem sessionStorage: o cadeado so aparece depois */
+  }
+}
+
 export const Chaves = {
   // Fala com a funcao "chaves" do Supabase, que por sua vez pergunta ao painel.
   // O navegador nunca ve a senha do painel.
@@ -1627,6 +1649,7 @@ export const Chaves = {
     const corpo = data as RespostaChaves & { erro?: string };
     if (corpo?.erro) throw new Error(corpo.erro);
 
+    guardarPlano(corpo?.plano, corpo?.assinatura_ativa);
     guardarProdutosLiberados(corpo?.liberado);
     return corpo;
   },
